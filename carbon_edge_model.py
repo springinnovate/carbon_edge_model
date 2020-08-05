@@ -232,11 +232,6 @@ def main():
             '"c_stocks_[landtype_mask_raster_path]. Default is '
             '`carbon_model_workspace`"'))
     parser.add_argument(
-        '--co2', action='store_true', help=(
-            'If specified, output is in units of C02 rather than C and the '
-            'output file will be prefixed by c02 '
-            'co2_stocks_[landtype_mask_raster_path]'))
-    parser.add_argument(
         '--upper_threshold', type=float, default=1e10, help=(
             'Set maximum reasonable upper threshold for expected carbon '
             'values, this guards against areas where the regression model has '
@@ -244,11 +239,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.co2:
-        c_prefix = 'co2'
-    else:
-        c_prefix = 'c'
-
+    c_prefix = 'c_per_ha'
     workspace_dir = args.workspace_dir
     churn_dir = os.path.join(workspace_dir, 'churn')
     data_dir = os.path.join(workspace_dir, 'data')
@@ -365,14 +356,8 @@ def main():
     base_projection = osr.SpatialReference()
     base_projection.ImportFromWkt(base_raster_info['projection_wkt'])
 
-    # convert m^2 to to hectares and biomass to C
-    conversion_factor = base_raster_info['pixel_size'][0]**2 * (1/10000) * 0.47
-    if args.co2:
-        conversion_factor *= (15.9992*2+12.011)/12.011  # C into CO2
-
-    if not base_projection.IsProjected():
-        # It's in lat/lng, make an estimate of degree pixel size in m^2
-        conversion_factor *= 111120**2
+    # convert biomass to C
+    conversion_factor = 0.47
 
     forest_carbon_stocks_raster_path = os.path.join(
         churn_dir, f'{landtype_basename}_forest_{c_prefix}.tif')
