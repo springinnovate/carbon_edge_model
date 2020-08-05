@@ -2,6 +2,7 @@
 import argparse
 import glob
 import logging
+import multiprocessing
 import os
 import subprocess
 import sys
@@ -13,8 +14,8 @@ import numpy
 import scipy.ndimage
 import taskgraph
 
-from . import mult_by_columns_library
-from . import model_files
+import mult_by_columns_library
+import model_files
 
 gdal.SetCacheMax(2**27)
 
@@ -198,7 +199,7 @@ def fetch_data(data_dir, task_graph):
             func=subprocess.run,
             args=(
                 f'/usr/local/gcloud-sdk/google-cloud-sdk/bin/gsutil cp -nr '
-                f'{file_uri} {target_file_path}/'),
+                f'{file_uri} {target_file_path}',),
             kwargs={'shell': True, 'check': True},
             target_path_list=[target_file_path],
             task_name=f'download {file_uri} to {data_dir}')
@@ -239,9 +240,10 @@ def main():
             pass
 
     # 1) Download data
-    task_graph = taskgraph.TaskGraph(churn_dir, args.n_workers, 5.0)
+    task_graph = taskgraph.TaskGraph(
+        churn_dir, multiprocessing.cpu_count(), 5.0)
     LOGGER.info("Step 0: Download data")
-    fetch_data(args.bounding_box, data_dir, task_graph)
+    fetch_data(data_dir, task_graph)
 
     # 2) TODO: align all downloaded data
     base_raster_data_path_list = glob.glob(os.path.join(data_dir, '*.tif'))
