@@ -281,7 +281,6 @@ def main():
                 'target_bb': base_raster_info['bounding_box'],
                 'target_projection_wkt': base_raster_info['projection_wkt'],
                 'working_dir': aligned_data_dir,
-                'n_threads': 2,
                 },
             target_path_list=[aligned_raster_path],
             task_name=f'align {base_raster_path} data')
