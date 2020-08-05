@@ -222,10 +222,10 @@ def main():
             'Path to landtype raster where codes correspond to:\n'
             '\t1: cropland\n\t2: urban\n\t3: forest\n\t4: other'))
     parser.add_argument(
-        '--workspace_dir', default='carbon_edge_workspace', help=(
+        '--workspace_dir', default='carbon_model_workspace', help=(
             'Path to workspace dir, the carbon stock file will be named '
             '"co2_stocks_[landtype_mask_raster_path]. Default is '
-            '`carbon_edge_workspace`"'))
+            '`carbon_model_workspace`"'))
 
     args = parser.parse_args()
 
