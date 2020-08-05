@@ -9,6 +9,7 @@ import sys
 
 from osgeo import gdal
 from osgeo import osr
+import ecoshard
 import pygeoprocessing
 import numpy
 import scipy.ndimage
@@ -181,9 +182,9 @@ def fetch_data(data_dir, task_graph):
         None.
 
     """
-    files_to_download = model_files.CARBON_EDGE_REGRESSION_MODEL_URI_LIST + [
-        model_files.BACCINI_10s_2014_BIOMASS_URI,
-        model_files.FOREST_REGRESSION_LASSO_TABLE_URI]
+    files_to_download = model_files.CARBON_EDGE_REGRESSION_MODEL_URL_LIST + [
+        model_files.BACCINI_10s_2014_BIOMASS_URL,
+        model_files.FOREST_REGRESSION_LASSO_TABLE_URL]
 
     LOGGER.debug(f'here are the files to download: {files_to_download}')
 
@@ -192,25 +193,24 @@ def fetch_data(data_dir, task_graph):
     except OSError:
         pass
 
-    for file_uri in files_to_download:
+    for file_url in files_to_download:
         target_file_path = os.path.join(
-            data_dir, os.path.basename(file_uri))
+            data_dir, os.path.basename(file_url))
         _ = task_graph.add_task(
-            func=subprocess.run,
-            args=(
-                f'/usr/local/gcloud-sdk/google-cloud-sdk/bin/gsutil cp -nr '
-                f'{file_uri} {target_file_path}',),
-            kwargs={'shell': True, 'check': True},
+            func=ecoshard.download_url,
+            args=(file_url, target_file_path),
+            kwargs={'skip_if_target_exists': True},
             target_path_list=[target_file_path],
-            task_name=f'download {file_uri} to {data_dir}')
+            task_name=f'download {file_url} to {data_dir}')
 
     task_graph.join()
     global BACCINI_10s_2014_BIOMASS_RASTER_PATH
     BACCINI_10s_2014_BIOMASS_RASTER_PATH = os.path.join(
-        data_dir, os.path.basename(model_files.BACCINI_10s_2014_BIOMASS_URI))
+        data_dir, os.path.basename(model_files.BACCINI_10s_2014_BIOMASS_URL))
     global FOREST_REGRESSION_LASSO_TABLE_PATH
     FOREST_REGRESSION_LASSO_TABLE_PATH = os.path.join(
-        data_dir, os.path.basename(model_files.FOREST_REGRESSION_LASSO_TABLE_URI))
+        data_dir, os.path.basename(
+            model_files.FOREST_REGRESSION_LASSO_TABLE_URL))
     task_graph.join()
 
 

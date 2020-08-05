@@ -1,3 +1,4 @@
+ecoshard
 gdal
 pygeoprocessing
 numpy
