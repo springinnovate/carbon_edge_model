@@ -4,7 +4,6 @@ import glob
 import logging
 import multiprocessing
 import os
-import subprocess
 import sys
 
 from osgeo import gdal
