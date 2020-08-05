@@ -329,7 +329,7 @@ def main():
                 f'{scenario_mask_path} {mask_task}')
             convolution_mask_raster_path = os.path.join(
                 aligned_data_dir,
-                f'{mask_type}_gs{pixel_radius}.tif')
+                f'mask_{mask_type}_gs{pixel_radius}.tif')
             convolution_task = task_graph.add_task(
                 func=pygeoprocessing.convolve_2d,
                 args=(
