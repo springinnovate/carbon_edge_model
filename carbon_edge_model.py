@@ -239,7 +239,7 @@ def main():
 
     args = parser.parse_args()
 
-    c_prefix = 'c_per_ha'
+    c_prefix = 'biomass_per_ha'
     workspace_dir = args.workspace_dir
     churn_dir = os.path.join(workspace_dir, 'churn')
     data_dir = os.path.join(workspace_dir, 'data')
@@ -356,8 +356,9 @@ def main():
     base_projection = osr.SpatialReference()
     base_projection.ImportFromWkt(base_raster_info['projection_wkt'])
 
-    # convert biomass to C
-    conversion_factor = 0.47
+    # this is a placeholder for when we used to convert to C or CO2 or stock
+    # per pixel. etc.
+    conversion_factor = 1.0
 
     forest_carbon_stocks_raster_path = os.path.join(
         churn_dir, f'{landtype_basename}_forest_{c_prefix}.tif')
