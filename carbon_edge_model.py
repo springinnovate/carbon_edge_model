@@ -79,11 +79,13 @@ def sub_pos_op(array_a, array_b):
     return result
 
 
-def where_op(condition_array, if_true_array, else_array):
+def where_op(condition_array, if_true_array, else_array, nodata):
     """Select from `if true array` if condition true, `else array`."""
     result = numpy.copy(else_array)
     mask = condition_array == 1
     result[mask] = if_true_array[mask]
+    invalid_mask = numpy.isnan(result) | numpy.isinf(result)
+    result[invalid_mask] = nodata
     return result
 
 
@@ -91,11 +93,11 @@ def raster_where(
         condition_raster_path, if_true_raster_path, else_raster_path,
         target_raster_path):
     """A raster version of the numpy.where function."""
+    nodata = pygeoprocessing.get_raster_info(if_true_raster_path)['nodata'][0]
     pygeoprocessing.raster_calculator(
         [(condition_raster_path, 1), (if_true_raster_path, 1),
-         (else_raster_path, 1)], where_op, target_raster_path,
-        gdal.GDT_Float32,
-        pygeoprocessing.get_raster_info(if_true_raster_path)['nodata'][0])
+         (else_raster_path, 1), (nodata, 'raw')], where_op, target_raster_path,
+        gdal.GDT_Float32, nodata)
 
 
 def make_kernel_raster(pixel_radius, target_path):
