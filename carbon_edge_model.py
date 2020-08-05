@@ -321,18 +321,18 @@ def main():
             task_name=f'make kernel of radius {pixel_radius}')
         kernel_raster_path_map[pixel_radius] = kernel_raster_path
         convolution_task_list = []
-        for mask_type, (scenario_mask_path, mask_task) in \
+        for mask_type, (landcover_mask_path, mask_task) in \
                 mask_path_task_map.items():
             LOGGER.debug(
                 f'this is the scenario mask about to convolve: '
-                f'{scenario_mask_path} {mask_task}')
+                f'{landcover_mask_path} {mask_task}')
             convolution_mask_raster_path = os.path.join(
                 aligned_data_dir,
-                f'mask_{mask_type}_gs{pixel_radius}.tif')
+                f'{landtype_basename}_{mask_type}_gs{pixel_radius}.tif')
             convolution_task = task_graph.add_task(
                 func=pygeoprocessing.convolve_2d,
                 args=(
-                    (scenario_mask_path, 1), (kernel_raster_path, 1),
+                    (landcover_mask_path, 1), (kernel_raster_path, 1),
                     convolution_mask_raster_path),
                 dependent_task_list=[mask_task, kernel_task],
                 target_path_list=[convolution_mask_raster_path],
@@ -385,7 +385,7 @@ def main():
     baccini_nodata = pygeoprocessing.get_raster_info(
         baccini_aligned_raster_path)['nodata'][0]
     baccini_c_raster_path = os.path.join(
-        churn_dir, f'baccini_{c_prefix}_{landtype_basename}.tif')
+        churn_dir, f'{landtype_basename}_baccini_{c_prefix}.tif')
     task_graph.add_task(
         func=pygeoprocessing.raster_calculator,
         args=(
