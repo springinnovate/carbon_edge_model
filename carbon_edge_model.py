@@ -262,7 +262,7 @@ def main():
     aligned_data_dir = os.path.join(
         args.workspace_dir, f'{landtype_basename}_aligned_data')
     try:
-        os.path.makedirs(aligned_data_dir)
+        os.makedirs(aligned_data_dir)
     except OSError:
         pass
     aligned_raster_path_list = [
