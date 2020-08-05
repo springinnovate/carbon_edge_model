@@ -102,7 +102,7 @@ def raster_rpn_calculator_op(*args_list):
 
 def mult_by_columns(
         lasso_table_path, data_dir, workspace_dir,
-        base_convolution_raster_id, target_raster_id, bounding_box,
+        base_convolution_raster_id, target_raster_id,
         pixel_size, target_result_path, task_graph,
         zero_nodata_symbols=None, target_nodata=numpy.finfo('float32').min,
         conversion_factor=None):
@@ -120,9 +120,6 @@ def mult_by_columns(
             filename of the form [target_raster_id]_[mask_type]_[kernel_size].
         target_raster_id (str): this is the base of the target raster that
             to use in the table.
-        bounding_box (list): If not `None`, manual bounding box in the form
-            of four  consecutive floats: "min_lng, min_lat, max_lng,
-            max_lat, ex: " "-180.0, -58.3, 180.0, 81.5".
         pixel_size (tuple): desired target pixel size in raster units
         target_result_path (str): path to desired output raster
         task_graph (TaskGraph): TaskGraph object that can be used for
@@ -227,52 +224,13 @@ def mult_by_columns(
     LOGGER.info(
         f'raster paths:\n{str(raster_id_to_info_map)}')
 
-    if bounding_box:
-        target_bounding_box = bounding_box
-    else:
-        target_bounding_box = pygeoprocessing.merge_bounding_box_list(
-            bounding_box_list, 'intersection')
-
-    if not pixel_size:
-        pixel_size = (min_size, -min_size)
-
-    LOGGER.info(f'target pixel size: {pixel_size}')
-    LOGGER.info(f'target bounding box: {target_bounding_box}')
-
-    LOGGER.debug('align rasters, this might take a while')
-    align_dir = os.path.join(workspace_dir, 'aligned_rasters')
-    try:
-        os.makedirs(align_dir)
-    except OSError:
-        pass
-
-    # align rasters and cast to list because we'll rewrite
-    # raster_id_to_path_map object
-    for raster_id in raster_id_to_info_map:
-        raster_path = raster_id_to_info_map[raster_id]['path']
-        raster_basename = os.path.splitext(os.path.basename(raster_path))[0]
-        aligned_raster_path = os.path.join(
-            align_dir,
-            f'{raster_basename}_{target_bounding_box}_{pixel_size}.tif')
-        raster_id_to_info_map[raster_id]['aligned_path'] = \
-            aligned_raster_path
-        task_graph.add_task(
-            func=pygeoprocessing.warp_raster,
-            args=(
-                raster_path, pixel_size, aligned_raster_path,
-                'near'),
-            kwargs={
-                'target_bb': target_bounding_box,
-                'working_dir': workspace_dir
-            })
-
     LOGGER.info('construct raster calculator raster path band list')
     raster_path_band_list = []
     LOGGER.debug(raster_id_list)
     LOGGER.debug(raster_id_to_info_map)
     for index, raster_id in enumerate(raster_id_list):
         raster_path_band_list.append(
-            (raster_id_to_info_map[raster_id]['aligned_path'], 1))
+            (raster_id_to_info_map[raster_id]['path'], 1))
         raster_path_band_list.append(
             (raster_id_to_info_map[raster_id]['nodata'], 'raw'))
         if index != raster_id_to_info_map[raster_id]['index']:
