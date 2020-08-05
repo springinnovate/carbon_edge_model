@@ -199,6 +199,14 @@ def mult_by_columns(
         raster_path = os.path.join(data_dir, f'{raster_id}.tif')
         if not os.path.exists(raster_path):
             missing_raster_path_list.append(raster_path)
+            continue
+        else:
+            raster_info = pygeoprocessing.get_raster_info(raster_path)
+            raster_id_to_info_map[raster_id] = {
+                'path': raster_path,
+                'nodata': raster_info['nodata'][0],
+                'index': index,
+            }
 
     if missing_raster_path_list:
         raise ValueError(
