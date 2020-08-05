@@ -224,10 +224,20 @@ def main():
     parser.add_argument(
         '--workspace_dir', default='carbon_model_workspace', help=(
             'Path to workspace dir, the carbon stock file will be named '
-            '"co2_stocks_[landtype_mask_raster_path]. Default is '
+            '"c_stocks_[landtype_mask_raster_path]. Default is '
             '`carbon_model_workspace`"'))
+    parser.add_argument(
+        '--co2', action='store_true', help=(
+            'If specified, output is in units of C02 rather than C and the '
+            'output file will be prefixed by c02 '
+            'co2_stocks_[landtype_mask_raster_path]'))
 
     args = parser.parse_args()
+
+    if args.co2:
+        c_prefix = 'co2'
+    else:
+        c_prefix = 'c'
 
     workspace_dir = args.workspace_dir
     churn_dir = os.path.join(workspace_dir, 'churn')
@@ -341,27 +351,21 @@ def main():
 
     base_projection = osr.SpatialReference()
     base_projection.ImportFromWkt(base_raster_info['projection_wkt'])
+
+    # convert m^2 to to hectares and biomass to C
+    conversion_factor = base_raster_info['pixel_size'][0]**2 * (1/10000) * 0.47
+    if args.co2:
+        conversion_factor *= (15.9992*2+12.011)/12.011  # C into CO2
+
     if not base_projection.IsProjected():
-        # It's in lat/lng, make an estimate
-        conversion_factor = (
-            base_raster_info['pixel_size'][0]**2 *
-            111120**2 * (1/10000) * 0.47 *  # IPCC value to convert BM to C
-            (15.9992*2+12.011)/12.011)  # C into CO2
-    else:
-        # It's projected, use directly
-        conversion_factor = (
-            base_raster_info['pixel_size'][0]**2 *
-            (1/10000) * 0.47 *  # IPCC value to convert BM to C
-            (15.9992*2+12.011)/12.011)  # C into CO2
+        # It's in lat/lng, make an estimate of degree pixel size in m^2
+        conversion_factor *= 111120**2
 
     forest_carbon_stocks_raster_path = os.path.join(
-        churn_dir, f'{landtype_basename}_forest_co2.tif')
-
-    forest_regression_lasso_table_path = os.path.join(
-        data_dir, os.path.basename(FOREST_REGRESSION_LASSO_TABLE_URI))
+        churn_dir, f'{landtype_basename}_forest_{c_prefix}.tif')
 
     mult_by_columns_library.mult_by_columns(
-        forest_regression_lasso_table_path, aligned_data_dir,
+        FOREST_REGRESSION_LASSO_TABLE_PATH, aligned_data_dir,
         mult_by_columns_workspace,
         'lulc_esa_smoothed_2014_10sec', landtype_basename,
         args.bounding_box, base_raster_info['pixel_size'],
@@ -371,35 +375,38 @@ def main():
         conversion_factor=conversion_factor)
 
     # NON-FOREST BIOMASS
-    LOGGER.info('convert baccini non forest into CO2')
+    LOGGER.info(f'convert baccini non forest into {c_prefix}')
+    baccini_aligned_raster_path = os.path.join(
+        aligned_data_dir,
+        os.path.basename(BACCINI_10s_2014_BIOMASS_RASTER_PATH))
     baccini_nodata = pygeoprocessing.get_raster_info(
-        BACCINI_10s_2014_BIOMASS_RASTER_PATH)['nodata'][0]
-    baccini_co2_raster_path = os.path.join(
-        churn_dir, f'baccini_co2_{landtype_basename}.tif')
+        baccini_aligned_raster_path)['nodata'][0]
+    baccini_c_raster_path = os.path.join(
+        churn_dir, f'baccini_{c_prefix}_{landtype_basename}.tif')
     task_graph.add_task(
         func=pygeoprocessing.raster_calculator,
         args=(
-            [(BACCINI_10s_2014_BIOMASS_RASTER_PATH, 1),
+            [(baccini_aligned_raster_path, 1),
              (conversion_factor, 'raw'), (baccini_nodata, 'raw'),
              (MULT_BY_COLUMNS_NODATA, 'raw')],
-            mult_by_const_op, baccini_co2_raster_path, gdal.GDT_Float32,
+            mult_by_const_op, baccini_c_raster_path, gdal.GDT_Float32,
             MULT_BY_COLUMNS_NODATA),
-        target_path_list=[baccini_co2_raster_path],
-        task_name='convert baccini biomass density to co2')
+        target_path_list=[baccini_c_raster_path],
+        task_name=f'convert baccini biomass density to {c_prefix}')
 
     task_graph.join()
 
     # combine both the non-forest and forest into one map for each
     # scenario based on their masks
     total_carbon_stocks_raster_path = os.path.join(
-        workspace_dir, f'co2_stocks_{landtype_basename}.tif')
+        workspace_dir, f'{c_prefix}_stocks_{landtype_basename}.tif')
 
     task_graph.add_task(
         func=raster_where,
         args=(
             mask_path_task_map['forest_10sec'][0],
             forest_carbon_stocks_raster_path,
-            baccini_co2_raster_path,
+            baccini_c_raster_path,
             total_carbon_stocks_raster_path),
         target_path_list=[
             total_carbon_stocks_raster_path],
