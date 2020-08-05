@@ -182,7 +182,7 @@ def fetch_data(data_dir, task_graph):
 
     """
     files_to_download = model_files.CARBON_EDGE_REGRESSION_MODEL_URI_LIST + [
-        model_files.BACCINI_10s_2014_BIOMASS_URI +
+        model_files.BACCINI_10s_2014_BIOMASS_URI,
         model_files.FOREST_REGRESSION_LASSO_TABLE_URI]
 
     LOGGER.debug(f'here are the files to download: {files_to_download}')
