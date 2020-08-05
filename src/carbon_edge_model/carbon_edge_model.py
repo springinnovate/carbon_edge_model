@@ -382,6 +382,9 @@ def main():
         'landtype_mask_raster_path', help=(
             'Path to landtype raster where codes correspond to:\n'
             '\t0: cropland\n\t1: urban\n\t2: forest\n\t3: other'))
+    parser.add_argument(
+        '--workspace_dir', help=(
+            'Path to workspace dir, the carbon stock file will be ')
     args = parser.parse_args()
 
     for dir_path in [WORKSPACE_DIR, ECOSHARD_DIR, CHURN_DIR, DATA_DIR]:
