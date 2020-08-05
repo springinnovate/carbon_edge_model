@@ -84,9 +84,7 @@ def where_op(condition_array, if_true_array, else_array, nodata):
     result = numpy.copy(else_array)
     mask = condition_array == 1
     result[mask] = if_true_array[mask]
-    invalid_mask = numpy.isnan(result) | numpy.isinf(result)
-    LOGGER.debug(numpy.count_nonzero(invalid_mask))
-    result[invalid_mask] = nodata
+    invalid_mask = numpy.isnan(result) | numpy.isinf(result) | (result > 1e15)
     return result
 
 
