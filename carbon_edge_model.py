@@ -79,25 +79,28 @@ def sub_pos_op(array_a, array_b):
     return result
 
 
-def where_op(condition_array, if_true_array, else_array, nodata):
+def where_op(
+        condition_array, if_true_array, else_array, upper_threshold, nodata):
     """Select from `if true array` if condition true, `else array`."""
     result = numpy.copy(else_array)
     mask = condition_array == 1
     result[mask] = if_true_array[mask]
-    invalid_mask = numpy.isnan(result) | numpy.isinf(result) | (result > 1e20)
+    invalid_mask = (
+        numpy.isnan(result) | numpy.isinf(result) | (result < 0) |
+        (result > upper_threshold))
     result[invalid_mask] = nodata
     return result
 
 
 def raster_where(
         condition_raster_path, if_true_raster_path, else_raster_path,
-        target_raster_path):
+        upper_threshold, target_raster_path):
     """A raster version of the numpy.where function."""
     nodata = pygeoprocessing.get_raster_info(if_true_raster_path)['nodata'][0]
     pygeoprocessing.raster_calculator(
         [(condition_raster_path, 1), (if_true_raster_path, 1),
-         (else_raster_path, 1), (nodata, 'raw')], where_op, target_raster_path,
-        gdal.GDT_Float32, nodata)
+         (else_raster_path, 1), (upper_threshold, 'raw'), (nodata, 'raw')],
+        where_op, target_raster_path, gdal.GDT_Float32, nodata)
 
 
 def make_kernel_raster(pixel_radius, target_path):
@@ -233,6 +236,11 @@ def main():
             'If specified, output is in units of C02 rather than C and the '
             'output file will be prefixed by c02 '
             'co2_stocks_[landtype_mask_raster_path]'))
+    parser.add_argument(
+        '--upper_threshold', type=float, default=1e10, help=(
+            'Set maximum reasonable upper threshold for expected carbon '
+            'values, this guards against areas where the regression model has '
+            'poor data and will yield nonsensical values. Default is 1e10'))
 
     args = parser.parse_args()
 
@@ -411,7 +419,7 @@ def main():
         args=(
             mask_path_task_map['forest_10sec'][0],
             forest_carbon_stocks_raster_path,
-            baccini_c_raster_path,
+            baccini_c_raster_path, args.upper_threshold,
             total_carbon_stocks_raster_path),
         target_path_list=[
             total_carbon_stocks_raster_path],
