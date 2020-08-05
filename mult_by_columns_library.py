@@ -195,34 +195,19 @@ def mult_by_columns(
     # translate symbols into raster paths and get relevant raster info
     raster_id_to_info_map = {}
     missing_raster_path_list = []
-    min_size = sys.float_info.max
-    bounding_box_list = []
     for index, raster_id in enumerate(raster_id_list):
         raster_path = os.path.join(data_dir, f'{raster_id}.tif')
         if not os.path.exists(raster_path):
             missing_raster_path_list.append(raster_path)
-            continue
-        else:
-            raster_info = pygeoprocessing.get_raster_info(raster_path)
-            raster_id_to_info_map[raster_id] = {
-                'path': raster_path,
-                'nodata': raster_info['nodata'][0],
-                'index': index,
-            }
-            min_size = min(
-                min_size, abs(raster_info['pixel_size'][0]))
-            bounding_box_list.append(raster_info['bounding_box'])
 
     if missing_raster_path_list:
-        LOGGER.error(
+        raise ValueError(
             f'expected the following '
-            f'{"rasters" if len(missing_raster_path_list) > 1 else "raster"} given '
-            f'the entries in the table, but could not find them locally:\n'
-            + "\n".join(missing_raster_path_list))
-        sys.exit(-1)
+            f'{"rasters" if len(missing_raster_path_list) > 1 else "raster"} '
+            f'given the entries in the table, but could not find them '
+            f'locally:\n' + "\n".join(missing_raster_path_list))
 
-    LOGGER.info(
-        f'raster paths:\n{str(raster_id_to_info_map)}')
+    LOGGER.info(f'raster paths:\n{str(raster_id_to_info_map)}')
 
     LOGGER.info('construct raster calculator raster path band list')
     raster_path_band_list = []

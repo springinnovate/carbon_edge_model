@@ -372,7 +372,7 @@ def main():
         FOREST_REGRESSION_LASSO_TABLE_PATH, aligned_data_dir,
         mult_by_columns_workspace,
         'lulc_esa_smoothed_2014_10sec', landtype_basename,
-        args.bounding_box, base_raster_info['pixel_size'],
+        base_raster_info['pixel_size'],
         forest_carbon_stocks_raster_path,
         task_graph, zero_nodata_symbols=ZERO_NODATA_SYMBOLS,
         target_nodata=MULT_BY_COLUMNS_NODATA,
