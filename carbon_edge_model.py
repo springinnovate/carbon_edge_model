@@ -68,6 +68,7 @@ ZERO_NODATA_SYMBOLS = {
     'soc_10sec',
     }
 
+
 def sub_pos_op(array_a, array_b):
     """Assume nodata value is negative and the same for a and b."""
     result = array_a.copy()
