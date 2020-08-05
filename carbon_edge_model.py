@@ -261,6 +261,10 @@ def main():
         os.path.splitext(args.landtype_mask_raster_path)[0])
     aligned_data_dir = os.path.join(
         args.workspace_dir, f'{landtype_basename}_aligned_data')
+    try:
+        os.path.makedirs(aligned_data_dir)
+    except OSError:
+        pass
     aligned_raster_path_list = [
         os.path.join(aligned_data_dir, os.path.basename(path))
         for path in base_raster_data_path_list]
