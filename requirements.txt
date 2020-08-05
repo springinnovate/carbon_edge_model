@@ -1,0 +1,5 @@
+gdal
+numpy
+pygeoprocessing
+scipy
+taskgraph
