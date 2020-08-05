@@ -1,12 +1,24 @@
 """Convert ESA landcover type to carbon mask type."""
 import argparse
 import os
+import logging
+import shutil
 import tempfile
 
 from osgeo import gdal
 from osgeo import osr
 import pygeoprocessing
 import numpy
+
+gdal.SetCacheMax(2**27)
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format=(
+        '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
+        ' [%(funcName)s:%(lineno)d] %(message)s'))
+LOGGER = logging.getLogger(__name__)
+
 
 CROPLAND_LULC_CODES = range(10, 41)
 URBAN_LULC_CODES = (190,)
@@ -130,3 +142,8 @@ if __name__ == '__main__':
     pygeoprocessing.raster_calculator(
         [(reclassify_raster_path, 1)], _reclassify_vals_op,
         args.target_mask_raster_path, gdal.GDT_Byte, None)
+
+    try:
+        shutil.rmtree(churn_dir)
+    except Exception:
+        LOGGER.exception(f'error when removing {churn_dir}')
