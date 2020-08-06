@@ -2,7 +2,9 @@
 import argparse
 import math
 import logging
+import sys
 
+from osgeo import gdal
 from osgeo import osr
 import pygeoprocessing
 import numpy
@@ -47,13 +49,13 @@ def area_of_pixel(pixel_size, center_lat):
             math.pi * b**2 * (
                 math.log(zp/zm) / (2*e) +
                 math.sin(math.radians(f)) / (zp*zm)))
-    return pixel_size / 360. * (area_list[0] - area_list[1])
+    return abs(pixel_size / 360. * (area_list[0] - area_list[1]))
 
 
 def conversion_op(array, conversion, nodata):
     result = numpy.copy(array)
-    nodata_mask = numpy.isclose(array, nodata)
-    result[nodata_mask] *= conversion[nodata_mask]
+    valid_mask = ~numpy.isclose(array, nodata)
+    result[valid_mask] *= conversion[valid_mask]
     return result
 
 
@@ -84,11 +86,11 @@ if __name__ == '__main__':
         pixel_height = abs(base_raster_info['geotransform'][5])
         # the / 2 is to get in the center of the pixel
         miny = base_raster_info['bounding_box'][1] + pixel_height/2
-        maxy = base_raster_info['bounding_box'][1] - pixel_height/2
+        maxy = base_raster_info['bounding_box'][3] - pixel_height/2
         lat_vals = numpy.linspace(maxy, miny, n_rows)
 
         pixel_conversion = numpy.array([
-            area_of_pixel(pixel_height, lat_val) for lat_val in lat_vals])
+            [area_of_pixel(pixel_height, lat_val)] for lat_val in lat_vals])
 
     pixel_conversion *= args.factor
 
