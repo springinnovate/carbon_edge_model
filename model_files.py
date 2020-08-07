@@ -71,7 +71,6 @@ CARBON_EDGE_REGRESSION_MODEL_URL_LIST = [
     'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs/phh2o_10sec.tif',
     'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs/population_2015_30sec.tif',
     'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs/population_2015_5min.tif',
-    'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs/results_2020-07-07b_md5_fe89d44cf181486b384beb432c253d47.zip',
     'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs/sand_10sec.tif',
     'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs/silt_10sec.tif',
     'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs/slope_10sec.tif',
