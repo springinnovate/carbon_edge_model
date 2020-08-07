@@ -89,7 +89,7 @@ if __name__ == '__main__':
         maxy = base_raster_info['bounding_box'][3] - pixel_height/2
         lat_vals = numpy.linspace(maxy, miny, n_rows)
 
-        pixel_conversion = numpy.array([
+        pixel_conversion = 1.0 / 10000.0 * numpy.array([
             [area_of_pixel(pixel_height, lat_val)] for lat_val in lat_vals])
 
     pixel_conversion *= args.factor
