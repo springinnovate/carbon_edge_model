@@ -357,7 +357,7 @@ def evaluate_table_expression_at_point(
     vector = gdal.OpenEx(vector_path, gdal.OF_VECTOR)
     layer = vector.GetLayer()
     feature = layer.GetFeature(fid)
-    feature_geom = feature.GetGeomRef()
+    feature_geom = feature.GetGeometryRef()
     x = feature_geom.GetX()
     y = feature_geom.GetY()
     feature_geom = None
