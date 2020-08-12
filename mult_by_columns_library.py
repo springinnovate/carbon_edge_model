@@ -57,6 +57,7 @@ def raster_rpn_calculator_op(*args_list):
     LOGGER.debug(f'this is n {n} this is size of args list {len(args_list)}')
     result = numpy.empty(args_list[0].shape, dtype=numpy.float32)
     result[:] = args_list[n]  # target nodata
+    LOGGER.debug(f'ths is args list n+1 {args_list[n+1]}')
     rpn_stack = list(args_list[n+1])
     info_dict = args_list[n+2]
     zero_nodata_indexes = args_list[n+3]
