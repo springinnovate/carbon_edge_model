@@ -47,24 +47,16 @@ def raster_rpn_calculator_op(*args_list):
               args_list.
             - N+4th value is a set of symbols that if present should set their
               nodata to 0.
-            - N+5th value is "conversion factor" to multiply the final result
-              by if it is not None.
 
     Returns:
         evaluation of the RPN calculation
     """
-    n = len(args_list)-5
-    LOGGER.debug(f'this is n {n} this is size of args list {len(args_list)}')
+    n = len(args_list)-4
     result = numpy.empty(args_list[0].shape, dtype=numpy.float32)
     result[:] = args_list[n]  # target nodata
-    LOGGER.debug(f'ths is args list n+1 {args_list[n+1]}')
     rpn_stack = list(args_list[n+1])
     info_dict = args_list[n+2]
     zero_nodata_indexes = args_list[n+3]
-    conversion_factor = args_list[n+4]
-
-    if conversion_factor is None:
-        conversion_factor = 1
 
     valid_mask = numpy.ones(args_list[0].shape, dtype=numpy.bool)
     # build up valid mask where all pixel stacks are defined
@@ -95,7 +87,7 @@ def raster_rpn_calculator_op(*args_list):
             else:
                 accumulator_stack.append(val)
 
-    result[valid_mask] = accumulator_stack.pop(0) * conversion_factor
+    result[valid_mask] = accumulator_stack.pop(0)
     if accumulator_stack:
         raise RuntimeError(
             f'accumulator_stack not empty: {accumulator_stack}')
