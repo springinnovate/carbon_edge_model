@@ -301,8 +301,8 @@ def prep_data(
 
 
 def evaluate_model_at_points(
-        point_vector_path, landtype_mask_raster_path, workspace_dir, data_dir,
-        aligned_data_dir, churn_dir, task_graph):
+        point_vector_path, fid, landtype_mask_raster_path, workspace_dir,
+        data_dir, aligned_data_dir, churn_dir):
     """Evalute the carbon model at a specific set of points.
 
     Args:
@@ -314,9 +314,7 @@ def evaluate_model_at_points(
         None
     """
     # 2) Evalute the forest regression for each scenario
-    LOGGER.info("Forest Regression step 2")
-    base_raster_info = pygeoprocessing.get_raster_info(
-        landtype_mask_raster_path)
+    LOGGER.info("Forest Regression Point step 2")
     landtype_basename = os.path.basename(
         os.path.splitext(landtype_mask_raster_path)[0])
     mult_by_columns_workspace = os.path.join(
@@ -325,21 +323,15 @@ def evaluate_model_at_points(
         os.makedirs(mult_by_columns_workspace)
     except OSError:
         pass
-    task_graph.join()
-
-    forest_carbon_stocks_raster_path = os.path.join(
-        churn_dir, f'{landtype_basename}_forest_biomass_per_ha.tif')
 
     # TODO: evaluate stack at a point here
-    mult_by_columns_library.evaluate_table_expression_as_raster(
-        FOREST_REGRESSION_LASSO_TABLE_PATH, aligned_data_dir,
-        mult_by_columns_workspace,
+    target_result_table_path = os.path.join(
+        mult_by_columns_workspace, f'{landtype_basename}_{fid}.csv')
+    mult_by_columns_library.evaluate_table_expression_at_point(
+        FOREST_REGRESSION_LASSO_TABLE_PATH, point_vector_path, fid,
+        aligned_data_dir, mult_by_columns_workspace,
         'lulc_esa_smoothed_2014_10sec', landtype_basename,
-        base_raster_info['pixel_size'],
-        forest_carbon_stocks_raster_path,
-        task_graph, zero_nodata_symbols=ZERO_NODATA_SYMBOLS,
-        target_nodata=MULT_BY_COLUMNS_NODATA)
-    task_graph.join()
+        target_result_table_path)
 
 
 def evaluate_model_with_landcover(
@@ -478,8 +470,8 @@ def main():
 
     if args.point_vector_path:
         evaluate_model_at_points(
-            args.point_vector_path, args.landtype_mask_raster_path,
-            workspace_dir, data_dir, aligned_data_dir, churn_dir, task_graph)
+            args.point_vector_path, args.fid, args.landtype_mask_raster_path,
+            workspace_dir, data_dir, aligned_data_dir, churn_dir)
 
     task_graph.close()
     task_graph.join()
