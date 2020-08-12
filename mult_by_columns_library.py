@@ -54,6 +54,7 @@ def raster_rpn_calculator_op(*args_list):
         evaluation of the RPN calculation
     """
     n = len(args_list)-5
+    LOGGER.debug(f'this is n {n} this is size of args list {len(args_list)}')
     result = numpy.empty(args_list[0].shape, dtype=numpy.float32)
     result[:] = args_list[n]  # target nodata
     rpn_stack = list(args_list[n+1])
@@ -245,5 +246,5 @@ def evaluate_table_expression_as_raster(
     LOGGER.debug(raster_path_band_list)
     pygeoprocessing.multiprocessing.raster_calculator(
         raster_path_band_list, raster_rpn_calculator_op, target_result_path,
-        gdal.GDT_Float32, float(target_nodata), N_CPUS)
+        gdal.GDT_Float32, float(target_nodata), n_workers=N_CPUS)
     LOGGER.debug('all done with mult by raster')
