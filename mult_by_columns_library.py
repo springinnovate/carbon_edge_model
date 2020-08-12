@@ -246,5 +246,5 @@ def evaluate_table_expression_as_raster(
     LOGGER.debug(raster_path_band_list)
     pygeoprocessing.multiprocessing.raster_calculator(
         raster_path_band_list, raster_rpn_calculator_op, target_result_path,
-        gdal.GDT_Float32, float(target_nodata), n_workers=N_CPUS)
+        gdal.GDT_Float32, float(target_nodata), n_workers=2)
     LOGGER.debug('all done with mult by raster')
