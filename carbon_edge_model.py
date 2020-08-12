@@ -445,7 +445,7 @@ def main():
     churn_dir = os.path.join(workspace_dir, 'churn')
     data_dir = os.path.join(workspace_dir, 'data')
     landtype_basename = os.path.basename(
-        os.path.splitext(args.landtype_mask_raster_path))
+        os.path.splitext(args.landtype_mask_raster_path)[0])
     aligned_data_dir = os.path.join(
         workspace_dir, f'{landtype_basename}_aligned_data')
 
