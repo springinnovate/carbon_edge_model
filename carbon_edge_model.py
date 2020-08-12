@@ -344,7 +344,7 @@ def evaluate_model_at_points(
 
 def evaluate_model_with_landcover(
         landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
-        aligned_data_dir, task_graph, upper_threshold):
+        aligned_data_dir, task_graph, upper_threshold, n_workers):
     """Evaluate the model over a landcover raster.
 
     Args:
@@ -358,6 +358,7 @@ def evaluate_model_with_landcover(
         c_prefix (str): C or CO2 prefix to use on outputs so quantity is clear
         upper_threshold (float): max base biomass/Ha allowed, hack to allow
             for too-large values.
+        n_workers (int): number of workers to allocate to raster calculator
 
     Returns:
         None.
@@ -392,7 +393,7 @@ def evaluate_model_with_landcover(
         'lulc_esa_smoothed_2014_10sec', landtype_basename,
         base_raster_info['pixel_size'],
         forest_carbon_stocks_raster_path,
-        task_graph, zero_nodata_symbols=ZERO_NODATA_SYMBOLS,
+        task_graph, n_workers, zero_nodata_symbols=ZERO_NODATA_SYMBOLS,
         target_nodata=MULT_BY_COLUMNS_NODATA)
 
     # NON-FOREST BIOMASS
@@ -440,6 +441,10 @@ def main():
             'values, this guards against areas where the regression model has '
             'poor data and will yield nonsensical values. Default is 1e10'))
 
+    parser.add_argument(
+        '--n_workers', type=int, default=multiprocessing.cpu_count(), help=(
+            'number of cpu workers to allocate'))
+
     args = parser.parse_args()
     workspace_dir = args.workspace_dir
     churn_dir = os.path.join(workspace_dir, 'churn')
@@ -457,7 +462,7 @@ def main():
 
     # 1) Download data
     task_graph = taskgraph.TaskGraph(
-        churn_dir, -1)
+        churn_dir, args.n_workers, 5.0)
     LOGGER.info("Download data")
     fetch_data(data_dir, task_graph)
     LOGGER.info("Prep data")
@@ -469,7 +474,7 @@ def main():
     if args.landtype_mask_raster_path:
         evaluate_model_with_landcover(
             args.landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
-            aligned_data_dir, task_graph, args.upper_threshold)
+            aligned_data_dir, task_graph, args.upper_threshold, args.n_workers)
 
     if args.point_vector_path:
         evaluate_model_at_points(

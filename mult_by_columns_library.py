@@ -97,7 +97,7 @@ def raster_rpn_calculator_op(*args_list):
 def evaluate_table_expression_as_raster(
         lasso_table_path, data_dir, workspace_dir,
         base_convolution_raster_id, target_raster_id,
-        pixel_size, target_result_path, task_graph,
+        pixel_size, target_result_path, task_graph, n_workers,
         zero_nodata_symbols=None, target_nodata=numpy.finfo('float32').min):
     """Calculate large regression.
 
@@ -120,6 +120,7 @@ def evaluate_table_expression_as_raster(
         zero_nodata_symbols (set): set of symbols whose nodata values should be
             treated as 0.
         target_nodata (float): desired target nodata value
+        n_workers (int): number of workers to allocate to raster eval
 
     Returns:
         None
@@ -239,7 +240,7 @@ def evaluate_table_expression_as_raster(
     LOGGER.debug(raster_path_band_list)
     pygeoprocessing.multiprocessing.raster_calculator(
         raster_path_band_list, raster_rpn_calculator_op, target_result_path,
-        gdal.GDT_Float32, float(target_nodata))
+        gdal.GDT_Float32, float(target_nodata), n_workers)
     LOGGER.debug('all done with mult by raster')
 
 
