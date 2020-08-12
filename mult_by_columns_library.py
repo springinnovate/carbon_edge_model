@@ -100,7 +100,7 @@ def raster_rpn_calculator_op(*args_list):
     return result
 
 
-def mult_by_columns(
+def evaluate_table_expression_as_raster(
         lasso_table_path, data_dir, workspace_dir,
         base_convolution_raster_id, target_raster_id,
         pixel_size, target_result_path, task_graph,

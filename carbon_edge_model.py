@@ -457,7 +457,7 @@ def main():
 
     # 1) Download data
     task_graph = taskgraph.TaskGraph(
-        churn_dir, multiprocessing.cpu_count(), 5.0)
+        churn_dir, -1)
     LOGGER.info("Download data")
     fetch_data(data_dir, task_graph)
     LOGGER.info("Prep data")
