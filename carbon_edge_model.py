@@ -423,7 +423,7 @@ def main():
         '--point_vector_path', help=(
             'Path to point vector to evaluate carbon stocks at'))
     parser.add_argument(
-        '--fid', help='fid to query from point vector if selected')
+        '--fid', type=int, help='fid to query from point vector if selected')
     parser.add_argument(
         '--workspace_dir', default='carbon_model_workspace', help=(
             'Path to workspace dir, the carbon stock file will be named '
