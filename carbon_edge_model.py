@@ -220,17 +220,11 @@ def fetch_data(data_dir, task_graph):
 
 def prep_data(
         landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
-        task_graph):
+        aligned_data_dir, task_graph):
     """Preprocess data stack for model evaluation."""
     base_raster_data_path_list = glob.glob(os.path.join(data_dir, '*.tif'))
     landtype_basename = os.path.basename(
         os.path.splitext(landtype_mask_raster_path)[0])
-    aligned_data_dir = os.path.join(
-        workspace_dir, f'{landtype_basename}_aligned_data')
-    try:
-        os.makedirs(aligned_data_dir)
-    except OSError:
-        pass
     aligned_raster_path_list = [
         os.path.join(aligned_data_dir, os.path.basename(path))
         for path in base_raster_data_path_list]
@@ -308,7 +302,7 @@ def prep_data(
 
 def evaluate_model_at_points(
         point_vector_path, landtype_mask_raster_path, workspace_dir, data_dir,
-        aligned_data_dir, churn_dir, task_graph, c_prefix, upper_threshold):
+        aligned_data_dir, churn_dir, task_graph):
     """Evalute the carbon model at a specific set of points.
 
     Args:
@@ -447,11 +441,13 @@ def main():
             'poor data and will yield nonsensical values. Default is 1e10'))
 
     args = parser.parse_args()
-
-    c_prefix = 'biomass_per_ha'
     workspace_dir = args.workspace_dir
     churn_dir = os.path.join(workspace_dir, 'churn')
     data_dir = os.path.join(workspace_dir, 'data')
+    landtype_basename = os.path.basename(
+        os.path.splitext(args.landtype_mask_raster_path))
+    aligned_data_dir = os.path.join(
+        workspace_dir, f'{landtype_basename}_aligned_data')
 
     for dir_path in [workspace_dir, churn_dir, data_dir]:
         try:
@@ -468,16 +464,17 @@ def main():
 
     prep_data(
         args.landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
-        task_graph)
+        aligned_data_dir, task_graph)
 
     if args.landtype_mask_raster_path:
         evaluate_model_with_landcover(
             args.landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
-            task_graph, c_prefix, args.upper_threshold)
+            aligned_data_dir, task_graph, args.upper_threshold)
 
     if args.point_vector_path:
         evaluate_model_at_points(
-            args.point_vector_path, workspace_dir, data_dir)
+            args.point_vector_path, args.landtype_mask_raster_path,
+            workspace_dir, data_dir, aligned_data_dir, churn_dir, task_graph)
 
     task_graph.close()
     task_graph.join()
