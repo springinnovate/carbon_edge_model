@@ -241,3 +241,177 @@ def evaluate_table_expression_as_raster(
         raster_path_band_list, raster_rpn_calculator_op, target_result_path,
         gdal.GDT_Float32, float(target_nodata))
     LOGGER.debug('all done with mult by raster')
+
+
+def evaluate_table_expression_at_point(
+        lasso_table_path, vector_path, fid, data_dir, workspace_dir,
+        base_convolution_raster_id, target_raster_id,
+        target_result_table_path):
+    """Calculate table regression at a single point.
+
+    Args:
+        lasso_table_path (str): path to lasso table
+        vector_path (str): path to point vector used to evaluate a single point
+        fid (int): this fid is the feature in `vector_path` used to evalute
+            the mode
+        data_dir (str): path to directory containing rasters in lasso
+            table path
+        workspace_dir (str): path to output directory, will contain
+            "result.tif" after completion
+        base_convolution_raster_id (str): The convolution columns in
+            the lasso table have the form  [base]_[mask_type]_gs[kernel_size],
+            this parameter matches [base] so it can be replaced with a
+            filename of the form [target_raster_id]_[mask_type]_[kernel_size].
+        target_raster_id (str): this is the base of the target raster that
+            to use in the table.
+        target_result_table_path (str): path to desired output table
+
+    Returns:
+        None
+
+    """
+    lasso_df = pandas.read_csv(lasso_table_path, header=None)
+    LOGGER.debug(f"parsing through {lasso_table_path}")
+    # built a reverse polish notation stack for the operations and their order
+    # that they need to be executed in
+    rpn_stack = []
+    first_term = True
+    for row_index, row in lasso_df.iterrows():
+        header = row[0]
+        if header == INTERCEPT_COLUMN_ID:
+            # special case of the intercept, just push it
+            rpn_stack.append(float(row[1]))
+        else:
+            # it's an expression/coefficient row
+            LOGGER.debug(f'{row_index}: {row}')
+            coefficient = float(row[1])
+            # put on the coefficient first since it's there, we'll multiply
+            # it later
+            rpn_stack.append(coefficient)
+
+            # split out all the multiplcation terms
+            product_list = header.split('*')
+            for product in product_list:
+                if product.startswith(base_convolution_raster_id):
+                    LOGGER.debug(f'parsing out base and gs in {product}')
+                    match = re.match(
+                        fr'{base_convolution_raster_id}(.*)',
+                        product)
+                    suffix = match.group(1)
+                    product = \
+                        f'''{target_raster_id}{suffix}'''
+                # for each multiplication term split out an exponent if exists
+                if '^' in product:
+                    rpn_stack.extend(product.split('^'))
+                    # cast the exponent to an integer so can operate directly
+                    rpn_stack[-1] = int(rpn_stack[-1])
+                    # push the ^ to exponentiate the last two operations
+                    rpn_stack.append('^')
+                else:
+                    # otherwise it's a single value
+                    rpn_stack.append(product)
+                # multiply this term and the last
+                rpn_stack.append('*')
+
+        # if it's not the first term we want to add the rest
+        if first_term:
+            first_term = False
+        else:
+            rpn_stack.append('+')
+
+    LOGGER.debug(rpn_stack)
+
+    # find the unique symbols in the expression
+    raster_id_list = [
+        x for x in set(rpn_stack)-set(OPERATOR_FN)
+        if not isinstance(x, (int, float))]
+
+    LOGGER.debug(raster_id_list)
+
+    # translate symbols into raster paths and get relevant raster info
+    raster_id_to_info_map = {}
+    missing_raster_path_list = []
+    for index, raster_id in enumerate(raster_id_list):
+        raster_path = os.path.join(data_dir, f'{raster_id}.tif')
+        if not os.path.exists(raster_path):
+            missing_raster_path_list.append(raster_path)
+            continue
+        else:
+            raster_info = pygeoprocessing.get_raster_info(raster_path)
+            raster_id_to_info_map[raster_id] = {
+                'path': raster_path,
+                'nodata': raster_info['nodata'][0],
+                'index': index,
+            }
+
+    if missing_raster_path_list:
+        raise ValueError(
+            f'expected the following '
+            f'{"rasters" if len(missing_raster_path_list) > 1 else "raster"} '
+            f'given the entries in the table, but could not find them '
+            f'locally:\n' + "\n".join(missing_raster_path_list))
+
+    LOGGER.info(f'raster paths:\n{str(raster_id_to_info_map)}')
+
+    vector = gdal.OpenEx(vector_path, gdal.OF_VECTOR)
+    layer = vector.GetLayer()
+    feature = layer.GetFeature(fid)
+    feature_geom = feature.GetGeomRef()
+    x = feature_geom.GetX()
+    y = feature_geom.GetY()
+    feature_geom = None
+    feature = None
+    layer = None
+    vector = None
+
+    base_raster_info = next(iter(raster_id_to_info_map.values()))
+    inv_geotransform = gdal.InvGeoTransform(base_raster_info['geotransform'])
+    n_cols, n_rows = base_raster_info['raster_size']
+    row, col = [
+        int(coord) for coord in gdal.ApplyGeoTransform(inv_geotransform, x, y)]
+
+    LOGGER.debug(rpn_stack)
+    with open(target_result_table_path, 'w') as target_table_file:
+        val_accumulator_stack = []
+        symbol_accumulator_stack = []
+        accumulator_stack = []
+        while rpn_stack:
+            val = rpn_stack.pop(0)
+            if val in OPERATOR_FN:
+                operator = val
+                if operator == '+':
+                    # newline!
+                    target_table_file.write(
+                        f'{symbol_accumulator_stack.pop()},')
+                    target_table_file.write(
+                        f'{val_accumulator_stack.pop()},')
+                    target_table_file.write(
+                        f'{accumulator_stack.pop()}\n')
+                    continue
+
+                symbol_b = symbol_accumulator_stack.pop()
+                symbol_a = symbol_accumulator_stack.pop()
+                symbol_accumulator_stack.push(
+                    f'{symbol_a}{operator}{symbol_b}')
+
+                val_b = val_accumulator_stack.pop()
+                val_a = val_accumulator_stack.pop()
+                val_accumulator_stack.push(
+                    f'{val_a}{operator}{val_b}')
+
+                operand_b = accumulator_stack.pop()
+                operand_a = accumulator_stack.pop()
+                val = OPERATOR_FN[operator](operand_a, operand_b)
+                accumulator_stack.append(val)
+            else:
+                if isinstance(val, str):
+                    raster_path = raster_id_to_info_map[val]['path']
+                    raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
+                    band = raster.GetRasterBand(1)
+                    raster_val = band.ReadAsArray(x, y, 1, 1)[0, 0]
+                    accumulator_stack.append(raster_val)
+                else:
+                    accumulator_stack.append(val)
+                symbol_accumulator_stack.append(f'{val}')
+
+    LOGGER.debug('all done with eval at point')
