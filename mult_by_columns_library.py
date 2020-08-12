@@ -8,8 +8,8 @@ import sys
 from osgeo import gdal
 import pandas
 import pygeoprocessing
+import pygeoprocessing.multiprocessing
 import numpy
-import taskgraph
 
 gdal.SetCacheMax(2**27)
 
@@ -104,8 +104,7 @@ def mult_by_columns(
         lasso_table_path, data_dir, workspace_dir,
         base_convolution_raster_id, target_raster_id,
         pixel_size, target_result_path, task_graph,
-        zero_nodata_symbols=None, target_nodata=numpy.finfo('float32').min,
-        conversion_factor=None):
+        zero_nodata_symbols=None, target_nodata=numpy.finfo('float32').min):
     """Calculate large regression.
 
     Args:
@@ -127,8 +126,6 @@ def mult_by_columns(
         zero_nodata_symbols (set): set of symbols whose nodata values should be
             treated as 0.
         target_nodata (float): desired target nodata value
-        conversion_factor (float): if not None, this factor is multiplied by
-            the final result befor going into target
 
     Returns:
         None
@@ -240,14 +237,13 @@ def mult_by_columns(
     raster_path_band_list.append((rpn_stack, 'raw'))
     raster_path_band_list.append((raster_id_to_info_map, 'raw'))
     raster_path_band_list.append((zero_nodata_indexes, 'raw'))
-    raster_path_band_list.append((conversion_factor, 'raw'))
     LOGGER.debug(rpn_stack)
 
     # wait for rasters to align
     task_graph.join()
 
     LOGGER.debug(raster_path_band_list)
-    pygeoprocessing.raster_calculator(
+    pygeoprocessing.multiprocessing.raster_calculator(
         raster_path_band_list, raster_rpn_calculator_op, target_result_path,
-        gdal.GDT_Float32, float(target_nodata))
+        gdal.GDT_Float32, float(target_nodata), N_CPUS)
     LOGGER.debug('all done with mult by raster')
