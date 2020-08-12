@@ -449,7 +449,7 @@ def main():
     aligned_data_dir = os.path.join(
         workspace_dir, f'{landtype_basename}_aligned_data')
 
-    for dir_path in [workspace_dir, churn_dir, data_dir]:
+    for dir_path in [workspace_dir, churn_dir, data_dir, aligned_data_dir]:
         try:
             os.makedirs(dir_path)
         except OSError:
