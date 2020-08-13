@@ -380,10 +380,12 @@ def evaluate_table_expression_at_point(
         accumulator_stack = []
         while rpn_stack:
             val = rpn_stack.pop(0)
+            LOGGER.debug(f'pop: {val}')
             if val in OPERATOR_FN:
                 operator = val
                 if operator == '+':
                     # newline!
+                    LOGGER.debug(f'writing: {symbol_accumulator_stack}')
                     target_table_file.write(
                         f'{symbol_accumulator_stack.pop()}\',')
                     target_table_file.write(
