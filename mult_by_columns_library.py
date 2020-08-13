@@ -377,12 +377,19 @@ def evaluate_table_expression_at_point(
     with open(target_result_table_path, 'w') as target_table_file:
         val_accumulator_stack = []
         symbol_accumulator_stack = []
+        add_only_accumulator_stack = []
         accumulator_stack = []
         while rpn_stack:
             val = rpn_stack.pop(0)
             LOGGER.debug(f'pop: {val}')
             if val in OPERATOR_FN:
                 operator = val
+
+                accum_val_b = accumulator_stack.pop()
+                accum_val_a = accumulator_stack.pop()
+                accum_val = OPERATOR_FN[operator](accum_val_a, accum_val_b)
+                accumulator_stack.push(accum_val)
+
                 if operator == '+':
                     # newline!
                     LOGGER.debug(f'writing: {symbol_accumulator_stack}')
@@ -390,8 +397,9 @@ def evaluate_table_expression_at_point(
                         f'{symbol_accumulator_stack.pop()}\',')
                     target_table_file.write(
                         f'{val_accumulator_stack.pop()}\',')
+                    accumulator_stack.push(f'{accumulator_stack[-1]},')
                     target_table_file.write(
-                        f'{accumulator_stack.pop()}\n')
+                        f'{add_only_accumulator_stack.pop()}\n')
                     continue
 
                 symbol_b = symbol_accumulator_stack.pop()
@@ -404,21 +412,23 @@ def evaluate_table_expression_at_point(
                 val_accumulator_stack.append(
                     f'{val_a}{operator}{val_b}')
 
-                operand_b = accumulator_stack.pop()
-                operand_a = accumulator_stack.pop()
+                operand_b = add_only_accumulator_stack.pop()
+                operand_a = add_only_accumulator_stack.pop()
                 val = OPERATOR_FN[operator](operand_a, operand_b)
-                accumulator_stack.append(val)
+                add_only_accumulator_stack.append(val)
             else:
                 if isinstance(val, str):
                     raster_path = raster_id_to_info_map[val]['path']
                     raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
                     band = raster.GetRasterBand(1)
                     raster_val = band.ReadAsArray(col, row, 1, 1)[0, 0]
-                    accumulator_stack.append(raster_val)
+                    add_only_accumulator_stack.append(raster_val)
                     val_accumulator_stack.append(raster_val)
+                    accumulator_stack.append(raster_val)
                 else:
-                    accumulator_stack.append(val)
+                    add_only_accumulator_stack.append(val)
                     val_accumulator_stack.append(val)
+                    accumulator_stack.append(val)
                 symbol_accumulator_stack.append(f'{val}')
 
         while symbol_accumulator_stack:
