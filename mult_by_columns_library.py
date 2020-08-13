@@ -413,8 +413,10 @@ def evaluate_table_expression_at_point(
                     band = raster.GetRasterBand(1)
                     raster_val = band.ReadAsArray(col, row, 1, 1)[0, 0]
                     accumulator_stack.append(raster_val)
+                    val_accumulator_stack.append(raster_val)
                 else:
                     accumulator_stack.append(val)
+                    val_accumulator_stack.append(val)
                 symbol_accumulator_stack.append(f'{val}')
 
     LOGGER.debug('all done with eval at point')
