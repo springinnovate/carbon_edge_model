@@ -421,9 +421,9 @@ def evaluate_table_expression_at_point(
                     val_accumulator_stack.append(val)
                 symbol_accumulator_stack.append(f'{val}')
 
-    while symbol_accumulator_stack:
-        target_table_file.write(f'{symbol_accumulator_stack.pop()}\',')
-        target_table_file.write(f'{val_accumulator_stack.pop()}\',')
-        target_table_file.write(f'{accumulator_stack.pop()}\n')
+        while symbol_accumulator_stack:
+            target_table_file.write(f'{symbol_accumulator_stack.pop()}\',')
+            target_table_file.write(f'{val_accumulator_stack.pop()}\',')
+            target_table_file.write(f'{accumulator_stack.pop()}\n')
 
     LOGGER.debug('all done with eval at point')
