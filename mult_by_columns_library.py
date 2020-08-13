@@ -388,7 +388,7 @@ def evaluate_table_expression_at_point(
                 accum_val_b = accumulator_stack.pop()
                 accum_val_a = accumulator_stack.pop()
                 accum_val = OPERATOR_FN[operator](accum_val_a, accum_val_b)
-                accumulator_stack.push(accum_val)
+                accumulator_stack.append(accum_val)
 
                 if operator == '+':
                     # newline!
