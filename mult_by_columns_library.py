@@ -394,12 +394,12 @@ def evaluate_table_expression_at_point(
 
                 symbol_b = symbol_accumulator_stack.pop()
                 symbol_a = symbol_accumulator_stack.pop()
-                symbol_accumulator_stack.push(
+                symbol_accumulator_stack.append(
                     f'{symbol_a}{operator}{symbol_b}')
 
                 val_b = val_accumulator_stack.pop()
                 val_a = val_accumulator_stack.pop()
-                val_accumulator_stack.push(
+                val_accumulator_stack.append(
                     f'{val_a}{operator}{val_b}')
 
                 operand_b = accumulator_stack.pop()
