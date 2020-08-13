@@ -385,9 +385,9 @@ def evaluate_table_expression_at_point(
                 if operator == '+':
                     # newline!
                     target_table_file.write(
-                        f'{symbol_accumulator_stack.pop()},')
+                        f'{symbol_accumulator_stack.pop()}\',')
                     target_table_file.write(
-                        f'{val_accumulator_stack.pop()},')
+                        f'{val_accumulator_stack.pop()}\',')
                     target_table_file.write(
                         f'{accumulator_stack.pop()}\n')
                     continue
