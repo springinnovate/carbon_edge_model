@@ -85,9 +85,10 @@ def raster_rpn_calculator_op(*args_list):
                     nodata_mask = numpy.isclose(
                         args_list[2*arg_index],  args_list[2*arg_index+1])
                     args_list[2*arg_index][nodata_mask] = 0.0
-                accumulator_stack.append(args_list[2*arg_index][valid_mask])
+                accumulator_stack.append(
+                    args_list[2*arg_index][valid_mask].astype(numpy.float64))
             else:
-                accumulator_stack.append(val)
+                accumulator_stack.append(float(val))
 
     result[valid_mask] = accumulator_stack.pop(0)
     if accumulator_stack:
@@ -423,7 +424,7 @@ def evaluate_table_expression_at_point(
                     raster_path = raster_id_to_info_map[val]['path']
                     raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
                     band = raster.GetRasterBand(1)
-                    raster_val = band.ReadAsArray(col, row, 1, 1)[0, 0]
+                    raster_val = float(band.ReadAsArray(col, row, 1, 1)[0, 0])
                     add_only_accumulator_stack.append(raster_val)
                     val_accumulator_stack.append(raster_val)
                     accumulator_stack.append(raster_val)
