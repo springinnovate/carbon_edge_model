@@ -75,8 +75,6 @@ def raster_rpn_calculator_op(*args_list):
             operand_b = accumulator_stack.pop()
             operand_a = accumulator_stack.pop()
             val = OPERATOR_FN[operator](operand_a, operand_b)
-            if operator == '+':
-                LOGGER.debug(val)
             accumulator_stack.append(val)
         else:
             if isinstance(val, str):
@@ -384,7 +382,6 @@ def evaluate_table_expression_at_point(
         accumulator_stack = []
         while rpn_stack:
             val = rpn_stack.pop(0)
-            LOGGER.debug(f'pop: {val}')
             if val in OPERATOR_FN:
                 operator = val
 
@@ -395,7 +392,6 @@ def evaluate_table_expression_at_point(
 
                 if operator == '+':
                     # newline!
-                    LOGGER.debug(f'writing: {symbol_accumulator_stack}')
                     target_table_file.write(
                         f'{symbol_accumulator_stack.pop()}\',')
                     target_table_file.write(
@@ -438,5 +434,4 @@ def evaluate_table_expression_at_point(
             target_table_file.write(f'{symbol_accumulator_stack.pop()}\',')
             target_table_file.write(f'{val_accumulator_stack.pop()}\',')
             target_table_file.write(f'{accumulator_stack.pop()}\n')
-
     LOGGER.debug('all done with eval at point')
