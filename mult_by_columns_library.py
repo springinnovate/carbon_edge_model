@@ -397,7 +397,7 @@ def evaluate_table_expression_at_point(
                         f'{symbol_accumulator_stack.pop()}\',')
                     target_table_file.write(
                         f'{val_accumulator_stack.pop()}\',')
-                    accumulator_stack.push(f'{accumulator_stack[-1]},')
+                    target_table_file.write(f'{accumulator_stack[-1]},')
                     target_table_file.write(
                         f'{add_only_accumulator_stack.pop()}\n')
                     continue
