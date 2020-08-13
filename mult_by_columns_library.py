@@ -365,8 +365,6 @@ def evaluate_table_expression_at_point(
     layer = None
     vector = None
 
-    LOGGER.debug(f'querying at coord {x} {y}')
-
     base_raster_path = next(iter(raster_id_to_info_map.values()))['path']
     base_raster_info = pygeoprocessing.get_raster_info(base_raster_path)
     inv_geotransform = gdal.InvGeoTransform(base_raster_info['geotransform'])
@@ -374,6 +372,7 @@ def evaluate_table_expression_at_point(
     row, col = [
         int(coord) for coord in gdal.ApplyGeoTransform(inv_geotransform, x, y)]
 
+    LOGGER.debug(f"\n\n\n\nquerying at coord {x} {y} boundingbox {base_raster_info['bounding_box']}\n{inv_geotransform}\n\n")
     LOGGER.debug(rpn_stack)
     with open(target_result_table_path, 'w') as target_table_file:
         val_accumulator_stack = []
