@@ -369,7 +369,7 @@ def evaluate_table_expression_at_point(
     base_raster_info = pygeoprocessing.get_raster_info(base_raster_path)
     inv_geotransform = gdal.InvGeoTransform(base_raster_info['geotransform'])
     n_cols, n_rows = base_raster_info['raster_size']
-    row, col = [
+    col, row = [
         int(coord) for coord in gdal.ApplyGeoTransform(inv_geotransform, x, y)]
 
     LOGGER.debug(f"\n\n\n\nquerying at coord {x} {y} boundingbox {base_raster_info['bounding_box']}\n{inv_geotransform}\n\n")
@@ -411,7 +411,7 @@ def evaluate_table_expression_at_point(
                     raster_path = raster_id_to_info_map[val]['path']
                     raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
                     band = raster.GetRasterBand(1)
-                    raster_val = band.ReadAsArray(x, y, 1, 1)[0, 0]
+                    raster_val = band.ReadAsArray(col, row, 1, 1)[0, 0]
                     accumulator_stack.append(raster_val)
                 else:
                     accumulator_stack.append(val)
