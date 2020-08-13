@@ -430,10 +430,10 @@ def main():
             '"c_stocks_[landtype_mask_raster_path]. Default is '
             '`carbon_model_workspace`"'))
     parser.add_argument(
-        '--upper_threshold', type=float, default=1e10, help=(
+        '--upper_threshold', type=float, default=500, help=(
             'Set maximum reasonable upper threshold for expected carbon '
             'values, this guards against areas where the regression model has '
-            'poor data and will yield nonsensical values. Default is 1e10'))
+            'poor data and will yield nonsensical values. Default is 500'))
 
     parser.add_argument(
         '--n_workers', type=int, default=multiprocessing.cpu_count(), help=(
