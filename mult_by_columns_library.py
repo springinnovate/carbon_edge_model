@@ -365,6 +365,8 @@ def evaluate_table_expression_at_point(
     layer = None
     vector = None
 
+    LOGGER.debug(f'querying at coord {x} {y}')
+
     base_raster_path = next(iter(raster_id_to_info_map.values()))['path']
     base_raster_info = pygeoprocessing.get_raster_info(base_raster_path)
     inv_geotransform = gdal.InvGeoTransform(base_raster_info['geotransform'])
