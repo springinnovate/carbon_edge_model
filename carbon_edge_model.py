@@ -387,8 +387,7 @@ def evaluate_model_with_landcover(
             mult_by_columns_workspace,
             'lulc_esa_smoothed_2014_10sec', landtype_basename,
             base_raster_info['pixel_size'],
-            forest_carbon_stocks_raster_path,
-            task_graph, n_workers),
+            forest_carbon_stocks_raster_path, n_workers),
         kwargs={
             'zero_nodata_symbols': ZERO_NODATA_SYMBOLS,
             'target_nodata': MULT_BY_COLUMNS_NODATA,
