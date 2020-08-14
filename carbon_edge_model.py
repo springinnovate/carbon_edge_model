@@ -98,7 +98,7 @@ def raster_where(
     nodata = pygeoprocessing.get_raster_info(if_true_raster_path)['nodata'][0]
     LOGGER.debug(
         f'selecting {if_true_raster_path} if {condition_raster_path} is 1 '
-        f'else {else_raster_path}')
+        f'else {else_raster_path}, upper upper_threshold {upper_threshold}')
     pygeoprocessing.multiprocessing.raster_calculator(
         [(condition_raster_path, 1), (if_true_raster_path, 1),
          (else_raster_path, 1), (upper_threshold, 'raw'), (nodata, 'raw')],
@@ -407,6 +407,13 @@ def evaluate_model_with_landcover(
 
     forest_mask_path = os.path.join(
         aligned_data_dir, f'mask_of_forest_10sec.tif')
+
+    LOGGER.debug(
+        f'selecting {forest_carbon_stocks_raster_path} '
+        f'if {forest_mask_path} is 1 '
+        f'else {baccini_aligned_raster_path}, upper '
+        f'upper_threshold {baccini_max}')
+
     task_graph.add_task(
         func=raster_where,
         args=(
