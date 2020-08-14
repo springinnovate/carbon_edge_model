@@ -83,6 +83,7 @@ def where_op(
     """Select from `if true array` if condition true, `else array`."""
     result = numpy.copy(else_array)
     mask = condition_array == 1
+    LOGGER.debug(numpy.count_nonzero(mask))
     result[mask] = if_true_array[mask]
     invalid_mask = (
         numpy.isnan(result) | numpy.isinf(result) | (result < 0) |
@@ -98,7 +99,8 @@ def raster_where(
     nodata = pygeoprocessing.get_raster_info(if_true_raster_path)['nodata'][0]
     LOGGER.debug(
         f'selecting {if_true_raster_path} if {condition_raster_path} is 1 '
-        f'else {else_raster_path}, upper upper_threshold {upper_threshold}')
+        f'else {else_raster_path}, upper upper_threshold {upper_threshold}, '
+        f'target is {target_raster_path}')
     pygeoprocessing.multiprocessing.raster_calculator(
         [(condition_raster_path, 1), (if_true_raster_path, 1),
          (else_raster_path, 1), (upper_threshold, 'raw'), (nodata, 'raw')],
@@ -419,7 +421,8 @@ def evaluate_model_with_landcover(
         f'selecting {forest_carbon_stocks_raster_path} '
         f'if {forest_mask_path} is 1 '
         f'else {baccini_aligned_raster_path}, upper '
-        f'upper_threshold {baccini_max}')
+        f'upper_threshold {baccini_max}\n'
+        f'result in {total_carbon_stocks_raster_path}')
 
     task_graph.add_task(
         func=raster_where,
