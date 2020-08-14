@@ -81,9 +81,8 @@ def sub_pos_op(array_a, array_b):
 def where_op(
         condition_array, if_true_array, else_array, upper_threshold, nodata):
     """Select from `if true array` if condition true, `else array`."""
-    result = numpy.copy(else_array)
+    result = numpy.copy(else_array).astype(numpy.float32)
     mask = condition_array == 1
-    LOGGER.debug(numpy.count_nonzero(mask))
     result[mask] = if_true_array[mask]
     invalid_mask = (
         numpy.isnan(result) | numpy.isinf(result) | (result < 0) |
