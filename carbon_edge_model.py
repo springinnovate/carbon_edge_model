@@ -96,7 +96,10 @@ def raster_where(
         upper_threshold, target_raster_path):
     """A raster version of the numpy.where function."""
     nodata = pygeoprocessing.get_raster_info(if_true_raster_path)['nodata'][0]
-    pygeoprocessing.raster_calculator(
+    LOGGER.debug(
+        f'selecting {if_true_raster_path} if {condition_raster_path} is 1 '
+        f'else {else_raster_path}')
+    pygeoprocessing.multiprocessing.raster_calculator(
         [(condition_raster_path, 1), (if_true_raster_path, 1),
          (else_raster_path, 1), (upper_threshold, 'raw'), (nodata, 'raw')],
         where_op, target_raster_path, gdal.GDT_Float32, nodata)
@@ -336,7 +339,7 @@ def evaluate_model_at_points(
 
 def evaluate_model_with_landcover(
         landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
-        aligned_data_dir, task_graph, upper_threshold, n_workers):
+        aligned_data_dir, task_graph, n_workers):
     """Evaluate the model over a landcover raster.
 
     Args:
@@ -348,8 +351,6 @@ def evaluate_model_with_landcover(
         task_graph (TaskGraph): TaskGraph object that can be used for
             scheduling
         c_prefix (str): C or CO2 prefix to use on outputs so quantity is clear
-        upper_threshold (float): max base biomass/Ha allowed, hack to allow
-            for too-large values.
         n_workers (int): number of workers to allocate to raster calculator
 
     Returns:
@@ -393,6 +394,12 @@ def evaluate_model_with_landcover(
     baccini_aligned_raster_path = os.path.join(
         aligned_data_dir,
         os.path.basename(BACCINI_10s_2014_BIOMASS_RASTER_PATH))
+
+    # determine baccini max that's no
+    baccini_raster = gdal.OpenEx(baccini_aligned_raster_path, gdal.OF_RASTER)
+    _, baccini_max, _, _ = baccini_raster.GetRasterBand(1).GetStatistics(0, 1)
+    baccini_raster = None
+
     # combine both the non-forest and forest into one map for each
     # scenario based on their masks
     total_carbon_stocks_raster_path = os.path.join(
@@ -405,7 +412,7 @@ def evaluate_model_with_landcover(
         args=(
             forest_mask_path,
             forest_carbon_stocks_raster_path,
-            baccini_aligned_raster_path, upper_threshold,
+            baccini_aligned_raster_path, baccini_max,
             total_carbon_stocks_raster_path),
         target_path_list=[
             total_carbon_stocks_raster_path],
@@ -429,11 +436,6 @@ def main():
             'Path to workspace dir, the carbon stock file will be named '
             '"c_stocks_[landtype_mask_raster_path]. Default is '
             '`carbon_model_workspace`"'))
-    parser.add_argument(
-        '--upper_threshold', type=float, default=500, help=(
-            'Set maximum reasonable upper threshold for expected carbon '
-            'values, this guards against areas where the regression model has '
-            'poor data and will yield nonsensical values. Default is 500'))
 
     parser.add_argument(
         '--n_workers', type=int, default=multiprocessing.cpu_count(), help=(
@@ -468,7 +470,7 @@ def main():
     if args.landtype_mask_raster_path:
         evaluate_model_with_landcover(
             args.landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
-            aligned_data_dir, task_graph, args.upper_threshold, args.n_workers)
+            aligned_data_dir, task_graph, args.n_workers)
 
     if args.point_vector_path:
         evaluate_model_at_points(
