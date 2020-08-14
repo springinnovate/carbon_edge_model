@@ -380,14 +380,22 @@ def evaluate_model_with_landcover(
     forest_carbon_stocks_raster_path = os.path.join(
         churn_dir, f'{landtype_basename}_forest_biomass_per_ha.tif')
 
-    mult_by_columns_library.evaluate_table_expression_as_raster(
-        FOREST_REGRESSION_LASSO_TABLE_PATH, aligned_data_dir,
-        mult_by_columns_workspace,
-        'lulc_esa_smoothed_2014_10sec', landtype_basename,
-        base_raster_info['pixel_size'],
-        forest_carbon_stocks_raster_path,
-        task_graph, n_workers, zero_nodata_symbols=ZERO_NODATA_SYMBOLS,
-        target_nodata=MULT_BY_COLUMNS_NODATA)
+    regression_model_task = task_graph.add_task(
+        func=mult_by_columns_library.evaluate_table_expression_as_raster,
+        args=(
+            FOREST_REGRESSION_LASSO_TABLE_PATH, aligned_data_dir,
+            mult_by_columns_workspace,
+            'lulc_esa_smoothed_2014_10sec', landtype_basename,
+            base_raster_info['pixel_size'],
+            forest_carbon_stocks_raster_path,
+            task_graph, n_workers),
+        kwargs={
+            'zero_nodata_symbols': ZERO_NODATA_SYMBOLS,
+            'target_nodata': MULT_BY_COLUMNS_NODATA,
+        },
+        target_path_list=[forest_carbon_stocks_raster_path],
+        task_name='evaluate carbon regression model')
+
 
     # NON-FOREST BIOMASS
     LOGGER.info(f'convert baccini non forest into biomass_per_ha')
@@ -423,6 +431,7 @@ def evaluate_model_with_landcover(
             total_carbon_stocks_raster_path),
         target_path_list=[
             total_carbon_stocks_raster_path],
+        dependent_task_list=[regression_model_task],
         task_name=f'combine forest/nonforest')
 
 
