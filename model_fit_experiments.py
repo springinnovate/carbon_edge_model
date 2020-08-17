@@ -9,7 +9,7 @@ import sys
 import model_files
 
 import retrying
-import scikit.learn
+import sklearn
 import taskgraph
 
 logging.basicConfig(
