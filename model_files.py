@@ -8,8 +8,9 @@ import retrying
 BASE_URL = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs'
 BASE_URI = 'gs://ecoshard-root/global_carbon_regression/inputs'
 
-BACCINI_10s_2014_BIOMASS_FILENAME = \
-    'baccini_10s_2014_md5_5956a9d06d4dffc89517cefb0f6bb008.tif'
+BACCINI_10s_2014_BIOMASS_URI = (
+    'gs://ecoshard-root/global_carbon_regression/inputs/'
+    'baccini_10s_2014_md5_5956a9d06d4dffc89517cefb0f6bb008.tif')
 
 CARBON_EDGE_MODEL_DATA_NODATA = [
     ('accessibility_to_cities_2015_30sec.tif', -9999),
@@ -113,7 +114,7 @@ def fetch_data(data_dir, task_graph):
     files_to_download = [
         os.path.join(BASE_URI, path)
         for path, _ in CARBON_EDGE_MODEL_DATA_NODATA] + [
-            f'{os.path.join(BASE_URI, BACCINI_10s_2014_BIOMASS_FILENAME)}']
+            BACCINI_10s_2014_BIOMASS_URI]
 
     LOGGER.debug(f'here are the files to download: {files_to_download}')
 
