@@ -1,9 +1,23 @@
 """Create Marginal value raster."""
+import logging
+import sys
+
 import pygeoprocessing.multiprocessing
 import numpy
 
-from osgoe import gdal
+from osgeo import gdal
 
+
+gdal.SetCacheMax(2**27)
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format=(
+        '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
+        ' [%(funcName)s:%(lineno)d] %(message)s'),
+    stream=sys.stdout)
+
+LOGGER = logging.getLogger(__name__)
 
 scenario_raster_path = r'biomass_per_ha_stocks_restoration_mask.tif'
 base_raster_path = r'biomass_per_ha_stocks_ESA2014_mask.tif'
