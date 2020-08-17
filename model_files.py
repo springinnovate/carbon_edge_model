@@ -82,10 +82,16 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 
-def download_gs(base_uri, target_path):
+def download_gs(base_uri, target_path, skip_if_target_exists=False):
     """Download base to target."""
-    subprocess.run(
-        f'gsutil cp {base_uri} {target_path}', check=True, shell=True)
+    try:
+        if not(skip_if_target_exists and os.path.exists(target_path)):
+            subprocess.run(
+                f'gsutil cp {base_uri} {target_path}', check=True, shell=True)
+    except Exception:
+        LOGGER.exception(
+            f'exception during download of {base_uri} to {target_path}')
+        raise
 
 
 def fetch_data(data_dir, task_graph):
