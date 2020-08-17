@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     model_files.fetch_data(BASE_DATA_DIR, task_graph)
 
-    LOGGER.debug('all done!')
-
-    task_graph.join()
+    LOGGER.debug('closing and joining taskgraph')
     task_graph.close()
+    task_graph.join()
+    LOGGER.debug('all done!')
