@@ -34,7 +34,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     task_graph = taskgraph.TaskGraph(
-        BASE_DATA_DIR, multiprocessing.cpu_count(), 5.0)
+        BASE_DATA_DIR,
+        1, #multiprocessing.cpu_count(),
+        5.0)
 
     model_files.fetch_data(BASE_DATA_DIR, task_graph)
 
