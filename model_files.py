@@ -87,7 +87,7 @@ def download_gs(base_uri, target_path, skip_if_target_exists=False):
     try:
         if not(skip_if_target_exists and os.path.exists(target_path)):
             subprocess.run(
-                f'/usr/local/gcloud-sdk/google-cloud-sdk/bin/gsutil cp'
+                f'/usr/local/gcloud-sdk/google-cloud-sdk/bin/gsutil cp '
                 f'{base_uri} {target_path}',
                 check=True, shell=True)
     except Exception:
