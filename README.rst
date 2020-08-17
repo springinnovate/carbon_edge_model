@@ -36,7 +36,7 @@ data rather than re-download. These data can be found in the ``data``
 subdirectory of the workspace.
 
 (Additional Flags)
-*****************
+******************
 
  * ``--workspace_dir [local dir]`` override the default workspace directory
  * ``--co2`` calculate carbon stocks in CO2 instead of C.
