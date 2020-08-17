@@ -25,10 +25,10 @@ target_raster_path = r'marginal_value_restoration_biomass.tif'
 
 
 def diff(a, b, nodata):
-    result = numpy.empty_like(a)
+    result = numpy.empty(a.shape, dtype=numpy.float32)
     result[:] = nodata
-    nodata_mask = numpy.isclose(a, nodata) | numpy.isclose(b, nodata)
-    result[nodata_mask] = a[nodata_mask] - b[nodata_mask]
+    valid_mask = ~(numpy.isclose(a, nodata) | numpy.isclose(b, nodata))
+    result[valid_mask] = a[valid_mask] - b[valid_mask]
     return result
 
 
