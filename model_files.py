@@ -9,7 +9,7 @@ BASE_URL = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regressio
 BASE_URI = 'gs://ecoshard-root/global_carbon_regression/inputs'
 
 BACCINI_10s_2014_BIOMASS_URI = (
-    'gs://ecoshard-root/global_carbon_regression/inputs/'
+    'gs://ecoshard-root/global_carbon_regression/'
     'baccini_10s_2014_md5_5956a9d06d4dffc89517cefb0f6bb008.tif')
 
 CARBON_EDGE_MODEL_DATA_NODATA = [
