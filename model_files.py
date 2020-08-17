@@ -82,7 +82,6 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 
-@retrying.retry(wait_exponential_multiplier=1000, wait_exponential_max=10000)
 def download_gs(base_uri, target_path):
     """Download base to target."""
     subprocess.run(
