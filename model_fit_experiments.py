@@ -5,6 +5,7 @@ import logging
 import multiprocessing
 import os
 import sys
+import time
 
 from osgeo import gdal
 import numpy
@@ -68,6 +69,7 @@ def generate_sample_points(
     points_remaining = n_points
     valid_points = []
     LOGGER.debug(f'build {n_points}')
+    last_time = time.time()
     while points_remaining > 0:
         # from https://mathworld.wolfram.com/SpherePointPicking.html
         u = numpy.random.random((points_remaining,))
@@ -78,7 +80,9 @@ def generate_sample_points(
         valid_mask = numpy.abs(lat_arr) <= max_min_lat
 
         for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
-            LOGGER.debug(f'try {lng}/{lat}')
+            if time.time() - last_time:
+                LOGGER.debug(f'working... {points_remaining} left')
+                last_time = time.time()
             working_sample_list = []
             valid_working_list = True
             for band, nodata, nodata_replace, inv_gt in band_inv_gt_list:
