@@ -11,7 +11,7 @@ from osgeo import gdal
 import numpy
 import pygeoprocessing
 import retrying
-import sklearn
+from sklearn.linear_model import LinearRegression
 import taskgraph
 
 import model_files
@@ -46,9 +46,7 @@ def generate_sample_points(
             point.
 
     Returns:
-        List of (lng, lat, sample_list) where sample_list contains values
-            ordered from the dependent variable through the independent
-            variables.
+        Tuple of (lng_lat_list, X_vector, y_vector).
 
     """
     band_inv_gt_list = []
@@ -69,6 +67,8 @@ def generate_sample_points(
 
     points_remaining = n_points
     valid_points = []
+    X_vector = []
+    y_vector = []
     LOGGER.debug(f'build {n_points}')
     last_time = time.time()
     while points_remaining > 0:
@@ -100,7 +100,9 @@ def generate_sample_points(
             if valid_working_list:
                 points_remaining -= 1
                 valid_points.append((lng, lat, working_sample_list))
-    return valid_points
+                y_vector.append(working_sample_list[0]) # first element is dep
+                X_vector.append(working_sample_list[1:])
+    return valid_points, X_vector, y_vector
 
 
 if __name__ == '__main__':
@@ -132,11 +134,24 @@ if __name__ == '__main__':
     baccini_nodata = pygeoprocessing.get_raster_info(
         baccini_10s_2014_biomass_path)['nodata'][0]
 
-    sample_points = generate_sample_points(
+    lng_lat_list, X_vector, y_vector = generate_sample_points(
         args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
         raster_path_nodata_replacement_list,
         args.max_min_lat)
 
-    LOGGER.debug(f'generated {len(sample_points)}')
+    test_lng_lat_list, test_X_vector, test_y_vector = generate_sample_points(
+        args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
+        raster_path_nodata_replacement_list,
+        args.max_min_lat)
+
+    #(lng, lat, valid_points)
+
+    LOGGER.debug(f'generated {len(lng_lat_list)}')
+    reg = LinearRegression().fit(X_vector, y_vector)
+    LOGGER.info(
+        f'score: {reg.score(X_vector, y_vector)}\n'
+        f'coeff: {reg.coef_}\n'
+        f'y int: {reg.intercept_}\n'
+        f'validation score: {reg.score(test_X_vector, test_y_vector)}')
 
     LOGGER.debug('all done!')
