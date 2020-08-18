@@ -37,14 +37,15 @@ EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 MODEL_FIT_WORKSPACE = 'carbon_model'
 
 
-def generate_sample_points(
-        n_points, dependent_raster_path_nodata,
+def generate_sample_points_for_carbon_model(
+        baccini_raster_path_nodata,
+        forest_mask_raster_path,
         independent_raster_path_nodata_list, max_min_lat, seed=None):
     """Generate a set of lat/lng points that are evenly distributed.
 
     Args:
         n_points (int): number of points to sample
-        depedent_raster_path_nodata (tuple): tuple of path to dependent
+        baccini_raster_path_nodata (tuple): tuple of path to dependent
             variable raster with expected nodata value.
         independent_raster_path_nodata_list (list): list of
             (path, nodata, nodata_replace) tuples.
@@ -62,7 +63,8 @@ def generate_sample_points(
     raster_list = []
     LOGGER.debug("build band list")
     for raster_path, nodata, nodata_replace in [
-            dependent_raster_path_nodata + (None,)] + \
+            baccini_raster_path_nodata + (None,),
+            forest_mask_raster_path + (0, None)] + \
             independent_raster_path_nodata_list:
         raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
         raster_list.append(raster)
@@ -95,7 +97,8 @@ def generate_sample_points(
                 last_time = time.time()
             working_sample_list = []
             valid_working_list = True
-            for index, (raster_path, band, nodata, nodata_replace, inv_gt) in enumerate(band_inv_gt_list):
+            for index, (raster_path, band, nodata, nodata_replace, inv_gt) in \
+                    enumerate(band_inv_gt_list):
                 x, y = [int(v) for v in gdal.ApplyGeoTransform(
                     inv_gt, lng, lat)]
                 val = band.ReadAsArray(x, y, 1, 1)[0, 0]
@@ -110,8 +113,9 @@ def generate_sample_points(
             if valid_working_list:
                 points_remaining -= 1
                 valid_points.append((lng, lat, working_sample_list))
-                y_vector.append(working_sample_list[0]) # first element is dep
-                X_vector.append(working_sample_list[1:])
+                y_vector.append(working_sample_list[0])  # first element is dep
+                # second element is forest mask -- don't include it
+                X_vector.append(working_sample_list[2:])
     return valid_points, X_vector, y_vector
 
 
@@ -149,24 +153,20 @@ if __name__ == '__main__':
     baccini_nodata = pygeoprocessing.get_raster_info(
         baccini_10s_2014_biomass_path)['nodata'][0]
 
-    base_data_task = task_graph.add_task(
-        func=generate_sample_points,
-        args=(
-            args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
-            raster_path_nodata_replacement_list + convolution_raster_list,
-            args.max_min_lat),
-        kwargs={'seed': 1},
-        task_name='predict with seed 1')
+    forest_mask_raster_path = os.path.join(BASE_DATA_DIR, 'forest_mask.tif')
 
-    validation_data_task = task_graph.add_task(
-        func=generate_sample_points,
-        args=(
-            args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
-            raster_path_nodata_replacement_list + convolution_raster_list,
-            args.max_min_lat),
-        kwargs={'seed': 2},
-        task_name='valid set with seed 2')
-    #(lng, lat, valid_points)
+    point_task_dict = {}
+    for seed_val, data_type in [(1, 'training'), (2, 'validation')]:
+        generate_point_task = task_graph.add_task(
+            func=generate_sample_points_for_carbon_model,
+            args=(
+                args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
+                forest_mask_raster_path,
+                raster_path_nodata_replacement_list + convolution_raster_list,
+                args.max_min_lat),
+            kwargs={'seed': seed_val},
+            task_name=f'predict with seed {seed_val}')
+        point_task_dict[data_type] = generate_point_task
 
     LOGGER.debug('fit model')
     models_to_test = [
@@ -180,9 +180,9 @@ if __name__ == '__main__':
 
     for model_name, model_object in models_to_test:
         LOGGER.info(f'fitting {model_name} model')
-        _, X_vector, y_vector = base_data_task.get()
+        _, X_vector, y_vector = point_task_dict['training'].get()
         model = model_object.fit(X_vector, y_vector)
-        _, valid_X_vector, valid_y_vector = validation_data_task.get()
+        _, valid_X_vector, valid_y_vector = point_task_dict['validation'].get()
         LOGGER.debug(f'validate {model_name}')
         LOGGER.info(
             f'R^2 fit: {model.score(X_vector, y_vector)}\n'
