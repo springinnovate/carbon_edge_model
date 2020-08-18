@@ -80,7 +80,7 @@ def generate_sample_points(
         valid_mask = numpy.abs(lat_arr) <= max_min_lat
 
         for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
-            if time.time() - last_time:
+            if time.time() - last_time > 5.0:
                 LOGGER.debug(f'working... {points_remaining} left')
                 last_time = time.time()
             working_sample_list = []
