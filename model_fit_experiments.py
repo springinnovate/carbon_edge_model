@@ -29,7 +29,7 @@ BASE_DATA_DIR = 'base_data_no_humans_please'
 MODEL_FIT_WORKSPACE = 'carbon_model'
 
 
-def generate_sample_points(n_points, valid_raster_path, max_min_lat=40):
+def generate_sample_points(n_points, valid_raster_path, max_min_lat):
     """Generate a set of lat/lng points that are evenly distributed."""
     raster = gdal.OpenEx(valid_raster_path, gdal.OF_RASTER)
     band = raster.GetRasterBand(1)
@@ -61,8 +61,12 @@ def generate_sample_points(n_points, valid_raster_path, max_min_lat=40):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Model maker')
     parser.add_argument(
-        '--raster_directory', help=(
+        '--raster_directory', required=True, help=(
             'Path to directory containing rasters to build a model from'))
+    parser.add_argument(
+        '--n_points', required=True, help='Number of points to sample')
+    parser.add_argument(
+        '--max_min_lat', default=40, help='Min/max lat to cutoff')
     args = parser.parse_args()
 
     task_graph = taskgraph.TaskGraph(
@@ -77,7 +81,8 @@ if __name__ == '__main__':
 
     baccini_10s_2014_biomass_path = os.path.join(
         BASE_DATA_DIR, os.path.basename(model_files.BACCINI_10s_2014_BIOMASS_URI))
-    sample_points = generate_sample_points(30, baccini_10s_2014_biomass_path)
+    sample_points = generate_sample_points(
+        args.n_points, baccini_10s_2014_biomass_path, args.max_min_lat)
 
     LOGGER.debug(sample_points)
 
