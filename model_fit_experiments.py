@@ -137,6 +137,6 @@ if __name__ == '__main__':
         raster_path_nodata_replacement_list,
         args.max_min_lat)
 
-    LOGGER.debug(sample_points)
+    LOGGER.debug(f'generated {len(sample_points)}')
 
     LOGGER.debug('all done!')
