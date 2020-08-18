@@ -176,8 +176,8 @@ if __name__ == '__main__':
     poly = PolynomialFeatures(3)
     models_to_test = [
         #('linear regression', LinearRegression),
-        ('LassoLarsCV', LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)),
         ('LassoLarsIC', LassoLarsIC(n_jobs=-1, max_iter=100000, verbose=True)),
+        ('LassoLarsCV', LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)),
         #('lasso', Lasso),
         #('lasso CV', LassoCV),
         #('ridge', Ridge),
@@ -200,11 +200,12 @@ if __name__ == '__main__':
             model.coef_, poly.get_feature_names(feature_name_list)),
             key=lambda v: abs(v[0]))
         LOGGER.info(
+            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list])
             f'R^2 fit: {model.score(X_vector, y_vector)}\n'
             f'''validation data R^2: {
                 model.score(poly.transform(valid_X_vector), valid_y_vector)}'''
             f'y int: {model.intercept_}\n'
-            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list]))
+            )
 
     task_graph.close()
     task_graph.join()
