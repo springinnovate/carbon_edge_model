@@ -173,12 +173,12 @@ if __name__ == '__main__':
     LOGGER.debug('fit model')
     models_to_test = [
         #('linear regression', LinearRegression),
-        ('lasso lars CV', LassoLarsCV(n_jobs=-1, max_iter=5000, verbose=True)),
+        ('lasso lars CV', LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)),
         #('lasso', Lasso),
         #('lasso CV', LassoCV),
         #('ridge', Ridge),
-        ('ridge CV', RidgeCV(normalize=True)),
-        ('SGDRegressor', SGDRegressor(max_iter=10000, verbose=True,)),
+        #('ridge CV', RidgeCV(normalize=True)),
+        #('SGDRegressor', SGDRegressor(max_iter=10000, verbose=True,)),
         ]
 
     for model_name, model_object in models_to_test:
