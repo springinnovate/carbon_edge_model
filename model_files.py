@@ -5,6 +5,7 @@ import subprocess
 
 import numpy
 import pygeoprocessing
+import pygeoprocessing.multiprocessing
 import retrying
 import scipy
 
