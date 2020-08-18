@@ -33,7 +33,7 @@ logging.basicConfig(
     stream=sys.stdout)
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger('taskgraph').setLevel(logging.INFO)
+logging.getLogger('taskgraph').setLevel(logging.WARN)
 
 BASE_DATA_DIR = 'base_data_no_humans_please'
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
@@ -176,7 +176,7 @@ if __name__ == '__main__':
     poly = PolynomialFeatures(3)
     models_to_test = [
         #('linear regression', LinearRegression),
-        ('LassoLarsIC', LassoLarsIC(n_jobs=-1, max_iter=100000, verbose=True)),
+        ('LassoLarsIC', LassoLarsIC(max_iter=100000, verbose=True)),
         ('LassoLarsCV', LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)),
         #('lasso', Lasso),
         #('lasso CV', LassoCV),
