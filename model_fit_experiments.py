@@ -197,7 +197,7 @@ if __name__ == '__main__':
             f'R^2 fit: {model.score(X_vector, y_vector)}\n'
             f'''validation data R^2: {
                 model.score(valid_X_vector, valid_y_vector)}'''
-            f"coeff: {'\n'.join([str(x) for x in coeff_id_list])}\n"
+            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list]) +
             f'y int: {model.intercept_}\n')
 
     task_graph.close()
