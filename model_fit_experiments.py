@@ -108,7 +108,9 @@ if __name__ == '__main__':
 
     raster_path_nodata_replacement_list = (
         model_files.fetch_data(BASE_DATA_DIR, task_graph))
+    LOGGER.debug(f'raster files: {raster_path_nodata_replacement_list}')
     LOGGER.debug('closing and joining taskgraph')
+
     task_graph.close()
     task_graph.join()
 
