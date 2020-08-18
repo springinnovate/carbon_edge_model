@@ -65,7 +65,7 @@ def generate_sample_points_for_carbon_model(
     LOGGER.debug("build band list")
     for raster_path, nodata, nodata_replace in [
             baccini_raster_path_nodata + (None,),
-            forest_mask_raster_path + (0, None)] + \
+            (forest_mask_raster_path, 0, None)] + \
             independent_raster_path_nodata_list:
         raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
         raster_list.append(raster)
