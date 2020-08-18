@@ -61,9 +61,11 @@ def generate_sample_points(n_points, valid_raster_path, max_min_lat):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Model maker')
     parser.add_argument(
-        '--n_points', required=True, help='Number of points to sample')
+        '--n_points', type=int, required=True,
+        help='Number of points to sample')
     parser.add_argument(
-        '--max_min_lat', default=40, help='Min/max lat to cutoff')
+        '--max_min_lat', type=float, default=40.0,
+        help='Min/max lat to cutoff')
     args = parser.parse_args()
 
     task_graph = taskgraph.TaskGraph(
