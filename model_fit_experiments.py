@@ -33,7 +33,7 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 BASE_DATA_DIR = 'base_data_no_humans_please'
-
+EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 MODEL_FIT_WORKSPACE = 'carbon_model'
 
 
@@ -46,8 +46,8 @@ def generate_sample_points(
         n_points (int): number of points to sample
         depedent_raster_path_nodata (tuple): tuple of path to dependent
             variable raster with expected nodata value.
-        independent_raster_path_nodata_list (list): list of (path, nodata)
-            tuples.
+        independent_raster_path_nodata_list (list): list of
+            (path, nodata, nodata_replace) tuples.
         max_min_lat (float): absolute maximum latitude allowed in a sampled
             point.
         seed (int): seed for randomization
@@ -133,7 +133,14 @@ if __name__ == '__main__':
     raster_path_nodata_replacement_list = (
         model_files.fetch_data(BASE_DATA_DIR, task_graph))
     LOGGER.debug(f'raster files: {raster_path_nodata_replacement_list}')
-    LOGGER.debug('closing and joining taskgraph')
+    task_graph.join()
+
+    LOGGER.debug('create convolutions')
+    esa_lulc_raster_path = os.path.join(
+        BASE_DATA_DIR, os.path.basename(model_files.ESA_LULC_URI))
+    convolution_raster_list = model_files.create_convolutions(
+        task_graph, esa_lulc_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
+        BASE_DATA_DIR)
 
     task_graph.join()
 
@@ -147,7 +154,7 @@ if __name__ == '__main__':
         func=generate_sample_points,
         args=(
             args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
-            raster_path_nodata_replacement_list,
+            raster_path_nodata_replacement_list + convolution_raster_list,
             args.max_min_lat),
         kwargs={'seed': 1},
         task_name='predict with seed 1')
@@ -156,7 +163,7 @@ if __name__ == '__main__':
         func=generate_sample_points,
         args=(
             args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
-            raster_path_nodata_replacement_list,
+            raster_path_nodata_replacement_list + convolution_raster_list,
             args.max_min_lat),
         kwargs={'seed': 2},
         task_name='valid set with seed 2')
