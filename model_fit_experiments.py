@@ -101,6 +101,7 @@ def generate_sample_points(
                     break
             if valid_working_list:
                 points_remaining -= 1
+                LOGGER.debug(f'valid!')
                 valid_points.append((lng, lat, working_sample_list))
     return valid_points
 
