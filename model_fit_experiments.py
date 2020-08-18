@@ -178,7 +178,7 @@ if __name__ == '__main__':
         #('lasso CV', LassoCV),
         #('ridge', Ridge),
         ('ridge CV', RidgeCV(normalize=True)),
-        ('SGDRegressor', SGDRegressor(max_iterint=10000, verbose=True,)),
+        ('SGDRegressor', SGDRegressor(max_iter=10000, verbose=True,)),
         ]
 
     for model_name, model_object in models_to_test:
