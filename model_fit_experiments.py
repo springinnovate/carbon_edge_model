@@ -194,7 +194,7 @@ if __name__ == '__main__':
     for model_name, model_object in models_to_test:
         LOGGER.info(f'fitting {model_name} model')
         _, X_vector, y_vector = point_task_dict['training'].get()
-        model = model_object.fit(poly.transform(X_vector), y_vector)
+        model = model_object.fit(poly.fit_transform(X_vector), y_vector)
         _, valid_X_vector, valid_y_vector = point_task_dict['validation'].get()
         coeff_id_list = sorted(zip(
             model.coef_, poly.get_feature_names(feature_name_list)),
