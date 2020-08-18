@@ -34,6 +34,8 @@ def generate_sample_points(n_points, valid_raster_path, max_min_lat=40):
     raster = gdal.OpenEx(valid_raster_path, gdal.OF_RASTER)
     band = raster.GetRasterBand(1)
     nodata = band.GetNoDataValue()
+    gt = raster.GetGeoTransform()
+    inv_gt = gdal.InvGeoTransform(gt)
 
     points_remaining = n_points
     valid_points = []
@@ -45,7 +47,14 @@ def generate_sample_points(n_points, valid_raster_path, max_min_lat=40):
         lng_arr = (2.0 * numpy.pi * u) * 180/numpy.pi - 180
         lat_arr = numpy.arccos(2*v-1) * 180/numpy.pi
         valid_mask = numpy.abs(lat_arr) <= max_min_lat
-        valid_points.extend(zip(lng_arr[valid_mask], lat_arr[valid_mask]))
+
+        for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
+            x, y = [int(v) for v in gdal.ApplyGeoTransform(inv_gt, lng, lat)]
+            val = band.ReadAsArray(x, y, 1, 1)[0, 0]
+            if val != nodata:
+                valid_points.append((lng, lat))
+
+        valid_points.extend()
         points_remaining -= numpy.count_nonzero(valid_mask)
     return valid_points
 
