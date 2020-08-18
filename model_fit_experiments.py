@@ -13,11 +13,13 @@ import pygeoprocessing
 import retrying
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LassoLarsCV
+from sklearn.linear_model import LassoLarsIC
 from sklearn.linear_model import Lasso
 from sklearn.linear_model import LassoCV
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import RidgeCV
 from sklearn.linear_model import SGDRegressor
+from sklearn.preprocessing import PolynomialFeatures
 
 import taskgraph
 
@@ -171,9 +173,11 @@ if __name__ == '__main__':
         point_task_dict[data_type] = generate_point_task
 
     LOGGER.debug('fit model')
+    poly = PolynomialFeatures(3)
     models_to_test = [
         #('linear regression', LinearRegression),
-        ('lasso lars CV', LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)),
+        ('LassoLarsCV', LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)),
+        ('LassoLarsIC', LassoLarsIC(n_jobs=-1, max_iter=100000, verbose=True)),
         #('lasso', Lasso),
         #('lasso CV', LassoCV),
         #('ridge', Ridge),
@@ -181,25 +185,26 @@ if __name__ == '__main__':
         #('SGDRegressor', SGDRegressor(max_iter=10000, verbose=True,)),
         ]
 
+    feature_name_list = [
+            os.path.basename(os.path.splitext(path_ndr[0])[0])
+            for path_ndr in (
+                raster_path_nodata_replacement_list +
+                convolution_raster_list)]
+
     for model_name, model_object in models_to_test:
         LOGGER.info(f'fitting {model_name} model')
         _, X_vector, y_vector = point_task_dict['training'].get()
-        model = model_object.fit(X_vector, y_vector)
+        model = model_object.fit(poly.transform(X_vector), y_vector)
         _, valid_X_vector, valid_y_vector = point_task_dict['validation'].get()
-        coeff_id_list = sorted([
-            (coeff, os.path.basename(os.path.splitext(path_ndr[0])[0]))
-            for coeff, path_ndr in zip(
-                model.coef_,
-                raster_path_nodata_replacement_list +
-                convolution_raster_list)], reverse=True,
+        coeff_id_list = sorted(zip(
+            model.coef_, poly.get_feature_names(feature_name_list)),
             key=lambda v: abs(v[0]))
-        LOGGER.debug(f'validate {model_name}')
         LOGGER.info(
             f'R^2 fit: {model.score(X_vector, y_vector)}\n'
             f'''validation data R^2: {
-                model.score(valid_X_vector, valid_y_vector)}'''
-            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list]) +
-            f'y int: {model.intercept_}\n')
+                model.score(poly.transform(valid_X_vector), valid_y_vector)}'''
+            f'y int: {model.intercept_}\n'
+            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list]))
 
     task_graph.close()
     task_graph.join()
