@@ -104,21 +104,22 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 
-def _reclassify_vals_op(array, mask_values):
+def _reclassify_vals_op(array, array_nodata, mask_values):
     """Set values 1d array/array to nodata unless `inverse` then opposite."""
-    result = numpy.empty(array.shape, dtype=numpy.uint8)
-    result[:] = MASK_NODATA  # default is '4 -- other'
-    for mask_id, code_list in mask_values:
+    result = numpy.zeros(array.shape, dtype=numpy.uint8)
+    result[numpy.isclose(array, array_nodata)] = MASK_NODATA
+    for code_list in mask_values:
         mask_array = numpy.in1d(array, code_list).reshape(result.shape)
-        result[mask_array] = mask_id
+        result[mask_array] = 1
     return result
 
 
 def create_mask(base_raster_path, mask_values, target_raster_path):
     """Create a mask of base raster where in `mask_values` it's 1, else 0."""
     # reclassify clipped file as the output file
+    nodata = pygeoprocessing.get_raster_info(base_raster_path)['nodata'][0]
     pygeoprocessing.multiprocessing.raster_calculator(
-        [(base_raster_path, 1), (mask_values, 'raw')],
+        [(base_raster_path, 1), (nodata, 'raw'), (mask_values, 'raw')],
         _reclassify_vals_op, target_raster_path, gdal.GDT_Byte, None)
 
 
