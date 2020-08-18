@@ -84,7 +84,7 @@ def generate_sample_points(
                 x, y = [int(v) for v in gdal.ApplyGeoTransform(
                     inv_gt, lng, lat)]
                 val = band.ReadAsArray(x, y, 1, 1)[0, 0]
-                if not numpy.isclose(val, nodata):
+                if nodata is None or not numpy.isclose(val, nodata):
                     working_sample_list.append(val)
                 elif nodata_replace is not None:
                     working_sample_list.append(nodata_replace)
