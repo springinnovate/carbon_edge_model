@@ -111,13 +111,6 @@ def fetch_data(data_dir, task_graph):
         List of (file_path, nodata, nodata_replacement) tuples.
 
     """
-    files_to_download = [
-        os.path.join(BASE_URI, path)
-        for path, nodata in CARBON_EDGE_MODEL_DATA_NODATA] + [
-            BACCINI_10s_2014_BIOMASS_URI]
-
-    LOGGER.debug(f'here are the files to download: {files_to_download}')
-
     try:
         os.makedirs(data_dir)
     except OSError:
