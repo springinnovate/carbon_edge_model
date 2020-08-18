@@ -107,7 +107,8 @@ logging.getLogger('taskgraph').setLevel(logging.INFO)
 def _reclassify_vals_op(array, array_nodata, mask_values):
     """Set values 1d array/array to nodata unless `inverse` then opposite."""
     result = numpy.zeros(array.shape, dtype=numpy.uint8)
-    result[numpy.isclose(array, array_nodata)] = MASK_NODATA
+    if array_nodata is not None:
+        result[numpy.isclose(array, array_nodata)] = MASK_NODATA
     for code_list in mask_values:
         mask_array = numpy.in1d(array, code_list).reshape(result.shape)
         result[mask_array] = 1
