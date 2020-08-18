@@ -38,6 +38,7 @@ MODEL_FIT_WORKSPACE = 'carbon_model'
 
 
 def generate_sample_points_for_carbon_model(
+        n_points,
         baccini_raster_path_nodata,
         forest_mask_raster_path,
         independent_raster_path_nodata_list, max_min_lat, seed=None):
