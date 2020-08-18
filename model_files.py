@@ -13,70 +13,70 @@ BACCINI_10s_2014_BIOMASS_URI = (
     'baccini_10s_2014_md5_5956a9d06d4dffc89517cefb0f6bb008.tif')
 
 CARBON_EDGE_MODEL_DATA_NODATA = [
-    ('accessibility_to_cities_2015_30sec.tif', -9999),
-    ('ACDWRB_10sec.tif', 255),
-    ('altitude_10sec.tif', None),
-    ('AWCh1_10sec.tif', 255),
-    ('AWCh2_10sec.tif', 255),
-    ('AWCh3_10sec.tif', 255),
-    ('AWCtS_10sec.tif', 255),
-    ('bdod_10sec.tif', 0),
-    ('BDRICM_10sec.tif', 255),
-    ('BDRLOG_10sec.tif', 255),
-    ('BDTICM_10sec.tif', 9999),
-    ('bio_01_30sec.tif', -9999),
-    ('bio_02_30sec.tif', -9999),
-    ('bio_03_30sec.tif', -9999),
-    ('bio_04_30sec.tif', -9999),
-    ('bio_05_30sec.tif', -9999),
-    ('bio_06_30sec.tif', -9999),
-    ('bio_07_30sec.tif', -9999),
-    ('bio_08_30sec.tif', -9999),
-    ('bio_09_30sec.tif', -9999),
-    ('bio_10_30sec.tif', -9999),
-    ('bio_11_30sec.tif', -9999),
-    ('bio_12_30sec.tif', -9999),
-    ('bio_13_30sec.tif', -9999),
-    ('bio_14_30sec.tif', -9999),
-    ('bio_15_30sec.tif', -9999),
-    ('bio_16_30sec.tif', -9999),
-    ('bio_17_30sec.tif', -9999),
-    ('bio_18_30sec.tif', -9999),
-    ('bio_19_30sec.tif', -9999),
-    ('BLDFIE_10sec.tif', 9999),
-    ('cfvo_10sec.tif', -9999),
-    ('clay_10sec.tif', -9999),
-    ('CLYPPT_10sec.tif', 255),
-    ('CRFVOL_10sec.tif', 255),
-    ('hillshade_10sec.tif', 181),
-    ('HISTPR_10sec.tif', 255),
-    ('livestock_Bf_2010_5min.tif', -9999),
-    ('livestock_Ch_2010_5min.tif', -1.7e308),
-    ('livestock_Ct_2010_5min.tif', -1.7e308),
-    ('livestock_Dk_2010_5min.tif', -1.7e308),
-    ('livestock_Gt_2010_5min.tif', -1.7e308),
-    ('livestock_Ho_2010_5min.tif', -1.7e308),
-    ('livestock_Pg_2010_5min.tif', -1.7e308),
-    ('livestock_Sh_2010_5min.tif', -1.7e308),
-    ('ndvcec015_10sec.tif', 0),
-    ('night_lights_10sec.tif', None),
-    ('night_lights_5min.tif', None),
-    ('nitrogen_10sec.tif', -9999),
-    ('ocd_10sec.tif', -9999),
-    ('OCDENS_10sec.tif', 9999),
-    ('ocs_10sec.tif', -9999),
-    ('OCSTHA_10sec.tif', 9999),
-    ('phh2o_10sec.tif', -9999),
-    ('PHIHOX_10sec.tif', 255),
-    ('PHIKCL_10sec.tif', 255),
-    ('population_2015_30sec.tif', 3.4028235e+38),
-    ('population_2015_5min.tif', 3.4028235e+38),
-    ('sand_10sec.tif', -9999),
-    ('silt_10sec.tif', -9999),
-    ('slope_10sec.tif', None),
-    ('soc_10sec.tif', -9999),
-    ('tri_10sec.tif', 0),
-    ('wind_speed_10sec.tif', -999),
+    ('accessibility_to_cities_2015_30sec.tif', -9999, None),
+    ('ACDWRB_10sec.tif', 255, None),
+    ('altitude_10sec.tif', None, None),
+    ('AWCh1_10sec.tif', 255, None),
+    ('AWCh2_10sec.tif', 255, None),
+    ('AWCh3_10sec.tif', 255, None),
+    ('AWCtS_10sec.tif', 255, None),
+    ('bdod_10sec.tif', 0, None),
+    ('BDRICM_10sec.tif', 255, None),
+    ('BDRLOG_10sec.tif', 255, None),
+    ('BDTICM_10sec.tif', 9999, None),
+    ('bio_01_30sec.tif', -9999, None),
+    ('bio_02_30sec.tif', -9999, None),
+    ('bio_03_30sec.tif', -9999, None),
+    ('bio_04_30sec.tif', -9999, None),
+    ('bio_05_30sec.tif', -9999, None),
+    ('bio_06_30sec.tif', -9999, None),
+    ('bio_07_30sec.tif', -9999, None),
+    ('bio_08_30sec.tif', -9999, None),
+    ('bio_09_30sec.tif', -9999, None),
+    ('bio_10_30sec.tif', -9999, None),
+    ('bio_11_30sec.tif', -9999, None),
+    ('bio_12_30sec.tif', -9999, None),
+    ('bio_13_30sec.tif', -9999, None),
+    ('bio_14_30sec.tif', -9999, None),
+    ('bio_15_30sec.tif', -9999, None),
+    ('bio_16_30sec.tif', -9999, None),
+    ('bio_17_30sec.tif', -9999, None),
+    ('bio_18_30sec.tif', -9999, None),
+    ('bio_19_30sec.tif', -9999, None),
+    ('BLDFIE_10sec.tif', 9999, None),
+    ('cfvo_10sec.tif', -9999, None),
+    ('clay_10sec.tif', -9999, None),
+    ('CLYPPT_10sec.tif', 255, None),
+    ('CRFVOL_10sec.tif', 255, None),
+    ('hillshade_10sec.tif', 181, None),
+    ('HISTPR_10sec.tif', 255, None),
+    ('livestock_Bf_2010_5min.tif', -9999, 0.0),
+    ('livestock_Ch_2010_5min.tif', -1.7e308, 0.0),
+    ('livestock_Ct_2010_5min.tif', -1.7e308, 0.0),
+    ('livestock_Dk_2010_5min.tif', -1.7e308, 0.0),
+    ('livestock_Gt_2010_5min.tif', -1.7e308, 0.0),
+    ('livestock_Ho_2010_5min.tif', -1.7e308, 0.0),
+    ('livestock_Pg_2010_5min.tif', -1.7e308, 0.0),
+    ('livestock_Sh_2010_5min.tif', -1.7e308, 0.0),
+    ('ndvcec015_10sec.tif', 0, None),
+    ('night_lights_10sec.tif', None, None),
+    ('night_lights_5min.tif', None, None),
+    ('nitrogen_10sec.tif', -9999, None),
+    ('ocd_10sec.tif', -9999, None),
+    ('OCDENS_10sec.tif', 9999, None),
+    ('ocs_10sec.tif', -9999, None),
+    ('OCSTHA_10sec.tif', 9999, None),
+    ('phh2o_10sec.tif', -9999, None),
+    ('PHIHOX_10sec.tif', 255, None),
+    ('PHIKCL_10sec.tif', 255, None),
+    ('population_2015_30sec.tif', 3.4028235e+38, 0.0),
+    ('population_2015_5min.tif', 3.4028235e+38, 0.0),
+    ('sand_10sec.tif', -9999, None),
+    ('silt_10sec.tif', -9999, None),
+    ('slope_10sec.tif', None, None),
+    ('soc_10sec.tif', -9999, None),
+    ('tri_10sec.tif', 0, None),
+    ('wind_speed_10sec.tif', -999, None),
 ]
 
 LOGGER = logging.getLogger(__name__)
@@ -108,12 +108,12 @@ def fetch_data(data_dir, task_graph):
         task_graph (TaskGraph): taskgraph object to schedule work.
 
     Returns:
-        None.
+        List of (file_path, nodata, nodata_replacement) tuples.
 
     """
     files_to_download = [
         os.path.join(BASE_URI, path)
-        for path, _ in CARBON_EDGE_MODEL_DATA_NODATA] + [
+        for path, nodata in CARBON_EDGE_MODEL_DATA_NODATA] + [
             BACCINI_10s_2014_BIOMASS_URI]
 
     LOGGER.debug(f'here are the files to download: {files_to_download}')
@@ -123,7 +123,10 @@ def fetch_data(data_dir, task_graph):
     except OSError:
         pass
 
-    for file_uri in files_to_download:
+    downloaded_file_list = []
+    for file_uri, nodata, nodata_replacement in \
+            CARBON_EDGE_MODEL_DATA_NODATA + [
+                (BACCINI_10s_2014_BIOMASS_URI, None, None)]:
         target_file_path = os.path.join(
             data_dir, os.path.basename(file_uri))
         _ = task_graph.add_task(
@@ -132,5 +135,9 @@ def fetch_data(data_dir, task_graph):
             kwargs={'skip_if_target_exists': True},
             target_path_list=[target_file_path],
             task_name=f'download {file_uri} to {data_dir}')
+        if file_uri != BACCINI_10s_2014_BIOMASS_URI:
+            downloaded_file_list.append(
+                (target_file_path, nodata, nodata_replacement))
 
     task_graph.join()
+    return downloaded_file_list

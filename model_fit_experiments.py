@@ -8,6 +8,7 @@ import sys
 
 from osgeo import gdal
 import numpy
+import pygeoprocessing
 import retrying
 import sklearn
 import taskgraph
@@ -29,13 +30,37 @@ BASE_DATA_DIR = 'base_data_no_humans_please'
 MODEL_FIT_WORKSPACE = 'carbon_model'
 
 
-def generate_sample_points(n_points, valid_raster_path, max_min_lat):
-    """Generate a set of lat/lng points that are evenly distributed."""
-    raster = gdal.OpenEx(valid_raster_path, gdal.OF_RASTER)
-    band = raster.GetRasterBand(1)
-    nodata = band.GetNoDataValue()
-    gt = raster.GetGeoTransform()
-    inv_gt = gdal.InvGeoTransform(gt)
+def generate_sample_points(
+        n_points, dependent_raster_path_nodata,
+        independent_raster_path_nodata_list, max_min_lat):
+    """Generate a set of lat/lng points that are evenly distributed.
+
+    Args:
+        n_points (int): number of points to sample
+        depedent_raster_path_nodata (tuple): tuple of path to dependent
+            variable raster with expected nodata value.
+        independent_raster_path_nodata_list (list): list of (path, nodata)
+            tuples.
+        max_min_lat (float): absolute maximum latitude allowed in a sampled
+            point.
+
+    Returns:
+        List of (lng, lat, sample_list) where sample_list contains values
+            ordered from the dependent variable through the independent
+            variables.
+
+    """
+    band_inv_gt_list = []
+    for raster_path, nodata, nodata_replace in [
+            dependent_raster_path_nodata + (None,)] + \
+            independent_raster_path_nodata_list:
+        raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
+        band = raster.GetRasterBand(1)
+        gt = raster.GetGeoTransform()
+        inv_gt = gdal.InvGeoTransform(gt)
+        band_inv_gt_list.append((band, nodata, nodata_replace, inv_gt))
+        raster = None
+        band = None
 
     points_remaining = n_points
     valid_points = []
@@ -49,12 +74,20 @@ def generate_sample_points(n_points, valid_raster_path, max_min_lat):
         valid_mask = numpy.abs(lat_arr) <= max_min_lat
 
         for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
-            x, y = [int(v) for v in gdal.ApplyGeoTransform(inv_gt, lng, lat)]
-            val = band.ReadAsArray(x, y, 1, 1)[0, 0]
-            if val != nodata:
-                valid_points.append((lng, lat))
+            working_sample_list = []
+            for band, nodata, nodata_replace, inv_gt in band_inv_gt_list:
+                x, y = [int(v) for v in gdal.ApplyGeoTransform(
+                    inv_gt, lng, lat)]
+                val = band.ReadAsArray(x, y, 1, 1)[0, 0]
+                if not numpy.isclose(val, nodata):
+                    working_sample_list.append(val)
+                elif nodata_replace is not None:
+                    working_sample_list.append(nodata_replace)
+                else:
+                    # nodata value, skip
+                    continue
                 points_remaining -= 1
-
+            valid_points.append((lng, lat, working_sample_list))
     return valid_points
 
 
@@ -73,15 +106,22 @@ if __name__ == '__main__':
         -1,
         5.0)
 
-    model_files.fetch_data(BASE_DATA_DIR, task_graph)
+    raster_path_nodata_replacement_list = (
+        model_files.fetch_data(BASE_DATA_DIR, task_graph))
     LOGGER.debug('closing and joining taskgraph')
     task_graph.close()
     task_graph.join()
 
     baccini_10s_2014_biomass_path = os.path.join(
-        BASE_DATA_DIR, os.path.basename(model_files.BACCINI_10s_2014_BIOMASS_URI))
+        BASE_DATA_DIR, os.path.basename(
+            model_files.BACCINI_10s_2014_BIOMASS_URI))
+    baccini_nodata = pygeoprocessing.get_raster_info(
+        baccini_10s_2014_biomass_path)['nodata'][0]
+
     sample_points = generate_sample_points(
-        args.n_points, baccini_10s_2014_biomass_path, args.max_min_lat)
+        args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
+        raster_path_nodata_replacement_list,
+        args.max_min_lat)
 
     LOGGER.debug(sample_points)
 
