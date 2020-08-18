@@ -51,11 +51,13 @@ def generate_sample_points(
 
     """
     band_inv_gt_list = []
+    raster_list = []
     LOGGER.debug("build band list")
     for raster_path, nodata, nodata_replace in [
             dependent_raster_path_nodata + (None,)] + \
             independent_raster_path_nodata_list:
         raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
+        raster_list.append(raster)
         band = raster.GetRasterBand(1)
         gt = raster.GetGeoTransform()
         inv_gt = gdal.InvGeoTransform(gt)
