@@ -186,13 +186,19 @@ if __name__ == '__main__':
         _, X_vector, y_vector = point_task_dict['training'].get()
         model = model_object.fit(X_vector, y_vector)
         _, valid_X_vector, valid_y_vector = point_task_dict['validation'].get()
+        coeff_id_list = sorted([
+            (coeff, os.path.basename(os.path.splitext(path_ndr[0])[0]))
+            for coeff, path_ndr in zip(
+                model.coef_,
+                raster_path_nodata_replacement_list +
+                convolution_raster_list)])
         LOGGER.debug(f'validate {model_name}')
         LOGGER.info(
             f'R^2 fit: {model.score(X_vector, y_vector)}\n'
-            f'coeff: {model.coef_}\n'
-            f'y int: {model.intercept_}\n'
-            f'validation data R^2: {
-                model.score(valid_X_vector, valid_y_vector)}')
+            f'''validation data R^2: {
+                model.score(valid_X_vector, valid_y_vector)}'''
+            f"coeff: {'\n'.join([str(x) for x in coeff_id_list])}\n"
+            f'y int: {model.intercept_}\n')
 
     task_graph.close()
     task_graph.join()
