@@ -201,7 +201,7 @@ if __name__ == '__main__':
             key=lambda v: abs(v[0]))
         LOGGER.info(
             f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list]) +
-            f'R^2 fit: {model.score(X_vector, y_vector)}\n'
+            f'R^2 fit: {model.score(poly.fit_transform(X_vector), y_vector)}\n'
             f'''validation data R^2: {
                 model.score(poly.fit_transform(valid_X_vector), valid_y_vector)}'''
             f'y int: {model.intercept_}\n'
