@@ -82,7 +82,6 @@ def generate_sample_points(
 
         for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
             if time.time() - last_time > 5.0:
-                LOGGER.debug(f'working... {points_remaining} left')
                 last_time = time.time()
             working_sample_list = []
             valid_working_list = True
@@ -97,11 +96,9 @@ def generate_sample_points(
                 else:
                     # nodata value, skip
                     valid_working_list = False
-                    LOGGER.debug(f'invalid on index {index}')
                     break
             if valid_working_list:
                 points_remaining -= 1
-                LOGGER.debug(f'valid!')
                 valid_points.append((lng, lat, working_sample_list))
     return valid_points
 
