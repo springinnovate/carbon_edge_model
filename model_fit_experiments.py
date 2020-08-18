@@ -173,7 +173,7 @@ if __name__ == '__main__':
         point_task_dict[data_type] = generate_point_task
 
     LOGGER.debug('fit model')
-    poly = PolynomialFeatures(3)
+    poly = PolynomialFeatures(2)
     models_to_test = [
         #('linear regression', LinearRegression),
         #('LassoLarsIC', LassoLarsIC(max_iter=100000, verbose=True)),
