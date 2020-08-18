@@ -116,7 +116,7 @@ def _reclassify_vals_op(array, mask_values):
 def create_mask(base_raster_path, mask_values, target_raster_path):
     """Create a mask of base raster where in `mask_values` it's 1, else 0."""
     # reclassify clipped file as the output file
-    pygeoprocessing.raster_calculator(
+    pygeoprocessing.multiprocessing.raster_calculator(
         [(base_raster_path, 1), (mask_values, 'raw')],
         _reclassify_vals_op, target_raster_path, gdal.GDT_Byte, None)
 
@@ -191,6 +191,7 @@ def create_convolutions(
             task_name=f'create guassian filter of {mask_id}')
         convolution_raster_list.append(((mask_gf_path, None, None)))
     task_graph.join()
+    return convolution_raster_list
 
 
 @retrying.retry(wait_exponential_multiplier=100, wait_exponential_max=5000)
