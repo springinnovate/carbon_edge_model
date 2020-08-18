@@ -62,7 +62,8 @@ def generate_sample_points(
         band = raster.GetRasterBand(1)
         gt = raster.GetGeoTransform()
         inv_gt = gdal.InvGeoTransform(gt)
-        band_inv_gt_list.append((raster_path, band, nodata, nodata_replace, inv_gt))
+        band_inv_gt_list.append(
+            (raster_path, band, nodata, nodata_replace, inv_gt))
         raster = None
         band = None
 
@@ -85,7 +86,7 @@ def generate_sample_points(
                 last_time = time.time()
             working_sample_list = []
             valid_working_list = True
-            for raster_path, band, nodata, nodata_replace, inv_gt in band_inv_gt_list:
+            for index, (raster_path, band, nodata, nodata_replace, inv_gt) in enumerate(band_inv_gt_list):
                 x, y = [int(v) for v in gdal.ApplyGeoTransform(
                     inv_gt, lng, lat)]
                 val = band.ReadAsArray(x, y, 1, 1)[0, 0]
@@ -96,6 +97,7 @@ def generate_sample_points(
                 else:
                     # nodata value, skip
                     valid_working_list = False
+                    LOGGER.debug(f'invalid on index {index}')
                     break
             if valid_working_list:
                 points_remaining -= 1
