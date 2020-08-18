@@ -76,6 +76,7 @@ def generate_sample_points(
         valid_mask = numpy.abs(lat_arr) <= max_min_lat
 
         for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
+            LOGGER.debug(f'try {lng}/{lat}')
             working_sample_list = []
             for band, nodata, nodata_replace, inv_gt in band_inv_gt_list:
                 x, y = [int(v) for v in gdal.ApplyGeoTransform(
