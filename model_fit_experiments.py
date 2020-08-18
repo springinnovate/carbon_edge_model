@@ -17,6 +17,7 @@ from sklearn.linear_model import Lasso
 from sklearn.linear_model import LassoCV
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import RidgeCV
+
 import taskgraph
 
 import model_files
@@ -159,7 +160,6 @@ if __name__ == '__main__':
             args.max_min_lat),
         kwargs={'seed': 2},
         task_name='valid set with seed 2')
-    _, X_vector, y_vector = base_data_task.get()
     #(lng, lat, valid_points)
 
     LOGGER.debug('fit model')
@@ -173,23 +173,16 @@ if __name__ == '__main__':
         ]
 
     for model_name, ModelClass in models_to_test:
+        LOGGER.info(f'fitting {model_name} model')
+        _, X_vector, y_vector = base_data_task.get()
         model = ModelClass().fit(X_vector, y_vector)
-
         _, valid_X_vector, valid_y_vector = validation_data_task.get()
         LOGGER.debug(f'validate {model_name}')
         LOGGER.info(
-            f'score: {model.score(X_vector, y_vector)}\n'
+            f'R^2 fit: {model.score(X_vector, y_vector)}\n'
             f'coeff: {model.coef_}\n'
             f'y int: {model.intercept_}\n'
-            f'test data R^2: {model.score(valid_X_vector, valid_y_vector)}')
-
-        lasso = LassoLarsCV().fit(X_vector, y_vector)
-        LOGGER.debug(f'validate {model_name}')
-        LOGGER.info(
-            f'score: {model.score(X_vector, y_vector)}\n'
-            f'coeff: {model.coef_}\n'
-            f'y int: {model.intercept_}\n'
-            f'validation R^2: {model.score(valid_X_vector, valid_y_vector)}')
+            f'validation data R^2: {model.score(valid_X_vector, valid_y_vector)}')
 
     task_graph.close()
     task_graph.join()
