@@ -51,6 +51,7 @@ def generate_sample_points(
 
     """
     band_inv_gt_list = []
+    LOGGER.debug("build band list")
     for raster_path, nodata, nodata_replace in [
             dependent_raster_path_nodata + (None,)] + \
             independent_raster_path_nodata_list:
@@ -64,6 +65,7 @@ def generate_sample_points(
 
     points_remaining = n_points
     valid_points = []
+    LOGGER.debug(f'build {n_points}')
     while points_remaining > 0:
         # from https://mathworld.wolfram.com/SpherePointPicking.html
         u = numpy.random.random((points_remaining,))
