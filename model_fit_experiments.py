@@ -80,6 +80,7 @@ def generate_sample_points(
         for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
             LOGGER.debug(f'try {lng}/{lat}')
             working_sample_list = []
+            valid_working_list = True
             for band, nodata, nodata_replace, inv_gt in band_inv_gt_list:
                 x, y = [int(v) for v in gdal.ApplyGeoTransform(
                     inv_gt, lng, lat)]
@@ -90,9 +91,11 @@ def generate_sample_points(
                     working_sample_list.append(nodata_replace)
                 else:
                     # nodata value, skip
-                    continue
+                    valid_working_list = False
+                    break
+            if valid_working_list:
                 points_remaining -= 1
-            valid_points.append((lng, lat, working_sample_list))
+                valid_points.append((lng, lat, working_sample_list))
     return valid_points
 
 
