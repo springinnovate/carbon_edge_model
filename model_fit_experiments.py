@@ -54,7 +54,6 @@ def generate_sample_points(n_points, valid_raster_path, max_min_lat=40):
             if val != nodata:
                 valid_points.append((lng, lat))
 
-        valid_points.extend()
         points_remaining -= numpy.count_nonzero(valid_mask)
     return valid_points
 
