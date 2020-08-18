@@ -17,6 +17,7 @@ from sklearn.linear_model import Lasso
 from sklearn.linear_model import LassoCV
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import SGDRegressor
 
 import taskgraph
 
@@ -176,7 +177,8 @@ if __name__ == '__main__':
         #('lasso', Lasso),
         #('lasso CV', LassoCV),
         #('ridge', Ridge),
-        ('ridge CV', RidgeCV(n_jobs=-1, max_iter=5000, verbose=True)),
+        ('ridge CV', RidgeCV(normalize=True)),
+        ('SGDRegressor', SGDRegressor()),
         ]
 
     for model_name, model_object in models_to_test:
@@ -189,7 +191,8 @@ if __name__ == '__main__':
             f'R^2 fit: {model.score(X_vector, y_vector)}\n'
             f'coeff: {model.coef_}\n'
             f'y int: {model.intercept_}\n'
-            f'validation data R^2: {model.score(valid_X_vector, valid_y_vector)}')
+            f'validation data R^2: {
+                model.score(valid_X_vector, valid_y_vector)}')
 
     task_graph.close()
     task_graph.join()
