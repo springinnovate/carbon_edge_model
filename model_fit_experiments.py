@@ -13,6 +13,8 @@ import pygeoprocessing
 import retrying
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LassoLarsCV
+from sklearn.linear_model import Lasso
+from sklearn.linear_model import LassoCV
 import taskgraph
 
 import model_files
@@ -159,23 +161,31 @@ if __name__ == '__main__':
     #(lng, lat, valid_points)
 
     LOGGER.debug('fit model')
-    reg = LinearRegression().fit(X_vector, y_vector)
+    models_to_test = [
+        ('linear regression', LinearRegression),
+        ('lasso lars CV', LassoLarsCV),
+        ('lasso', Lasso),
+        ('lasso CV', LassoCV),
+        ]
 
-    _, valid_X_vector, valid_y_vector = validation_data_task.get()
-    LOGGER.debug('validate linear model')
-    LOGGER.info(
-        f'score: {reg.score(X_vector, y_vector)}\n'
-        f'coeff: {reg.coef_}\n'
-        f'y int: {reg.intercept_}\n'
-        f'validation score: {reg.score(valid_X_vector, valid_y_vector)}')
+    for model_name, ModelClass in models_to_test:
+        model = ModelClass().fit(X_vector, y_vector)
 
-    lasso = LassoLarsCV().fit(X_vector, y_vector)
-    LOGGER.debug('validate lasso model')
-    LOGGER.info(
-        f'score: {lasso.score(X_vector, y_vector)}\n'
-        f'coeff: {lasso.coef_}\n'
-        f'y int: {lasso.intercept_}\n'
-        f'validation score: {lasso.score(valid_X_vector, valid_y_vector)}')
+        _, valid_X_vector, valid_y_vector = validation_data_task.get()
+        LOGGER.debug(f'validate {model_name}')
+        LOGGER.info(
+            f'score: {model.score(X_vector, y_vector)}\n'
+            f'coeff: {model.coef_}\n'
+            f'y int: {model.intercept_}\n'
+            f'test data R^2: {model.score(valid_X_vector, valid_y_vector)}')
+
+        lasso = LassoLarsCV().fit(X_vector, y_vector)
+        LOGGER.debug(f'validate {model_name}')
+        LOGGER.info(
+            f'score: {model.score(X_vector, y_vector)}\n'
+            f'coeff: {model.coef_}\n'
+            f'y int: {model.intercept_}\n'
+            f'validation R^2: {model.score(valid_X_vector, valid_y_vector)}')
 
     task_graph.close()
     task_graph.join()
