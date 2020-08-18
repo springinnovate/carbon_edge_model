@@ -15,6 +15,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LassoLarsCV
 from sklearn.linear_model import Lasso
 from sklearn.linear_model import LassoCV
+from sklearn.linear_model import Ridge
+from sklearn.linear_model import RidgeCV
 import taskgraph
 
 import model_files
@@ -166,6 +168,8 @@ if __name__ == '__main__':
         ('lasso lars CV', LassoLarsCV),
         ('lasso', Lasso),
         ('lasso CV', LassoCV),
+        ('ridge', Ridge),
+        ('ridge CV', RidgeCV),
         ]
 
     for model_name, ModelClass in models_to_test:
