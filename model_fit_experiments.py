@@ -129,7 +129,6 @@ if __name__ == '__main__':
     LOGGER.debug(f'raster files: {raster_path_nodata_replacement_list}')
     LOGGER.debug('closing and joining taskgraph')
 
-    task_graph.close()
     task_graph.join()
 
     baccini_10s_2014_biomass_path = os.path.join(
@@ -169,4 +168,6 @@ if __name__ == '__main__':
         f'y int: {reg.intercept_}\n'
         f'validation score: {reg.score(valid_X_vector, valid_y_vector)}')
 
+    task_graph.close()
+    task_graph.join()
     LOGGER.debug('all done!')
