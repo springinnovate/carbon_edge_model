@@ -170,18 +170,18 @@ if __name__ == '__main__':
 
     LOGGER.debug('fit model')
     models_to_test = [
-        ('linear regression', LinearRegression),
-        ('lasso lars CV', LassoLarsCV),
-        ('lasso', Lasso),
-        ('lasso CV', LassoCV),
-        ('ridge', Ridge),
-        ('ridge CV', RidgeCV),
+        #('linear regression', LinearRegression),
+        ('lasso lars CV', LassoLarsCV(n_jobs=-1, max_iter=5000, verbose=True)),
+        #('lasso', Lasso),
+        #('lasso CV', LassoCV),
+        #('ridge', Ridge),
+        #('ridge CV', RidgeCV),
         ]
 
-    for model_name, ModelClass in models_to_test:
+    for model_name, model_object in models_to_test:
         LOGGER.info(f'fitting {model_name} model')
         _, X_vector, y_vector = base_data_task.get()
-        model = ModelClass().fit(X_vector, y_vector)
+        model = model_object.fit(X_vector, y_vector)
         _, valid_X_vector, valid_y_vector = validation_data_task.get()
         LOGGER.debug(f'validate {model_name}')
         LOGGER.info(
