@@ -95,7 +95,8 @@ def generate_sample_points(
                     working_sample_list.append(nodata_replace)
                 else:
                     # nodata value, skip
-                    LOGGER.debug(f'got invalid value: {val} from {raster_path}')
+                    LOGGER.debug(
+                        f'got invalid value: {val} from {raster_path}')
                     valid_working_list = False
                     break
             if valid_working_list:
