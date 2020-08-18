@@ -61,9 +61,6 @@ def generate_sample_points(n_points, valid_raster_path, max_min_lat):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Model maker')
     parser.add_argument(
-        '--raster_directory', required=True, help=(
-            'Path to directory containing rasters to build a model from'))
-    parser.add_argument(
         '--n_points', required=True, help='Number of points to sample')
     parser.add_argument(
         '--max_min_lat', default=40, help='Min/max lat to cutoff')
