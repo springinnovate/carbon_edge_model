@@ -176,7 +176,7 @@ if __name__ == '__main__':
         #('lasso', Lasso),
         #('lasso CV', LassoCV),
         #('ridge', Ridge),
-        #('ridge CV', RidgeCV),
+        ('ridge CV', RidgeCV(n_jobs=-1, max_iter=5000, verbose=True)),
         ]
 
     for model_name, model_object in models_to_test:
