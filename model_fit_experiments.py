@@ -200,7 +200,7 @@ if __name__ == '__main__':
             model.coef_, poly.get_feature_names(feature_name_list)),
             key=lambda v: abs(v[0]))
         LOGGER.info(
-            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list])
+            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list]) +
             f'R^2 fit: {model.score(X_vector, y_vector)}\n'
             f'''validation data R^2: {
                 model.score(poly.transform(valid_X_vector), valid_y_vector)}'''
