@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     task_graph = taskgraph.TaskGraph(
         BASE_DATA_DIR,
-        -1,
+        2,
         5.0)
 
     raster_path_nodata_replacement_list = (
