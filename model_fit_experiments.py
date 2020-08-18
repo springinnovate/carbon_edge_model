@@ -53,8 +53,8 @@ def generate_sample_points(n_points, valid_raster_path, max_min_lat=40):
             val = band.ReadAsArray(x, y, 1, 1)[0, 0]
             if val != nodata:
                 valid_points.append((lng, lat))
+                points_remaining -= 1
 
-        points_remaining -= numpy.count_nonzero(valid_mask)
     return valid_points
 
 
