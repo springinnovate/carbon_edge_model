@@ -33,7 +33,7 @@ MODEL_FIT_WORKSPACE = 'carbon_model'
 
 def generate_sample_points(
         n_points, dependent_raster_path_nodata,
-        independent_raster_path_nodata_list, max_min_lat):
+        independent_raster_path_nodata_list, max_min_lat, seed=None):
     """Generate a set of lat/lng points that are evenly distributed.
 
     Args:
@@ -44,11 +44,14 @@ def generate_sample_points(
             tuples.
         max_min_lat (float): absolute maximum latitude allowed in a sampled
             point.
+        seed (int): seed for randomization
 
     Returns:
         Tuple of (lng_lat_list, X_vector, y_vector).
 
     """
+    if seed is not None:
+        numpy.random.seed(seed)
     band_inv_gt_list = []
     raster_list = []
     LOGGER.debug("build band list")
@@ -81,7 +84,8 @@ def generate_sample_points(
         valid_mask = numpy.abs(lat_arr) <= max_min_lat
 
         for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
-            if last_time - time.time() > 5.0:
+            if time.time() - last_time > 5.0:
+                LOGGER.debug(f'working ... {points_remaining} left')
                 last_time = time.time()
             working_sample_list = []
             valid_working_list = True
@@ -134,24 +138,35 @@ if __name__ == '__main__':
     baccini_nodata = pygeoprocessing.get_raster_info(
         baccini_10s_2014_biomass_path)['nodata'][0]
 
-    lng_lat_list, X_vector, y_vector = generate_sample_points(
-        args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
-        raster_path_nodata_replacement_list,
-        args.max_min_lat)
+    base_data_task = task_graph.add_task(
+        func=generate_sample_points,
+        args=(
+            args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
+            raster_path_nodata_replacement_list,
+            args.max_min_lat),
+        kwargs={'seed': 1},
+        task_name='predict with seed 1')
 
-    test_lng_lat_list, test_X_vector, test_y_vector = generate_sample_points(
-        args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
-        raster_path_nodata_replacement_list,
-        args.max_min_lat)
-
+    validation_data_task = task_graph.add_task(
+        func=generate_sample_points,
+        args=(
+            args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
+            raster_path_nodata_replacement_list,
+            args.max_min_lat),
+        kwargs={'seed': 2},
+        task_name='valid set with seed 2')
+    _, X_vector, y_vector = base_data_task.get()
     #(lng, lat, valid_points)
 
-    LOGGER.debug(f'generated {len(lng_lat_list)}')
+    LOGGER.debug('fit model')
     reg = LinearRegression().fit(X_vector, y_vector)
+
+    _, valid_X_vector, valid_y_vector = validation_data_task.get()
+    LOGGER.debug('validate model')
     LOGGER.info(
         f'score: {reg.score(X_vector, y_vector)}\n'
         f'coeff: {reg.coef_}\n'
         f'y int: {reg.intercept_}\n'
-        f'validation score: {reg.score(test_X_vector, test_y_vector)}')
+        f'validation score: {reg.score(valid_X_vector, valid_y_vector)}')
 
     LOGGER.debug('all done!')
