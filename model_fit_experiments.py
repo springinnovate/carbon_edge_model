@@ -12,6 +12,7 @@ import numpy
 import pygeoprocessing
 import retrying
 from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LassoLarsCV
 import taskgraph
 
 import model_files
@@ -121,7 +122,7 @@ if __name__ == '__main__':
 
     task_graph = taskgraph.TaskGraph(
         BASE_DATA_DIR,
-        2,
+        -1,
         5.0)
 
     raster_path_nodata_replacement_list = (
@@ -161,12 +162,20 @@ if __name__ == '__main__':
     reg = LinearRegression().fit(X_vector, y_vector)
 
     _, valid_X_vector, valid_y_vector = validation_data_task.get()
-    LOGGER.debug('validate model')
+    LOGGER.debug('validate linear model')
     LOGGER.info(
         f'score: {reg.score(X_vector, y_vector)}\n'
         f'coeff: {reg.coef_}\n'
         f'y int: {reg.intercept_}\n'
         f'validation score: {reg.score(valid_X_vector, valid_y_vector)}')
+
+    lasso = LassoLarsCV().fit(X_vector, y_vector)
+    LOGGER.debug('validate lasso model')
+    LOGGER.info(
+        f'score: {lasso.score(X_vector, y_vector)}\n'
+        f'coeff: {lasso.coef_}\n'
+        f'y int: {lasso.intercept_}\n'
+        f'validation score: {lasso.score(valid_X_vector, valid_y_vector)}')
 
     task_graph.close()
     task_graph.join()
