@@ -123,12 +123,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '--max_min_lat', type=float, default=40.0,
         help='Min/max lat to cutoff')
+    parser.add_argument(
+        '--n_workers', type=int, default=1, help='number of taskgraph workers')
     args = parser.parse_args()
 
-    task_graph = taskgraph.TaskGraph(
-        BASE_DATA_DIR,
-        -1,
-        5.0)
+    task_graph = taskgraph.TaskGraph(BASE_DATA_DIR, args.n_workers, 5.0)
 
     raster_path_nodata_replacement_list = (
         model_files.fetch_data(BASE_DATA_DIR, task_graph))
