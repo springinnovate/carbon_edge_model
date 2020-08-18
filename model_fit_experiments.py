@@ -191,7 +191,8 @@ if __name__ == '__main__':
             for coeff, path_ndr in zip(
                 model.coef_,
                 raster_path_nodata_replacement_list +
-                convolution_raster_list)])
+                convolution_raster_list)], reverse=True,
+            key=lambda v: abs(v[0]))
         LOGGER.debug(f'validate {model_name}')
         LOGGER.info(
             f'R^2 fit: {model.score(X_vector, y_vector)}\n'
