@@ -176,7 +176,7 @@ if __name__ == '__main__':
     poly = PolynomialFeatures(3)
     models_to_test = [
         #('linear regression', LinearRegression),
-        ('LassoLarsIC', LassoLarsIC(max_iter=100000, verbose=True)),
+        #('LassoLarsIC', LassoLarsIC(max_iter=100000, verbose=True)),
         ('LassoLarsCV', LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)),
         #('lasso', Lasso),
         #('lasso CV', LassoCV),
