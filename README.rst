@@ -63,3 +63,8 @@ The following utility scripts are available in ``./utils``
     ``python utils/create_marginal_value.py --base_value_raster_path base.tif --scenario_value_raster_path scenario.tif --target_marginal_value_path marginal_value.tif``
 
  * ``esa_to_carbon_model_landcover_types.py`` used to convert an ESA style landcover map into the 4 catagory landcover map used in this model. Described above in **Step 1 -- Create a simple landcover classification**.
+
+Model Builder
+-------------
+
+The ``model_builder`` contains Python code to build the regression model used by ``carbon_edge_model.py`` it need not be run by an end user but instead is provided as reference.
