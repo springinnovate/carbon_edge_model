@@ -14,7 +14,7 @@ import numpy
 import scipy.ndimage
 import taskgraph
 
-import model_files
+import carbon_model_data
 
 gdal.SetCacheMax(2**27)
 
@@ -164,9 +164,9 @@ def fetch_data(data_dir, task_graph):
         None.
 
     """
-    files_to_download = model_files.CARBON_EDGE_REGRESSION_MODEL_URL_LIST + [
-        model_files.BACCINI_10s_2014_BIOMASS_URL,
-        model_files.FOREST_REGRESSION_LASSO_TABLE_URL]
+    files_to_download = carbon_model_data.CARBON_EDGE_REGRESSION_MODEL_URL_LIST + [
+        carbon_model_data.BACCINI_10s_2014_BIOMASS_URL,
+        carbon_model_data.FOREST_REGRESSION_LASSO_TABLE_URL]
 
     LOGGER.debug(f'here are the files to download: {files_to_download}')
 
@@ -188,11 +188,11 @@ def fetch_data(data_dir, task_graph):
     task_graph.join()
     global BACCINI_10s_2014_BIOMASS_RASTER_PATH
     BACCINI_10s_2014_BIOMASS_RASTER_PATH = os.path.join(
-        data_dir, os.path.basename(model_files.BACCINI_10s_2014_BIOMASS_URL))
+        data_dir, os.path.basename(carbon_model_data.BACCINI_10s_2014_BIOMASS_URL))
     global FOREST_REGRESSION_LASSO_TABLE_PATH
     FOREST_REGRESSION_LASSO_TABLE_PATH = os.path.join(
         data_dir, os.path.basename(
-            model_files.FOREST_REGRESSION_LASSO_TABLE_URL))
+            carbon_model_data.FOREST_REGRESSION_LASSO_TABLE_URL))
     task_graph.join()
 
 
