@@ -1,4 +1,5 @@
 """Create Marginal value raster."""
+import argparse
 import logging
 import sys
 
@@ -24,7 +25,7 @@ base_raster_path = r'biomass_per_ha_stocks_ESA2014_mask.tif'
 target_raster_path = r'marginal_value_restoration_biomass.tif'
 
 
-def diff(a, b, nodata):
+def _diff_op(a, b, nodata):
     result = numpy.empty(a.shape, dtype=numpy.float32)
     result[:] = nodata
     valid_mask = ~(numpy.isclose(a, nodata) | numpy.isclose(b, nodata))
@@ -33,8 +34,21 @@ def diff(a, b, nodata):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Build marginal value map')
+    parser.add_argument(
+        '--base_value_raster_path', help='Path to base value raster')
+    parser.add_argument(
+        '--scenario_value_raster_path', help=(
+            'Path scenario value raster, must be same size/projection as base '
+            'value raster'))
+    parser.add_argument(
+        '--target_marginal_value_path',
+        help='path to output marginal value raster')
+
+    args = parser.parse_args()
     nodata = pygeoprocessing.get_raster_info(
-        scenario_raster_path)['nodata'][0]
+        args.base_value_raster_path)['nodata'][0]
     pygeoprocessing.multiprocessing.raster_calculator(
-        [(scenario_raster_path, 1), (base_raster_path, 1), (nodata, 'raw')],
-        diff, target_raster_path, gdal.GDT_Float32, nodata)
+        [(args.scenario_value_raster_path, 1),
+         (args.base_value_raster_path, 1), (nodata, 'raw')],
+        _diff_op, args.target_marginal_value_path, gdal.GDT_Float32, nodata)
