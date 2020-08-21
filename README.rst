@@ -35,14 +35,13 @@ Step 2 -- Run the Carbon Model
 
 This step requires that you have a raster with the four landcover types described in Step 1. that raster is called ``carbon_model_landcover_types.tif`` the model can be run as follows:
 
-``python carbon_edge_model.py --landtype_mask_raster_path carbon_model_landcover_types.tif --workspace_dir path_to_workspace``
+``python carbon_edge_model.py --landtype_mask_raster_path carbon_model_landcover_types.tif``
 
 This script will make a directory in the current directory called
-``path_to_workspace`` as specified above. When complete, the root of this directory will contain the output file
+``carbon_model_workspace``. When complete, the root of this directory will contain the output file
 ``biomass_per_ha_stocks_{mask}.tif'`` where ``mask`` is the basename of the input landtype mask raster.
 
-Note: this model requires several gigabytes of global data to operate. On a
-first run this model will automatically download these data to a subdirectory in the workspace named ``data``. So long as
+Note: this model requires several gigabytes of global data to operate. The first time this model is run, it will automatically download these data to a subdirectory in the workspace named ``data``. So long as
 the same workspace is used on subsequent runs, the model will reuse those
 data rather than re-download.
 

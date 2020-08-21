@@ -14,7 +14,6 @@ import numpy
 import scipy.ndimage
 import taskgraph
 
-import mult_by_columns_library
 import model_files
 
 gdal.SetCacheMax(2**27)
@@ -43,45 +42,6 @@ MASK_TYPES = [
     ('forest_10sec', (3, ))]
 
 MASK_NODATA = 2
-MULT_BY_COLUMNS_NODATA = -1
-
-ZERO_NODATA_SYMBOLS = {
-    'population_2015_30sec',
-    'population_2015_5min',
-    'livestock_Bf_2010_5min',
-    'livestock_Ch_2010_5min',
-    'livestock_Ct_2010_5min',
-    'livestock_Dk_2010_5min',
-    'livestock_Gt_2010_5min',
-    'livestock_Ho_2010_5min',
-    'livestock_Pg_2010_5min',
-    'livestock_Sh_2010_5min',
-}
-
-# These were symbols that I manually did, Becky told me to do above.
-# ZERO_NODATA_SYMBOLS = {
-#     'bdod_10sec',
-#     'BDTICM_10sec',
-#     'BLDFIE_10sec',
-#     'CECSOL_10sec',
-#     'cfvo_10sec',
-#     'clay_10sec',
-#     'is_cropland_10sec',
-#     'is_urban_10sec',
-#     'ndvcec015_10sec',
-#     'nitrogen_10sec',
-#     'not_forest_10sec',
-#     'ocd_10sec',
-#     'OCDENS_10sec',
-#     'ocs_10sec',
-#     'OCSTHA_10sec',
-#     'phh2o_10sec',
-#     'population_2015_30sec',
-#     'population_2015_5min',
-#     'sand_10sec',
-#     'silt_10sec',
-#     'soc_10sec',
-#     }
 
 
 def sub_pos_op(array_a, array_b):
@@ -237,17 +197,17 @@ def fetch_data(data_dir, task_graph):
 
 
 def prep_data(
-        landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
+        landcover_type_raster_path, workspace_dir, data_dir, churn_dir,
         aligned_data_dir, task_graph):
     """Preprocess data stack for model evaluation."""
     base_raster_data_path_list = glob.glob(os.path.join(data_dir, '*.tif'))
     landtype_basename = os.path.basename(
-        os.path.splitext(landtype_mask_raster_path)[0])
+        os.path.splitext(landcover_type_raster_path)[0])
     aligned_raster_path_list = [
         os.path.join(aligned_data_dir, os.path.basename(path))
         for path in base_raster_data_path_list]
     base_raster_info = pygeoprocessing.get_raster_info(
-        landtype_mask_raster_path)
+        landcover_type_raster_path)
     for base_raster_path, aligned_raster_path in zip(
             base_raster_data_path_list, aligned_raster_path_list):
         _ = task_graph.add_task(
@@ -277,7 +237,7 @@ def prep_data(
         mask_task = task_graph.add_task(
             func=mask_ranges,
             args=(
-                landtype_mask_raster_path, lulc_codes,
+                landcover_type_raster_path, lulc_codes,
                 lulc_mask_raster_path),
             target_path_list=[lulc_mask_raster_path],
             task_name=f'make {mask_type}')
@@ -318,51 +278,15 @@ def prep_data(
     task_graph.join()
 
 
-def evaluate_model_at_points(
-        point_vector_path, fid, landtype_mask_raster_path, workspace_dir,
-        data_dir, aligned_data_dir, churn_dir):
-    """Evalute the carbon model at a specific set of points.
-
-    Args:
-        point_vector_path (str): path to vector contining points with an ID
-            field.
-        data_dir (str): path to directory containing base model data.
-
-    Return:
-        None
-    """
-    # 2) Evalute the forest regression for each scenario
-    LOGGER.info("Forest Regression Point step 2")
-    landtype_basename = os.path.basename(
-        os.path.splitext(landtype_mask_raster_path)[0])
-    mult_by_columns_workspace = os.path.join(
-        aligned_data_dir, 'mult_by_columns_workspace')
-    try:
-        os.makedirs(mult_by_columns_workspace)
-    except OSError:
-        pass
-
-    # TODO: evaluate stack at a point here
-    target_result_table_path = os.path.join(
-        mult_by_columns_workspace, f'{landtype_basename}_{fid}.csv')
-    mult_by_columns_library.evaluate_table_expression_at_point(
-        FOREST_REGRESSION_LASSO_TABLE_PATH, point_vector_path, fid,
-        aligned_data_dir, mult_by_columns_workspace,
-        'lulc_esa_smoothed_2014_10sec', landtype_basename,
-        target_result_table_path)
-
-
 def evaluate_model_with_landcover(
-        landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
-        aligned_data_dir, task_graph, n_workers):
+        landcover_type_raster_path, workspace_dir, data_dir, task_graph,
+        n_workers):
     """Evaluate the model over a landcover raster.
 
     Args:
-        landtype_mask_raster_path (str): path to ESA style landcover raster
+        landcover_type_raster_path (str): path to ESA style landcover raster
         workspace_dir (str): path to general workspace dir
         data_dir (str): path to directory containing base data for model
-        churn_dir (str): path to a temp/churn directory the model can use for
-            intermediate outputs
         task_graph (TaskGraph): TaskGraph object that can be used for
             scheduling
         c_prefix (str): C or CO2 prefix to use on outputs so quantity is clear
@@ -373,48 +297,29 @@ def evaluate_model_with_landcover(
 
     """
     landtype_basename = os.path.basename(
-        os.path.splitext(landtype_mask_raster_path)[0])
-    aligned_data_dir = os.path.join(
-        workspace_dir, f'{landtype_basename}_aligned_data')
+        os.path.splitext(landcover_type_raster_path)[0])
     base_raster_info = pygeoprocessing.get_raster_info(
-        landtype_mask_raster_path)
-    # 2) Evalute the forest regression for each scenario
-    LOGGER.info("Forest Regression step 2")
-
-    mult_by_columns_workspace = os.path.join(
-        aligned_data_dir, 'mult_by_columns_workspace')
-    try:
-        os.makedirs(mult_by_columns_workspace)
-    except OSError:
-        pass
-    task_graph.join()
-
+        landcover_type_raster_path)
     base_projection = osr.SpatialReference()
     base_projection.ImportFromWkt(base_raster_info['projection_wkt'])
 
+    churn_dir = os.path.join(workspace_dir, 'churn')
+    try:
+        os.makedirs(churn_dir)
+    except OSError:
+        pass
+
+    # This raster is the modeled forest biomass
     forest_carbon_stocks_raster_path = os.path.join(
         churn_dir, f'{landtype_basename}_forest_biomass_per_ha.tif')
 
-    regression_model_task = task_graph.add_task(
-        func=mult_by_columns_library.evaluate_table_expression_as_raster,
-        args=(
-            FOREST_REGRESSION_LASSO_TABLE_PATH, aligned_data_dir,
-            mult_by_columns_workspace,
-            'lulc_esa_smoothed_2014_10sec', landtype_basename,
-            base_raster_info['pixel_size'],
-            forest_carbon_stocks_raster_path, n_workers),
-        kwargs={
-            'zero_nodata_symbols': ZERO_NODATA_SYMBOLS,
-            'target_nodata': MULT_BY_COLUMNS_NODATA,
-        },
-        target_path_list=[forest_carbon_stocks_raster_path],
-        task_name='evaluate carbon regression model')
-
+    # TODO: Invoke the SCIPY.learn model
+    pass
 
     # NON-FOREST BIOMASS
     LOGGER.info(f'convert baccini non forest into biomass_per_ha')
     baccini_aligned_raster_path = os.path.join(
-        aligned_data_dir,
+        data_dir,
         os.path.basename(BACCINI_10s_2014_BIOMASS_RASTER_PATH))
 
     # determine baccini max that's no
@@ -428,7 +333,7 @@ def evaluate_model_with_landcover(
         workspace_dir, f'biomass_per_ha_stocks_{landtype_basename}.tif')
 
     forest_mask_path = os.path.join(
-        aligned_data_dir, f'mask_of_forest_10sec.tif')
+        data_dir, f'mask_of_forest_10sec.tif')
 
     LOGGER.debug(
         f'selecting {forest_carbon_stocks_raster_path} '
@@ -454,7 +359,7 @@ def main():
     """Entry point."""
     parser = argparse.ArgumentParser(description='Carbon edge model')
     parser.add_argument(
-        '--landtype_mask_raster_path', help=(
+        '--landcover_type_raster_path', help=(
             'Path to landtype raster where codes correspond to:\n'
             '\t1: cropland\n\t2: urban\n\t3: forest\n\t4: other'))
     parser.add_argument(
@@ -465,9 +370,8 @@ def main():
     parser.add_argument(
         '--workspace_dir', default='carbon_model_workspace', help=(
             'Path to workspace dir, the carbon stock file will be named '
-            '"c_stocks_[landtype_mask_raster_path]. Default is '
+            '"c_stocks_[landcover_type_raster_path]. Default is '
             '`carbon_model_workspace`"'))
-
     parser.add_argument(
         '--n_workers', type=int, default=multiprocessing.cpu_count(), help=(
             'number of cpu workers to allocate'))
@@ -477,7 +381,7 @@ def main():
     churn_dir = os.path.join(workspace_dir, 'churn')
     data_dir = os.path.join(workspace_dir, 'data')
     landtype_basename = os.path.basename(
-        os.path.splitext(args.landtype_mask_raster_path)[0])
+        os.path.splitext(args.landcover_type_raster_path)[0])
     aligned_data_dir = os.path.join(
         workspace_dir, f'{landtype_basename}_aligned_data')
 
@@ -487,26 +391,20 @@ def main():
         except OSError:
             pass
 
-    # 1) Download data
-    task_graph = taskgraph.TaskGraph(
-        churn_dir, args.n_workers, 5.0)
-    LOGGER.info("Download data")
-    fetch_data(data_dir, task_graph)
-    LOGGER.info("Prep data")
+    task_graph = taskgraph.TaskGraph(churn_dir, args.n_workers, 5.0)
 
+    LOGGER.info("download data")
+    fetch_data(data_dir, task_graph)
+
+    LOGGER.info("prep data")
     prep_data(
-        args.landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
+        args.landcover_type_raster_path, workspace_dir, data_dir, churn_dir,
         aligned_data_dir, task_graph)
 
-    if args.landtype_mask_raster_path:
-        evaluate_model_with_landcover(
-            args.landtype_mask_raster_path, workspace_dir, data_dir, churn_dir,
-            aligned_data_dir, task_graph, args.n_workers)
-
-    if args.point_vector_path:
-        evaluate_model_at_points(
-            args.point_vector_path, args.fid, args.landtype_mask_raster_path,
-            workspace_dir, data_dir, aligned_data_dir, churn_dir)
+    LOGGER.info('evaulate carbon model')
+    evaluate_model_with_landcover(
+        args.landcover_type_raster_path, workspace_dir, aligned_data_dir,
+        task_graph, args.n_workers)
 
     task_graph.close()
     task_graph.join()
