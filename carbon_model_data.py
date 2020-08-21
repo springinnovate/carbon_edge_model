@@ -11,6 +11,8 @@ import scipy
 
 from osgeo import gdal
 
+BASE_DATA_DIR = os.path.dirname(__file__)
+
 BASE_URL = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs'
 BASE_URI = 'gs://ecoshard-root/global_carbon_regression/inputs'
 
@@ -89,15 +91,12 @@ CARBON_EDGE_MODEL_DATA_NODATA = [
     ('wind_speed_10sec.tif', -999, None),
 ]
 
-CROPLAND_LULC_CODES = range(10, 41)
-URBAN_LULC_CODES = (190,)
-FOREST_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
-
 MASK_TYPES = [
-    ('cropland', CROPLAND_LULC_CODES),
-    ('urban', URBAN_LULC_CODES),
-    ('forest', FOREST_CODES)]
+    ('cropland', 1),
+    ('urban', 2),
+    ('forest', 3)]
 OTHER_TYPE = 4
+
 MASK_NODATA = 127
 
 LOGGER = logging.getLogger(__name__)
@@ -139,36 +138,43 @@ def make_kernel_raster(pixel_radius, target_path):
 
 
 def create_convolutions(
-        task_graph, esa_lulc_raster_path, expected_max_edge_effect_km,
-        data_dir):
+        landcover_type_raster_path, expected_max_edge_effect_km,
+        target_data_dir, task_graph):
     """Create forest convolution mask at `expected_max_edge_effect_km`.
 
     Args:
+        landcover_type_raster_path (path): path to raster containing 4 codes
+            representing:
+                1: cropland
+                2: urban
+                3: forest
+                4: other
+
         excepcted_max_edge_effect_km (float): expected edge effect in km.
+        target_data_dir (path): path to directory to write resulting files
+        task_graph (TaskGraph): object used to schedule work and avoid
+            reexecution.
 
     Returns:
         None
     """
-    # 2a) make 3km gaussian kernel
-    # pixel_length is in degrees and we want about a 30km decay so do that:
-    # (deg/pixel  * km/deg * 1/30km)^-1
-    # ~111km / degree
-
-    churn_dir = os.path.join(data_dir, 'convolution_kernels')
+    churn_dir = os.path.join(target_data_dir, 'convolution_kernels')
     try:
         os.makedirs(churn_dir)
     except OSError:
         pass
     pixel_size = pygeoprocessing.get_raster_info(
-        esa_lulc_raster_path)['pixel_size']
+        landcover_type_raster_path)['pixel_size']
+
     # this is calculated as 111km per degree
     pixel_radius = (pixel_size[0] * 111 / expected_max_edge_effect_km)**-1
     convolution_raster_list = []
-    for mask_id, mask_code_list in MASK_TYPES:
-        mask_raster_path = os.path.join(data_dir, f'{mask_id}_mask.tif')
+
+    for mask_id, mask_code in MASK_TYPES:
+        mask_raster_path = os.path.join(target_data_dir, f'{mask_id}_mask.tif')
         create_mask_task = task_graph.add_task(
             func=create_mask,
-            args=(esa_lulc_raster_path, mask_code_list, mask_raster_path),
+            args=(landcover_type_raster_path, (mask_code,), mask_raster_path),
             target_path_list=[mask_raster_path],
             task_name=f'create {mask_id} mask')
 
@@ -194,6 +200,7 @@ def create_convolutions(
             task_name=f'create guassian filter of {mask_id}')
         convolution_raster_list.append(((mask_gf_path, None, None)))
     task_graph.join()
+
     return convolution_raster_list
 
 
@@ -212,12 +219,11 @@ def download_gs(base_uri, target_path, skip_if_target_exists=False):
         raise
 
 
-def fetch_data(data_dir, task_graph):
+def fetch_data(target_data_dir, task_graph):
     """Download all the global data needed to run this analysis.
 
     Args:
-        bounding_box (list): minx, miny, maxx, maxy list to clip to
-        data_dir (str): path to directory to copy clipped rasters
+        target_data_dir (str): path to directory to copy clipped rasters
             to
         task_graph (TaskGraph): taskgraph object to schedule work.
 
@@ -226,7 +232,7 @@ def fetch_data(data_dir, task_graph):
 
     """
     try:
-        os.makedirs(data_dir)
+        os.makedirs(target_data_dir)
     except OSError:
         pass
 
@@ -236,13 +242,13 @@ def fetch_data(data_dir, task_graph):
                 (BACCINI_10s_2014_BIOMASS_URI, None, None),
                 (ESA_LULC_URI, None, None)]:
         target_file_path = os.path.join(
-            data_dir, os.path.basename(file_uri))
+            target_data_dir, os.path.basename(file_uri))
         _ = task_graph.add_task(
             func=download_gs,
             args=(file_uri, target_file_path),
             kwargs={'skip_if_target_exists': True},
             target_path_list=[target_file_path],
-            task_name=f'download {file_uri} to {data_dir}')
+            task_name=f'download {file_uri} to {target_data_dir}')
         if file_uri not in [BACCINI_10s_2014_BIOMASS_URI, ESA_LULC_URI]:
             downloaded_file_list.append(
                 (target_file_path, nodata, nodata_replacement))

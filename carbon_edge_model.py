@@ -1,6 +1,5 @@
 """Carbon edge regression model."""
 import argparse
-import glob
 import logging
 import multiprocessing
 import os
@@ -8,12 +7,13 @@ import sys
 
 from osgeo import gdal
 from osgeo import osr
-import ecoshard
 import pygeoprocessing
 import numpy
 import scipy.ndimage
 import taskgraph
 
+from carbon_model_data import BASE_DATA_DIR
+from carbon_model_data import BACCINI_10s_2014_BIOMASS_URI
 import carbon_model_data
 
 gdal.SetCacheMax(2**27)
@@ -28,7 +28,8 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
-CONVOLUTION_PIXEL_DIST_LIST = [1, 2, 3, 5, 10, 20, 30, 50, 100]
+
+EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 
 # Landcover classification codes
 # 1: cropland
@@ -151,56 +152,25 @@ def mask_ranges(
         target_raster_path, gdal.GDT_Byte, MASK_NODATA)
 
 
-def fetch_data(data_dir, task_graph):
-    """Download all the global data needed to run this analysis.
+def warp_and_gaussian_filter_data(
+        landcover_type_raster_path, base_data_dir, churn_dir,
+        aligned_data_dir, task_graph):
+    """Clip required data to fit landcover and apply gaussian filtering.
 
     Args:
-        bounding_box (list): minx, miny, maxx, maxy list to clip to
-        data_dir (str): path to directory to copy clipped rasters
-            to
-        task_graph (TaskGraph): taskgraph object to schedule work.
+        landcover_type_raster_path (str): path to landcover raster used to
+            infer target raster size and projection.
+        data_dir (str): path to base raster data
+        churn_dir (str): path to target warped and filtered rasters.
 
     Returns:
         None.
 
     """
-    files_to_download = carbon_model_data.CARBON_EDGE_REGRESSION_MODEL_URL_LIST + [
-        carbon_model_data.BACCINI_10s_2014_BIOMASS_URL,
-        carbon_model_data.FOREST_REGRESSION_LASSO_TABLE_URL]
+    base_raster_data_path_list = [
+        os.path.join(base_data_dir, filename)
+        for filename in carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA]
 
-    LOGGER.debug(f'here are the files to download: {files_to_download}')
-
-    try:
-        os.makedirs(data_dir)
-    except OSError:
-        pass
-
-    for file_url in files_to_download:
-        target_file_path = os.path.join(
-            data_dir, os.path.basename(file_url))
-        _ = task_graph.add_task(
-            func=ecoshard.download_url,
-            args=(file_url, target_file_path),
-            kwargs={'skip_if_target_exists': True},
-            target_path_list=[target_file_path],
-            task_name=f'download {file_url} to {data_dir}')
-
-    task_graph.join()
-    global BACCINI_10s_2014_BIOMASS_RASTER_PATH
-    BACCINI_10s_2014_BIOMASS_RASTER_PATH = os.path.join(
-        data_dir, os.path.basename(carbon_model_data.BACCINI_10s_2014_BIOMASS_URL))
-    global FOREST_REGRESSION_LASSO_TABLE_PATH
-    FOREST_REGRESSION_LASSO_TABLE_PATH = os.path.join(
-        data_dir, os.path.basename(
-            carbon_model_data.FOREST_REGRESSION_LASSO_TABLE_URL))
-    task_graph.join()
-
-
-def prep_data(
-        landcover_type_raster_path, workspace_dir, data_dir, churn_dir,
-        aligned_data_dir, task_graph):
-    """Preprocess data stack for model evaluation."""
-    base_raster_data_path_list = glob.glob(os.path.join(data_dir, '*.tif'))
     landtype_basename = os.path.basename(
         os.path.splitext(landcover_type_raster_path)[0])
     aligned_raster_path_list = [
@@ -247,6 +217,11 @@ def prep_data(
             f'{lulc_mask_raster_path}')
 
     kernel_raster_path_map = {}
+
+    convolution_raster_list = carbon_model_data.create_convolutions(
+        task_graph, esa_lulc_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
+        carbon_model_data.BASE_DATA_DIR)
+
     for pixel_radius in reversed(sorted(CONVOLUTION_PIXEL_DIST_LIST)):
         kernel_raster_path = os.path.join(
             churn_dir, f'{pixel_radius}_kernel.tif')
@@ -279,18 +254,19 @@ def prep_data(
 
 
 def evaluate_model_with_landcover(
-        landcover_type_raster_path, workspace_dir, data_dir, task_graph,
-        n_workers):
+        landcover_type_raster_path, workspace_dir, data_dir,
+        n_workers, task_graph, max_biomass=360.0):
     """Evaluate the model over a landcover raster.
 
     Args:
         landcover_type_raster_path (str): path to ESA style landcover raster
         workspace_dir (str): path to general workspace dir
-        data_dir (str): path to directory containing base data for model
+        data_dir (str): path to directory containing base data refered to
+            by CARBON_EDGE_MODEL_DATA_NODATA.
+        n_workers (int): number of workers to allocate to raster calculator
         task_graph (TaskGraph): TaskGraph object that can be used for
             scheduling
-        c_prefix (str): C or CO2 prefix to use on outputs so quantity is clear
-        n_workers (int): number of workers to allocate to raster calculator
+        max_biomass (float): threshold modeled biomass to this value
 
     Returns:
         None.
@@ -319,13 +295,7 @@ def evaluate_model_with_landcover(
     # NON-FOREST BIOMASS
     LOGGER.info(f'convert baccini non forest into biomass_per_ha')
     baccini_aligned_raster_path = os.path.join(
-        data_dir,
-        os.path.basename(BACCINI_10s_2014_BIOMASS_RASTER_PATH))
-
-    # determine baccini max that's no
-    baccini_raster = gdal.OpenEx(baccini_aligned_raster_path, gdal.OF_RASTER)
-    _, baccini_max, _, _ = baccini_raster.GetRasterBand(1).GetStatistics(0, 1)
-    baccini_raster = None
+        data_dir, os.path.basename(BACCINI_10s_2014_BIOMASS_URI))
 
     # combine both the non-forest and forest into one map for each
     # scenario based on their masks
@@ -339,7 +309,7 @@ def evaluate_model_with_landcover(
         f'selecting {forest_carbon_stocks_raster_path} '
         f'if {forest_mask_path} is 1 '
         f'else {baccini_aligned_raster_path}, upper '
-        f'upper_threshold {baccini_max}\n'
+        f'upper_threshold {max_biomass}\n'
         f'result in {total_carbon_stocks_raster_path}')
 
     task_graph.add_task(
@@ -347,7 +317,7 @@ def evaluate_model_with_landcover(
         args=(
             forest_mask_path,
             forest_carbon_stocks_raster_path,
-            baccini_aligned_raster_path, baccini_max,
+            baccini_aligned_raster_path, max_biomass,
             total_carbon_stocks_raster_path),
         target_path_list=[
             total_carbon_stocks_raster_path],
@@ -379,13 +349,8 @@ def main():
     args = parser.parse_args()
     workspace_dir = args.workspace_dir
     churn_dir = os.path.join(workspace_dir, 'churn')
-    data_dir = os.path.join(workspace_dir, 'data')
-    landtype_basename = os.path.basename(
-        os.path.splitext(args.landcover_type_raster_path)[0])
-    aligned_data_dir = os.path.join(
-        workspace_dir, f'{landtype_basename}_aligned_data')
 
-    for dir_path in [workspace_dir, churn_dir, data_dir, aligned_data_dir]:
+    for dir_path in [workspace_dir, churn_dir]:
         try:
             os.makedirs(dir_path)
         except OSError:
@@ -394,17 +359,18 @@ def main():
     task_graph = taskgraph.TaskGraph(churn_dir, args.n_workers, 5.0)
 
     LOGGER.info("download data")
-    fetch_data(data_dir, task_graph)
+    carbon_model_data.fetch_data(BASE_DATA_DIR, task_graph)
+    task_graph.join()
 
     LOGGER.info("prep data")
-    prep_data(
-        args.landcover_type_raster_path, workspace_dir, data_dir, churn_dir,
-        aligned_data_dir, task_graph)
+    warp_and_gaussian_filter_data(
+        args.landcover_type_raster_path, BASE_DATA_DIR, churn_dir, task_graph)
+    task_graph.join()
 
     LOGGER.info('evaulate carbon model')
     evaluate_model_with_landcover(
-        args.landcover_type_raster_path, workspace_dir, aligned_data_dir,
-        task_graph, args.n_workers)
+        args.landcover_type_raster_path, workspace_dir, churn_dir,
+        args.n_workers, task_graph)
 
     task_graph.close()
     task_graph.join()

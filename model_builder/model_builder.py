@@ -23,7 +23,7 @@ from sklearn.preprocessing import PolynomialFeatures
 
 import taskgraph
 
-import model_files
+from .. import carbon_model_data
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -35,7 +35,6 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.WARN)
 
-BASE_DATA_DIR = 'base_data_no_humans_please'
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 MODEL_FIT_WORKSPACE = 'carbon_model'
 
@@ -135,29 +134,31 @@ if __name__ == '__main__':
         '--n_workers', type=int, default=1, help='number of taskgraph workers')
     args = parser.parse_args()
 
-    task_graph = taskgraph.TaskGraph(BASE_DATA_DIR, args.n_workers, 5.0)
+    task_graph = taskgraph.TaskGraph(
+        carbon_model_data.BASE_DATA_DIR, args.n_workers, 5.0)
 
-    raster_path_nodata_replacement_list = (
-        model_files.fetch_data(BASE_DATA_DIR, task_graph))
+    raster_path_nodata_replacement_list = carbon_model_data.fetch_data(
+        carbon_model_data.BASE_DATA_DIR, task_graph)
     LOGGER.debug(f'raster files: {raster_path_nodata_replacement_list}')
     task_graph.join()
 
     LOGGER.debug('create convolutions')
     esa_lulc_raster_path = os.path.join(
-        BASE_DATA_DIR, os.path.basename(model_files.ESA_LULC_URI))
-    convolution_raster_list = model_files.create_convolutions(
+        carbon_model_data.BASE_DATA_DIR,
+        os.path.basename(carbon_model_data.ESA_LULC_URI))
+    convolution_raster_list = carbon_model_data.create_convolutions(
         task_graph, esa_lulc_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
-        BASE_DATA_DIR)
+        carbon_model_data.BASE_DATA_DIR)
 
     task_graph.join()
 
     baccini_10s_2014_biomass_path = os.path.join(
-        BASE_DATA_DIR, os.path.basename(
-            model_files.BACCINI_10s_2014_BIOMASS_URI))
+        carbon_model_data.BASE_DATA_DIR, os.path.basename(
+            carbon_model_data.BACCINI_10s_2014_BIOMASS_URI))
     baccini_nodata = pygeoprocessing.get_raster_info(
         baccini_10s_2014_biomass_path)['nodata'][0]
 
-    forest_mask_raster_path = os.path.join(BASE_DATA_DIR, 'forest_mask.tif')
+    forest_mask_raster_path = os.path.join(carbon_model_data.BASE_DATA_DIR, 'forest_mask.tif')
 
     point_task_dict = {}
     for seed_val, data_type in [(1, 'training'), (2, 'validation')]:
