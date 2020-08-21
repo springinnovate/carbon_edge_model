@@ -52,3 +52,14 @@ The Python dependencies for this model are listed in ``requirements.txt`` but it
 *******
 
 ``docker run --rm -it -v `pwd`:/usr/local/workspace therealspring/inspring:latest carbon_edge_model.py mask.tif``
+
+Utility Scripts
+---------------
+
+The following utility scripts are available in ``./utils``
+
+ * ``create_marginal_value.py`` used to subtract one raster from another of to create a marginal value map. Use as follows:
+
+    ``python utils/create_marginal_value.py --base_value_raster_path base.tif --scenario_value_raster_path scenario.tif --target_marginal_value_path marginal_value.tif``
+
+ * ``esa_to_carbon_model_landcover_types.py`` used to convert an ESA style landcover map into the 4 catagory landcover map used in this model. Described above in **Step 1 -- Create a simple landcover classification**.
