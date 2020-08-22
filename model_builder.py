@@ -89,12 +89,17 @@ def generate_sample_points_for_carbon_model(
     baccini_memory_block_index = rtree.index.Index()
     inv_gt_baccini = band_inv_gt_list[0][-1]
     baccini_lng_lat_bb_list = []
-    for index, xoff, yoff, win_xsize, win_ysize in enumerate(offset_list):
+    for index, offset_dict in enumerate(offset_list):
         bb_lng_lat = (
             coord for coord in (
-                gdal.ApplyGeoTransform(inv_gt_baccini, xoff, yoff) +
                 gdal.ApplyGeoTransform(
-                    inv_gt_baccini, xoff+win_xsize, yoff+win_ysize)))
+                    inv_gt_baccini,
+                    offset_dict['xoff'],
+                    offset_dict['yoff']) +
+                gdal.ApplyGeoTransform(
+                    inv_gt_baccini,
+                    offset_dict['xoff']+offset_dict['win_xsize'],
+                    offset_dict['yoff']+offset_dict['win_ysize'])))
         baccini_lng_lat_bb_list.append(bb_lng_lat)
         baccini_memory_block_index.insert(index, bb_lng_lat)
 
