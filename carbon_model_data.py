@@ -256,6 +256,9 @@ def fetch_data(target_data_dir, task_graph):
             file_uri = os.path.join(BASE_URI, file_id)
         target_file_path = os.path.join(
             target_data_dir, os.path.basename(file_uri))
+        LOGGER.info(
+            f'download_gs for {file_uri}, exists? '
+            f'{os.path.exists(target_file_path)}')
         _ = task_graph.add_task(
             func=download_gs,
             args=(file_uri, target_file_path),
