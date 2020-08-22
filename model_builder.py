@@ -22,8 +22,8 @@ from sklearn.preprocessing import PolynomialFeatures
 
 import taskgraph
 
-from .. import carbon_model_data
-from ..carbon_model_data import BASE_DATA_DIR
+import carbon_model_data
+from carbon_model_data import BASE_DATA_DIR
 
 
 logging.basicConfig(
