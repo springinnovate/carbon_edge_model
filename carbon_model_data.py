@@ -103,13 +103,24 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _reclassify_vals_op(array, array_nodata, mask_values):
-    """Set values 1d array/array to nodata unless `inverse` then opposite."""
+    """Set values 1d array/array to nodata unless `inverse` then opposite.
+
+    Args:
+        array (numpy.ndarray): base integer array containing either nodata or
+            possible value in mask values
+        array_nodata (int): nodata value for array
+        mask_values (tuple/list): values to set to 1 in ``array``.
+
+    Returns:
+        values in ``array`` set to 1 where in mask_values, 0 otherwise, or
+            nodata.
+
+    """
     result = numpy.zeros(array.shape, dtype=numpy.uint8)
     if array_nodata is not None:
         result[numpy.isclose(array, array_nodata)] = MASK_NODATA
-    for code_list in mask_values:
-        mask_array = numpy.in1d(array, code_list).reshape(result.shape)
-        result[mask_array] = 1
+    mask_array = numpy.in1d(array, mask_values).reshape(result.shape)
+    result[mask_array] = 1
     return result
 
 
@@ -167,8 +178,18 @@ def create_convolutions(
 
     # this is calculated as 111km per degree
     pixel_radius = (pixel_size[0] * 111 / expected_max_edge_effect_km)**-1
-    convolution_raster_list = []
+    kernel_raster_path = os.path.join(
+        churn_dir, f'kernel_{pixel_radius}.tif')
+    kernel_task = task_graph.add_task(
+        func=make_kernel_raster,
+        args=(pixel_radius, kernel_raster_path),
+        target_path_list=[kernel_raster_path],
+        hash_algorithm='md5',
+        copy_duplicate_artifact=True,
+        hardlink_allowed=True,
+        task_name=f'make kernel of radius {pixel_radius}')
 
+    convolution_raster_list = []
     for mask_id, mask_code in MASK_TYPES:
         mask_raster_path = os.path.join(target_data_dir, f'{mask_id}_mask.tif')
         create_mask_task = task_graph.add_task(
@@ -179,17 +200,8 @@ def create_convolutions(
             copy_duplicate_artifact=True,
             hardlink_allowed=True,
             task_name=f'create {mask_id} mask')
-
-        kernel_raster_path = os.path.join(
-            churn_dir, f'kernel_{pixel_radius}.tif')
-        kernel_task = task_graph.add_task(
-            func=make_kernel_raster,
-            args=(pixel_radius, kernel_raster_path),
-            target_path_list=[kernel_raster_path],
-            hash_algorithm='md5',
-            copy_duplicate_artifact=True,
-            hardlink_allowed=True,
-            task_name=f'make kernel of radius {pixel_radius}')
+        create_mask_task.join()
+        return
 
         mask_gf_path = (
             f'{os.path.splitext(mask_raster_path)[0]}_gf_'
