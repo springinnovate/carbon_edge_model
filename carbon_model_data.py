@@ -100,7 +100,6 @@ OTHER_TYPE = 4
 MASK_NODATA = 127
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 
 def _reclassify_vals_op(array, array_nodata, mask_values):

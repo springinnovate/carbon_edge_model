@@ -26,7 +26,7 @@ logging.basicConfig(
     stream=sys.stdout)
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger('taskgraph').setLevel(logging.INFO)
+logging.getLogger('taskgraph').setLevel(logging.DEBUG)
 
 
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
