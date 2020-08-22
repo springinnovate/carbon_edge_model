@@ -205,6 +205,7 @@ def warp_and_gaussian_filter_data(
                 },
             hash_algorithm='md5',
             copy_duplicate_artifact=True,
+            hardlink_allowed=True,
             target_path_list=[aligned_raster_path],
             task_name=f'align {base_raster_path} data')
     LOGGER.info('wait for data to align')
@@ -221,6 +222,9 @@ def warp_and_gaussian_filter_data(
                 landcover_type_raster_path, lulc_codes,
                 lulc_mask_raster_path),
             target_path_list=[lulc_mask_raster_path],
+            hash_algorithm='md5',
+            copy_duplicate_artifact=True,
+            hardlink_allowed=True,
             task_name=f'make {mask_type}')
         mask_path_task_map[mask_type] = (lulc_mask_raster_path, mask_task)
 
@@ -300,6 +304,9 @@ def evaluate_model_with_landcover(
             total_carbon_stocks_raster_path),
         target_path_list=[
             total_carbon_stocks_raster_path],
+        hash_algorithm='md5',
+        copy_duplicate_artifact=True,
+        hardlink_allowed=True,
         dependent_task_list=[regression_model_task],
         task_name=f'combine forest/nonforest')
 

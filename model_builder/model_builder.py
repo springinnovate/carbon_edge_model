@@ -226,6 +226,7 @@ if __name__ == '__main__':
                 raster_path_nodata_replacement_list + convolution_raster_list,
                 args.max_min_lat),
             kwargs={'seed': seed_val},
+            store_result=True,
             task_name=f'predict with seed {seed_val}')
         point_task_dict[data_type] = generate_point_task
 
