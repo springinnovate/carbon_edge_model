@@ -201,8 +201,8 @@ if __name__ == '__main__':
         BASE_DATA_DIR,
         os.path.basename(carbon_model_data.ESA_LULC_URI))
     convolution_raster_list = carbon_model_data.create_convolutions(
-        task_graph, esa_lulc_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
-        BASE_DATA_DIR)
+        esa_lulc_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
+        BASE_DATA_DIR, task_graph)
 
     task_graph.join()
 
