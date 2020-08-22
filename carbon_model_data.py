@@ -120,7 +120,7 @@ def _reclassify_vals_op(array, array_nodata, mask_values):
     if array_nodata is not None:
         result[numpy.isclose(array, array_nodata)] = MASK_NODATA
     mask_array = numpy.in1d(array, mask_values).reshape(result.shape)
-    LOGGER.debug(f'{numpy.count_nonzero(mask_array)} values found in {mask_values}')
+    LOGGER.debug(f'{numpy.count_nonzero(mask_array)} values found in {mask_values} {array}')
     result[mask_array] = 1
     return result
 
