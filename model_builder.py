@@ -188,9 +188,11 @@ if __name__ == '__main__':
         '--n_workers', type=int, default=1, help='number of taskgraph workers')
     args = parser.parse_args()
 
+    LOGGER.info('initalizing')
     task_graph = taskgraph.TaskGraph(
         BASE_DATA_DIR, args.n_workers, 5.0)
 
+    LOGGER.info('fetch model data')
     raster_path_nodata_replacement_list = carbon_model_data.fetch_data(
         BASE_DATA_DIR, task_graph)
     LOGGER.debug(f'raster files: {raster_path_nodata_replacement_list}')
