@@ -263,9 +263,6 @@ def fetch_data(target_data_dir, task_graph):
             args=(file_uri, target_file_path),
             kwargs={'skip_if_target_exists': True},
             target_path_list=[target_file_path],
-            hash_algorithm='md5',
-            copy_duplicate_artifact=True,
-            hardlink_allowed=True,
             task_name=f'download {file_uri} to {target_data_dir}')
         if file_uri not in [BACCINI_10s_2014_BIOMASS_URI, ESA_LULC_URI]:
             downloaded_file_list.append(
