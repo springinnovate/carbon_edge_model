@@ -153,31 +153,44 @@ def mask_ranges(
 
 
 def warp_and_gaussian_filter_data(
-        landcover_type_raster_path, base_data_dir, churn_dir,
-        aligned_data_dir, task_graph):
+        landcover_type_raster_path, base_data_dir,
+        target_data_dir, task_graph):
     """Clip required data to fit landcover and apply gaussian filtering.
 
     Args:
         landcover_type_raster_path (str): path to landcover raster used to
             infer target raster size and projection.
-        data_dir (str): path to base raster data
-        churn_dir (str): path to target warped and filtered rasters.
+        base_data_dir (str): location of base model data files expected by
+            carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA.
+        target_data_dir (str): path to directory to contain all warped and
+            filtered files required to run the model on a particular scenario.
+        task_graph (TaskGraph): object used for concurrent execution and
+            avoided reexecution.
 
     Returns:
         None.
 
     """
+    # Expected data is given by `carbon_model_data`.
     base_raster_data_path_list = [
         os.path.join(base_data_dir, filename)
         for filename in carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA]
+    # sanity check:
+    missing_raster_list = []
+    for path in base_raster_data_path_list:
+        if not os.path.exists(path):
+            missing_raster_list.append(path)
+    if missing_raster_list:
+        raise ValueError(
+            f'Expected the following files that did not exist: '
+            f'{missing_raster_list}')
 
-    landtype_basename = os.path.basename(
-        os.path.splitext(landcover_type_raster_path)[0])
-    aligned_raster_path_list = [
-        os.path.join(aligned_data_dir, os.path.basename(path))
-        for path in base_raster_data_path_list]
     base_raster_info = pygeoprocessing.get_raster_info(
         landcover_type_raster_path)
+    aligned_raster_path_list = [
+        os.path.join(target_data_dir, os.path.basename(path))
+        for path in base_raster_data_path_list]
+    # TODO: if 'warp' bounding box is the same as target, then hardlink
     for base_raster_path, aligned_raster_path in zip(
             base_raster_data_path_list, aligned_raster_path_list):
         _ = task_graph.add_task(
@@ -188,22 +201,20 @@ def warp_and_gaussian_filter_data(
             kwargs={
                 'target_bb': base_raster_info['bounding_box'],
                 'target_projection_wkt': base_raster_info['projection_wkt'],
-                'working_dir': aligned_data_dir,
+                'working_dir': target_data_dir,
                 },
+            hash_algorithm='md5',
+            copy_duplicate_artifact=True,
             target_path_list=[aligned_raster_path],
             task_name=f'align {base_raster_path} data')
     LOGGER.info('wait for data to align')
     task_graph.join()
 
-    # FOREST REGRESSION
-    # 1) Make convolutions with custom kernel of 1, 2, 3, 5, 10, 20, 30, 50,
-    #    and 100 pixels for not_forest (see forest lulc codes), is_cropland
-    #    (classes 10-40), and is_urban (class 190) for LULC maps
-    LOGGER.info("Forest Regression step 1")
     mask_path_task_map = {}
+    LOGGER.info('separate out landcover masks')
     for mask_type, lulc_codes in MASK_TYPES:
         lulc_mask_raster_path = os.path.join(
-            aligned_data_dir, f'mask_of_{mask_type}.tif')
+            target_data_dir, f'mask_of_{mask_type}.tif')
         mask_task = task_graph.add_task(
             func=mask_ranges,
             args=(
@@ -212,43 +223,11 @@ def warp_and_gaussian_filter_data(
             target_path_list=[lulc_mask_raster_path],
             task_name=f'make {mask_type}')
         mask_path_task_map[mask_type] = (lulc_mask_raster_path, mask_task)
-        LOGGER.debug(
-            f'this is the scenario lulc mask target: '
-            f'{lulc_mask_raster_path}')
 
-    kernel_raster_path_map = {}
-
-    convolution_raster_list = carbon_model_data.create_convolutions(
-        task_graph, esa_lulc_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
-        carbon_model_data.BASE_DATA_DIR)
-
-    for pixel_radius in reversed(sorted(CONVOLUTION_PIXEL_DIST_LIST)):
-        kernel_raster_path = os.path.join(
-            churn_dir, f'{pixel_radius}_kernel.tif')
-        kernel_task = task_graph.add_task(
-            func=make_kernel_raster,
-            args=(pixel_radius, kernel_raster_path),
-            target_path_list=[kernel_raster_path],
-            task_name=f'make kernel of radius {pixel_radius}')
-        kernel_raster_path_map[pixel_radius] = kernel_raster_path
-        convolution_task_list = []
-        for mask_type, (landcover_mask_path, mask_task) in \
-                mask_path_task_map.items():
-            LOGGER.debug(
-                f'this is the scenario mask about to convolve: '
-                f'{landcover_mask_path} {mask_task}')
-            convolution_mask_raster_path = os.path.join(
-                aligned_data_dir,
-                f'{landtype_basename}_{mask_type}_gs{pixel_radius}.tif')
-            convolution_task = task_graph.add_task(
-                func=pygeoprocessing.convolve_2d,
-                args=(
-                    (landcover_mask_path, 1), (kernel_raster_path, 1),
-                    convolution_mask_raster_path),
-                dependent_task_list=[mask_task, kernel_task],
-                target_path_list=[convolution_mask_raster_path],
-                task_name=f'convolve {pixel_radius} {mask_type}')
-            convolution_task_list.append(convolution_task)
+    LOGGER.info('create gaussian filter of landcover types')
+    carbon_model_data.create_convolutions(
+        landcover_type_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
+        carbon_model_data.BASE_DATA_DIR, task_graph)
     LOGGER.info('wait for convolution to complete')
     task_graph.join()
 
@@ -356,7 +335,7 @@ def main():
         except OSError:
             pass
 
-    task_graph = taskgraph.TaskGraph(churn_dir, args.n_workers, 5.0)
+    task_graph = taskgraph.TaskGraph(BASE_DATA_DIR, args.n_workers, 5.0)
 
     LOGGER.info("download data")
     carbon_model_data.fetch_data(BASE_DATA_DIR, task_graph)

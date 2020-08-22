@@ -11,7 +11,7 @@ import scipy
 
 from osgeo import gdal
 
-BASE_DATA_DIR = os.path.dirname(__file__)
+BASE_DATA_DIR = os.path.join(os.path.dirname(__file__), 'model_base_data')
 
 BASE_URL = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs'
 BASE_URI = 'gs://ecoshard-root/global_carbon_regression/inputs'

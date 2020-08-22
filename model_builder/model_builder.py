@@ -1,8 +1,7 @@
 """Tracer code for regression models."""
 import argparse
-import glob
+import collections
 import logging
-import multiprocessing
 import os
 import sys
 import time
@@ -10,7 +9,7 @@ import time
 from osgeo import gdal
 import numpy
 import pygeoprocessing
-import retrying
+import rtree
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LassoLarsCV
 from sklearn.linear_model import LassoLarsIC
@@ -24,6 +23,8 @@ from sklearn.preprocessing import PolynomialFeatures
 import taskgraph
 
 from .. import carbon_model_data
+from ..carbon_model_data import BASE_DATA_DIR
+
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -50,6 +51,8 @@ def generate_sample_points_for_carbon_model(
         n_points (int): number of points to sample
         baccini_raster_path_nodata (tuple): tuple of path to dependent
             variable raster with expected nodata value.
+        forest_mask_raster_path (str): path to the forest mask, this model
+            should only generate a model for valid forest points.
         independent_raster_path_nodata_list (list): list of
             (path, nodata, nodata_replace) tuples.
         max_min_lat (float): absolute maximum latitude allowed in a sampled
@@ -79,6 +82,22 @@ def generate_sample_points_for_carbon_model(
         raster = None
         band = None
 
+    # build a spatial index for efficient fetching of points later
+    LOGGER.info('build baccini iterblocks spatial index')
+    offset_list = list(pygeoprocessing.iterblocks(
+        (baccini_raster_path_nodata[0], 1), offset_only=True))
+    baccini_memory_block_index = rtree.index.Index()
+    inv_gt_baccini = band_inv_gt_list[0][-1]
+    baccini_lng_lat_bb_list = []
+    for index, xoff, yoff, win_xsize, win_ysize in enumerate(offset_list):
+        bb_lng_lat = (
+            coord for coord in (
+                gdal.ApplyGeoTransform(inv_gt_baccini, xoff, yoff) +
+                gdal.ApplyGeoTransform(
+                    inv_gt_baccini, xoff+win_xsize, yoff+win_ysize)))
+        baccini_lng_lat_bb_list.append(bb_lng_lat)
+        baccini_memory_block_index.insert(index, bb_lng_lat)
+
     points_remaining = n_points
     valid_points = []
     X_vector = []
@@ -94,32 +113,67 @@ def generate_sample_points_for_carbon_model(
         lat_arr = numpy.arccos(2*v-1) * 180/numpy.pi
         valid_mask = numpy.abs(lat_arr) <= max_min_lat
 
+        window_index_to_point_list_map = collections.defaultdict(list)
         for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
             if time.time() - last_time > 5.0:
                 LOGGER.debug(f'working ... {points_remaining} left')
                 last_time = time.time()
-            working_sample_list = []
-            valid_working_list = True
+
+            window_index = list(baccini_memory_block_index.intersection(
+                (lng, lat, lng, lat)))[0]
+            window_index_to_point_list_map[window_index].append((lng, lat))
+
+        for window_index, point_list in window_index_to_point_list_map.items():
+            if not point_list:
+                continue
+            # load all raster blocks
+            raster_index_to_array_list = []
             for index, (raster_path, band, nodata, nodata_replace, inv_gt) in \
                     enumerate(band_inv_gt_list):
-                x, y = [int(v) for v in gdal.ApplyGeoTransform(
-                    inv_gt, lng, lat)]
-                val = band.ReadAsArray(x, y, 1, 1)[0, 0]
-                if nodata is None or not numpy.isclose(val, nodata):
-                    working_sample_list.append(val)
-                elif nodata_replace is not None:
-                    working_sample_list.append(nodata_replace)
-                else:
-                    # nodata value, skip
-                    valid_working_list = False
-                    break
-            if valid_working_list:
-                points_remaining -= 1
-                valid_points.append((lng, lat, working_sample_list))
-                y_vector.append(working_sample_list[0])  # first element is dep
-                # second element is forest mask -- don't include it
-                X_vector.append(working_sample_list[2:])
-    return valid_points, X_vector, y_vector
+
+                lng_min, lat_min, lng_max, lat_max = baccini_lng_lat_bb_list[
+                    window_index]
+                x_min, y_min = [int(v) for v in (
+                    gdal.ApplyGeoTransform(inv_gt, lng_min, lat_min))]
+                x_max, y_max = [int(v) for v in (
+                    gdal.ApplyGeoTransform(inv_gt, lng_max, lat_max))]
+
+                raster_index_to_array_list.append((
+                    x_min, y_min, nodata, nodata_replace, inv_gt,
+                    band.ReadAsArray(
+                        x_min, y_min, x_max-x_min, y_max-y_min)))
+
+            # raster_index_to_array_list is an xoff, yoff, array list
+            # TODO: loop through each point in point list
+            for lng, lat in point_list:
+                # check each array/raster and ensure it's not nodata or if it
+                # is, set to the valid value
+                working_sample_list = []
+                valid_working_list = True
+                for xoff, yoff, nodata, nodata_replace, inv_gt, array in \
+                        raster_index_to_array_list:
+                    x, y = [int(v) for v in gdal.ApplyGeoTransform(
+                        inv_gt, lng, lat)]
+
+                    val = array[x-xoff, y-yoff]
+
+                    if nodata is None or not numpy.isclose(val, nodata):
+                        working_sample_list.append(val)
+                    elif nodata_replace is not None:
+                        working_sample_list.append(nodata_replace)
+                    else:
+                        # nodata value, skip
+                        valid_working_list = False
+                        break
+
+                if valid_working_list:
+                    points_remaining -= 1
+                    valid_points.append((lng, lat, working_sample_list))
+                    y_vector.append(working_sample_list[0])
+                    # first element is dep
+                    # second element is forest mask -- don't include it
+                    X_vector.append(working_sample_list[2:])
+        return valid_points, X_vector, y_vector
 
 
 if __name__ == '__main__':
@@ -135,33 +189,35 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     task_graph = taskgraph.TaskGraph(
-        carbon_model_data.BASE_DATA_DIR, args.n_workers, 5.0)
+        BASE_DATA_DIR, args.n_workers, 5.0)
 
     raster_path_nodata_replacement_list = carbon_model_data.fetch_data(
-        carbon_model_data.BASE_DATA_DIR, task_graph)
+        BASE_DATA_DIR, task_graph)
     LOGGER.debug(f'raster files: {raster_path_nodata_replacement_list}')
     task_graph.join()
 
     LOGGER.debug('create convolutions')
     esa_lulc_raster_path = os.path.join(
-        carbon_model_data.BASE_DATA_DIR,
+        BASE_DATA_DIR,
         os.path.basename(carbon_model_data.ESA_LULC_URI))
     convolution_raster_list = carbon_model_data.create_convolutions(
         task_graph, esa_lulc_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
-        carbon_model_data.BASE_DATA_DIR)
+        BASE_DATA_DIR)
 
     task_graph.join()
 
     baccini_10s_2014_biomass_path = os.path.join(
-        carbon_model_data.BASE_DATA_DIR, os.path.basename(
+        BASE_DATA_DIR, os.path.basename(
             carbon_model_data.BACCINI_10s_2014_BIOMASS_URI))
     baccini_nodata = pygeoprocessing.get_raster_info(
         baccini_10s_2014_biomass_path)['nodata'][0]
 
-    forest_mask_raster_path = os.path.join(carbon_model_data.BASE_DATA_DIR, 'forest_mask.tif')
+    forest_mask_raster_path = os.path.join(BASE_DATA_DIR, 'forest_mask.tif')
 
     point_task_dict = {}
-    for seed_val, data_type in [(1, 'training'), (2, 'validation')]:
+    for n_points, seed_val, data_type in [
+            (args.n_points, 1, 'training'),
+            (int(args.n_points * 0.2), 2, 'validation')]:
         generate_point_task = task_graph.add_task(
             func=generate_sample_points_for_carbon_model,
             args=(
