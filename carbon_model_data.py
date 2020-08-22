@@ -272,5 +272,7 @@ def fetch_data(target_data_dir, task_graph):
             downloaded_file_list.append(
                 (target_file_path, nodata, nodata_replacement))
 
+    LOGGER.info('waiting for downloads to complete')
     task_graph.join()
+    LOGGER.info('returning downloaded result')
     return downloaded_file_list
