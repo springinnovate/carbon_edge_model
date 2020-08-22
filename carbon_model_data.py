@@ -246,10 +246,14 @@ def fetch_data(target_data_dir, task_graph):
         pass
 
     downloaded_file_list = []
-    for file_uri, nodata, nodata_replacement in \
+    for file_id, nodata, nodata_replacement in \
             CARBON_EDGE_MODEL_DATA_NODATA + [
                 (BACCINI_10s_2014_BIOMASS_URI, None, None),
                 (ESA_LULC_URI, None, None)]:
+        if file_id.startswith('gs://'):
+            file_uri = file_id
+        else:
+            file_uri = os.path.join(BASE_URI, file_id)
         target_file_path = os.path.join(
             target_data_dir, os.path.basename(file_uri))
         _ = task_graph.add_task(
