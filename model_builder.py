@@ -127,6 +127,8 @@ def generate_sample_points_for_carbon_model(
             window_index = list(baccini_memory_block_index.intersection(
                 (lng, lat, lng, lat)))[0]
             window_index_to_point_list_map[window_index].append((lng, lat))
+        LOGGER.debug(
+            f'testing {len(window_index_to_point_list_map)} windows')
 
         for window_index, point_list in window_index_to_point_list_map.items():
             if not point_list:
