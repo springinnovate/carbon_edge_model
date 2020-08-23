@@ -128,16 +128,10 @@ def generate_sample_points_for_carbon_model(
             window_index = list(baccini_memory_block_index.intersection(
                 (lng, lat, lng, lat)))[0]
             window_index_to_point_list_map[window_index].append((lng, lat))
-        LOGGER.debug(
-            f'testing {len(window_index_to_point_list_map)} windows')
 
         for window_index, point_list in window_index_to_point_list_map.items():
             if not point_list:
                 continue
-
-            if time.time() - last_time > 5.0:
-                LOGGER.debug(f'working ... {points_remaining} left {index}')
-                last_time = time.time()
 
             # raster_index_to_array_list is an xoff, yoff, array list
             # TODO: loop through each point in point list
