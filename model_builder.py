@@ -301,8 +301,8 @@ if __name__ == '__main__':
 
         with open(model_filename, 'r') as model_file:
             loaded_model = pickle.load(model_file)
-
-        LOGGER.info(f'loaded model R^2: {poly.fit_transform(valid_X_vector), valid_y_vector)} loaded_model.')
-
+        loaded_model_score = loaded_model.score(
+            poly.fit_transform(valid_X_vector), valid_y_vector)
+        LOGGER.info(f'loaded model R^2: {loaded_model_score} loaded_model.')
 
     LOGGER.debug('all done!')
