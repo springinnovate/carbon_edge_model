@@ -259,7 +259,7 @@ if __name__ == '__main__':
     validation_set = point_task_dict['validation'].get()
     task_graph.close()
     task_graph.join()
-    task_graph = None
+    del task_graph
 
     for model_name, model_object in models_to_test:
         LOGGER.debug(f'building {model_name}')
