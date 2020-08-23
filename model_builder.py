@@ -24,7 +24,7 @@ import taskgraph
 
 import carbon_model_data
 from carbon_model_data import BASE_DATA_DIR
-
+from utils import esa_to_carbon_model_landcover_types
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -203,13 +203,27 @@ if __name__ == '__main__':
     LOGGER.debug(f'raster files: {raster_path_nodata_replacement_list}')
     task_graph.join()
 
-    LOGGER.debug('create convolutions')
+    LOGGER.info('create ESA to carbon model landcover type mask')
     esa_lulc_raster_path = os.path.join(
         BASE_DATA_DIR,
         os.path.basename(carbon_model_data.ESA_LULC_URI))
+    esa_to_carbon_model_landcover_type_raster_path = os.path.join(
+        BASE_DATA_DIR, 'esa_carbon_model_landcover_types.tif')
+    create_carbon_lancover_mask_task = task_graph.add_task(
+        func=pygeoprocessing.multiprocessing.raster_calculator,
+        args=(
+            [(esa_lulc_raster_path, 1)],
+            esa_to_carbon_model_landcover_types._reclassify_esa_vals_op,
+            esa_to_carbon_model_landcover_type_raster_path, gdal.GDT_Byte,
+            None),
+        target_path_list=[esa_to_carbon_model_landcover_type_raster_path],
+        task_name='create carbon model land cover masks from ESA')
+    create_carbon_lancover_mask_task.join()
+
+    LOGGER.debug('create convolutions')
     convolution_raster_list = carbon_model_data.create_convolutions(
-        esa_lulc_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
-        BASE_DATA_DIR, task_graph)
+        esa_to_carbon_model_landcover_type_raster_path,
+        EXPECTED_MAX_EDGE_EFFECT_KM, BASE_DATA_DIR, task_graph)
 
     task_graph.join()
 

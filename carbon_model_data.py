@@ -120,7 +120,6 @@ def _reclassify_vals_op(array, array_nodata, mask_values):
     if array_nodata is not None:
         result[numpy.isclose(array, array_nodata)] = MASK_NODATA
     mask_array = numpy.in1d(array, mask_values).reshape(result.shape)
-    LOGGER.debug(f'{numpy.count_nonzero(mask_array)} values found in {mask_values} {array}')
     result[mask_array] = 1
     return result
 
@@ -201,8 +200,6 @@ def create_convolutions(
             copy_duplicate_artifact=True,
             hardlink_allowed=True,
             task_name=f'create {mask_id} mask')
-        create_mask_task.join()
-        return
 
         mask_gf_path = (
             f'{os.path.splitext(mask_raster_path)[0]}_gf_'

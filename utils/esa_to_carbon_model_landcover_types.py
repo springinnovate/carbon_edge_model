@@ -35,7 +35,7 @@ OTHER_TYPE = 4
 # 4: other
 
 
-def _reclassify_vals_op(array):
+def _reclassify_esa_vals_op(array):
     """Set values 1d array/array to nodata unless `inverse` then opposite."""
     result = numpy.empty(array.shape, dtype=numpy.uint8)
     result[:] = OTHER_TYPE  # default is '4 -- other'
@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
     # reclassify clipped file as the output file
     pygeoprocessing.raster_calculator(
-        [(reclassify_raster_path, 1)], _reclassify_vals_op,
+        [(reclassify_raster_path, 1)], _reclassify_esa_vals_op,
         args.target_mask_raster_path, gdal.GDT_Byte, None)
 
     try:
