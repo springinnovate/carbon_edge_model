@@ -275,7 +275,7 @@ if __name__ == '__main__':
     LOGGER.debug(f'building {model_name}')
     model = carbon_model_pipeline.fit(X_vector, y_vector)
     coeff_id_list = sorted(zip(
-        model.coef_, poly_trans.get_feature_names(feature_name_list)),
+        lasso_lars_cv.coef_, poly_trans.get_feature_names(feature_name_list)),
         key=lambda v: abs(v[0]))
     LOGGER.debug('calculating score')
     LOGGER.info(
