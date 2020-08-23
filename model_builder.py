@@ -182,6 +182,7 @@ def generate_sample_points_for_carbon_model(
                         valid_working_list = False
                         break
 
+                LOGGER.debug(f'valid working list? {valid_working_list}')
                 if valid_working_list:
                     points_remaining -= 1
                     valid_points.append((lng, lat, working_sample_list))
