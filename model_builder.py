@@ -283,7 +283,7 @@ if __name__ == '__main__':
         f'R^2 fit: {model.score(X_vector, y_vector)}\n'
         f'''validation data R^2: {
             model.score(test_X_vector, test_y_vector)}'''
-        f'y int: {model.intercept_}\n'
+        f'y int: {lasso_lars_cv.intercept_}\n'
         )
 
     model_filename = f'carbon_model_{model_name}_{len(X_vector)}_pts.mod'
