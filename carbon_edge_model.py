@@ -29,7 +29,6 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.DEBUG)
 
-
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 
 # Landcover classification codes
