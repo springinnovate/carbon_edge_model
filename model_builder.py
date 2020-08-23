@@ -172,13 +172,13 @@ def generate_sample_points_for_carbon_model(
                     val = array[x-xoff, y-yoff]
 
                     if nodata is None or not numpy.isclose(val, nodata):
-                        LOGGER.debug(
-                            f'got nodata {nodata} {val} for {xoff} {yoff} on {raster_path}')
                         working_sample_list.append(val)
                     elif nodata_replace is not None:
                         working_sample_list.append(nodata_replace)
                     else:
                         # nodata value, skip
+                        LOGGER.debug(
+                            f'got nodata {nodata} {val} for {xoff} {yoff} on {raster_path}')
                         valid_working_list = False
                         break
 
