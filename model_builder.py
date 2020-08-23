@@ -260,7 +260,7 @@ if __name__ == '__main__':
         test_size=HOLDBACK_PROPORTION)
     LOGGER.info(f'base vector shape {len(point_task_list[0].get()[1])}')
     LOGGER.info(f'raw_X_vector shape: {raw_X_vector.shape}')
-    LOGGER.info(f'X_vector {X_vector.shape} elements, y_vector {X_vector.shape} elements, test_X_vector {X_vector.shape} elements, test_y_vector {X_vector.shape} elements')
+    LOGGER.info(f'X_vector {X_vector.shape} elements, y_vector {y_vector.shape} elements, test_X_vector {test_X_vector.shape} elements, test_y_vector {test_y_vector.shape} elements')
     task_graph.close()
     task_graph.join()
 
