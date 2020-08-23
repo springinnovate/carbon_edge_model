@@ -85,7 +85,7 @@ def generate_sample_points_for_carbon_model(
     # build a spatial index for efficient fetching of points later
     LOGGER.info('build baccini iterblocks spatial index')
     offset_list = list(pygeoprocessing.iterblocks(
-        (baccini_raster_path_nodata[0], 1), offset_only=True))
+        (baccini_raster_path_nodata[0], 1), offset_only=True, largest_block=0))
     baccini_memory_block_index = rtree.index.Index()
     gt_baccini = band_inv_gt_list[0][-2]
     baccini_lng_lat_bb_list = []
