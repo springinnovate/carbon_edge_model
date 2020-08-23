@@ -249,9 +249,11 @@ if __name__ == '__main__':
             convolution_raster_list)]
 
     LOGGER.info('collect raw X vector')
-    raw_X_vector = numpy.array([task.get()[1] for task in point_task_list])
+    raw_X_vector = numpy.concatenate(
+        [task.get()[1] for task in point_task_list])
     LOGGER.info('collect raw y vector')
-    raw_y_vector = numpy.array([task.get()[2] for task in point_task_list])
+    raw_y_vector = numpy.concatenate(
+        [task.get()[2] for task in point_task_list])
     LOGGER.info('calculate test/train split')
     X_vector, y_vector, test_X_vector, test_y_vector = train_test_split(
         raw_X_vector, raw_y_vector, shuffle=False,
