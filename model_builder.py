@@ -258,7 +258,7 @@ if __name__ == '__main__':
     X_vector, y_vector, test_X_vector, test_y_vector = train_test_split(
         raw_X_vector, raw_y_vector, shuffle=False,
         test_size=HOLDBACK_PROPORTION)
-    LOGGER.info(f'X_vector {len(X_vector)} elements, y_vector {len(X_vector)} elements, test_X_vector {len(X_vector)} elements, test_y_vector {len(X_vector)} elements')
+    LOGGER.info(f'X_vector {X_vector.shape} elements, y_vector {X_vector.shape} elements, test_X_vector {X_vector.shape} elements, test_y_vector {X_vector.shape} elements')
     task_graph.close()
     task_graph.join()
 
