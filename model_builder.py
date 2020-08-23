@@ -10,7 +10,7 @@ from osgeo import gdal
 import numpy
 import pygeoprocessing
 import rtree
-import sklearn.preprocessing
+from sklearn import preprocessing
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LassoLarsCV
 from sklearn.linear_model import LassoLarsIC
@@ -260,7 +260,6 @@ if __name__ == '__main__':
     validation_set = point_task_dict['validation'].get()
     task_graph.close()
     task_graph.join()
-    del task_graph
 
     _, X_vector, y_vector = training_set
     _, valid_X_vector, valid_y_vector = validation_set
