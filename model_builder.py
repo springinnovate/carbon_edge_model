@@ -147,7 +147,7 @@ def generate_sample_points_for_carbon_model(
 
                 try:
                     raster_index_to_array_list.append((
-                        x_min, y_min, nodata, nodata_replace, inv_gt,
+                        raster_path, x_min, y_min, nodata, nodata_replace, inv_gt,
                         band.ReadAsArray(
                             x_min, y_min, x_max-x_min, y_max-y_min)))
                 except Exception:
@@ -164,7 +164,7 @@ def generate_sample_points_for_carbon_model(
                 # is, set to the valid value
                 working_sample_list = []
                 valid_working_list = True
-                for xoff, yoff, nodata, nodata_replace, inv_gt, array in \
+                for raster_path, xoff, yoff, nodata, nodata_replace, inv_gt, array in \
                         raster_index_to_array_list:
                     x, y = [int(v) for v in gdal.ApplyGeoTransform(
                         inv_gt, lng, lat)]
@@ -172,6 +172,8 @@ def generate_sample_points_for_carbon_model(
                     val = array[x-xoff, y-yoff]
 
                     if nodata is None or not numpy.isclose(val, nodata):
+                        LOGGER.debug(
+                            f'got nodata {nodata} {val} for {xoff} {yoff} on {raster_path}')
                         working_sample_list.append(val)
                     elif nodata_replace is not None:
                         working_sample_list.append(nodata_replace)
