@@ -90,7 +90,7 @@ def generate_sample_points_for_carbon_model(
     inv_gt_baccini = band_inv_gt_list[0][-1]
     baccini_lng_lat_bb_list = []
     for index, offset_dict in enumerate(offset_list):
-        bb_lng_lat = (
+        bb_lng_lat = [
             coord for coord in (
                 gdal.ApplyGeoTransform(
                     inv_gt_baccini,
@@ -99,7 +99,7 @@ def generate_sample_points_for_carbon_model(
                 gdal.ApplyGeoTransform(
                     inv_gt_baccini,
                     offset_dict['xoff']+offset_dict['win_xsize'],
-                    offset_dict['yoff']+offset_dict['win_ysize'])))
+                    offset_dict['yoff']+offset_dict['win_ysize']))]
         baccini_lng_lat_bb_list.append(bb_lng_lat)
         baccini_memory_block_index.insert(index, bb_lng_lat)
 
