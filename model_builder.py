@@ -255,15 +255,24 @@ if __name__ == '__main__':
                 raster_path_nodata_replacement_list +
                 convolution_raster_list)]
 
+    training_set = point_task_dict['training'].get()
+    validation_set = point_task_dict['validation'].get()
+    task_graph.close()
+    task_graph.join()
+    task_graph = None
+
     for model_name, model_object in models_to_test:
-        LOGGER.info(f'fitting {model_name} model')
-        _, X_vector, y_vector = point_task_dict['training'].get()
+        LOGGER.debug(f'building {model_name}')
+        _, X_vector, y_vector = training_set
+        LOGGER.debug('doing poly transform')
         X_vector_transform = poly.fit_transform(X_vector)
+        LOGGER.debug('doing fit')
         model = model_object.fit(X_vector_transform, y_vector)
-        _, valid_X_vector, valid_y_vector = point_task_dict['validation'].get()
+        _, valid_X_vector, valid_y_vector = validation_set
         coeff_id_list = sorted(zip(
             model.coef_, poly.get_feature_names(feature_name_list)),
             key=lambda v: abs(v[0]))
+        LOGGER.debug('calculating score')
         LOGGER.info(
             f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list]) +
             f'R^2 fit: {model.score(X_vector_transform, y_vector)}\n'
@@ -272,6 +281,4 @@ if __name__ == '__main__':
             f'y int: {model.intercept_}\n'
             )
 
-    task_graph.close()
-    task_graph.join()
     LOGGER.debug('all done!')
