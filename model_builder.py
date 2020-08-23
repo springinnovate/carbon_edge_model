@@ -135,6 +135,9 @@ def generate_sample_points_for_carbon_model(
             raster_index_to_array_list = []
             for index, (raster_path, band, nodata, nodata_replace,
                         gt, inv_gt) in enumerate(band_inv_gt_list):
+                if time.time() - last_time > 5.0:
+                    LOGGER.debug(f'working ... {points_remaining} left')
+                    last_time = time.time()
                 lng_min, lat_min, lng_max, lat_max = baccini_lng_lat_bb_list[
                     window_index]
                 x_min, y_min = [int(v) for v in (
