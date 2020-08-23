@@ -184,9 +184,6 @@ def create_convolutions(
         func=make_kernel_raster,
         args=(pixel_radius, kernel_raster_path),
         target_path_list=[kernel_raster_path],
-        hash_algorithm='md5',
-        copy_duplicate_artifact=True,
-        hardlink_allowed=True,
         task_name=f'make kernel of radius {pixel_radius}')
 
     convolution_raster_list = []
@@ -196,9 +193,6 @@ def create_convolutions(
             func=create_mask,
             args=(landcover_type_raster_path, (mask_code,), mask_raster_path),
             target_path_list=[mask_raster_path],
-            hash_algorithm='md5',
-            copy_duplicate_artifact=True,
-            hardlink_allowed=True,
             task_name=f'create {mask_id} mask')
 
         mask_gf_path = (
@@ -212,9 +206,6 @@ def create_convolutions(
                 mask_gf_path),
             dependent_task_list=[create_mask_task, kernel_task],
             target_path_list=[mask_gf_path],
-            hash_algorithm='md5',
-            copy_duplicate_artifact=True,
-            hardlink_allowed=True,
             task_name=f'create guassian filter of {mask_id}')
         convolution_raster_list.append(((mask_gf_path, None, None)))
     task_graph.join()

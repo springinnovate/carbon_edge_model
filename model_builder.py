@@ -78,7 +78,7 @@ def generate_sample_points_for_carbon_model(
         gt = raster.GetGeoTransform()
         inv_gt = gdal.InvGeoTransform(gt)
         band_inv_gt_list.append(
-            (raster_path, band, nodata, nodata_replace, inv_gt))
+            (raster_path, band, nodata, nodata_replace, gt, inv_gt))
         raster = None
         band = None
 
@@ -87,19 +87,19 @@ def generate_sample_points_for_carbon_model(
     offset_list = list(pygeoprocessing.iterblocks(
         (baccini_raster_path_nodata[0], 1), offset_only=True))
     baccini_memory_block_index = rtree.index.Index()
-    inv_gt_baccini = band_inv_gt_list[0][-1]
+    gt_baccini = band_inv_gt_list[0][-2]
     baccini_lng_lat_bb_list = []
     for index, offset_dict in enumerate(offset_list):
         bb_lng_lat = [
             coord for coord in (
                 gdal.ApplyGeoTransform(
-                    inv_gt_baccini,
+                    gt_baccini,
                     offset_dict['xoff'],
-                    offset_dict['yoff']) +
+                    offset_dict['yoff']+offset_dict['win_ysize']) +
                 gdal.ApplyGeoTransform(
-                    inv_gt_baccini,
+                    gt_baccini,
                     offset_dict['xoff']+offset_dict['win_xsize'],
-                    offset_dict['yoff']+offset_dict['win_ysize']))]
+                    offset_dict['yoff']))]
         baccini_lng_lat_bb_list.append(bb_lng_lat)
         baccini_memory_block_index.insert(index, bb_lng_lat)
 
@@ -133,9 +133,8 @@ def generate_sample_points_for_carbon_model(
                 continue
             # load all raster blocks
             raster_index_to_array_list = []
-            for index, (raster_path, band, nodata, nodata_replace, inv_gt) in \
-                    enumerate(band_inv_gt_list):
-
+            for index, (raster_path, band, nodata, nodata_replace,
+                        gt, inv_gt) in enumerate(band_inv_gt_list):
                 lng_min, lat_min, lng_max, lat_max = baccini_lng_lat_bb_list[
                     window_index]
                 x_min, y_min = [int(v) for v in (
