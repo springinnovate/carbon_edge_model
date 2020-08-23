@@ -255,7 +255,7 @@ if __name__ == '__main__':
     raw_y_vector = numpy.concatenate(
         [task.get()[2] for task in point_task_list])
     LOGGER.info('calculate test/train split')
-    X_vector, y_vector, test_X_vector, test_y_vector = train_test_split(
+    X_vector, test_X_vector, y_vector, test_y_vector = train_test_split(
         raw_X_vector, raw_y_vector, shuffle=False,
         test_size=HOLDBACK_PROPORTION)
     LOGGER.info(f'base vector shape {len(point_task_list[0].get()[1])}')
