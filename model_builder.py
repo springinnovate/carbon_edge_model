@@ -89,6 +89,7 @@ def generate_sample_points_for_carbon_model(
     baccini_memory_block_index = rtree.index.Index()
     gt_baccini = band_inv_gt_list[0][-2]
     baccini_lng_lat_bb_list = []
+    LOGGER.debug(f'creating {len(offset_list)} index boxes')
     for index, offset_dict in enumerate(offset_list):
         bb_lng_lat = [
             coord for coord in (
