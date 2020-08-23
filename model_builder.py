@@ -10,6 +10,7 @@ from osgeo import gdal
 import numpy
 import pygeoprocessing
 import rtree
+import sklearn.preprocessing
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LassoLarsCV
 from sklearn.linear_model import LassoLarsIC
@@ -20,7 +21,6 @@ from sklearn.linear_model import RidgeCV
 from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.covariance import EmpiricalCovariance
-
 import taskgraph
 
 import carbon_model_data
@@ -266,7 +266,7 @@ if __name__ == '__main__':
     _, valid_X_vector, valid_y_vector = validation_set
 
     LOGGER.info('calcualte covariance:')
-    cov = EmpiricalCovariance().fit(X_vector)
+    cov = EmpiricalCovariance().fit(preprocessing.normalize(X_vector, norm='l2'))
     numpy.savetxt(
         "covarance.csv", cov.covariance_, delimiter=",",
         header=','.join(feature_name_list))
