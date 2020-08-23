@@ -300,18 +300,18 @@ if __name__ == '__main__':
     overfit_csv_file = open('overfit_test.csv', 'w')
     overfit_csv_file.write(f'n_points,r_squared,r_squared_test\n')
     for test_point_proportion in numpy.linspace(1, 0.1, 10):
-
+        sample_size = int(n_points*test_point_proportion)
         X_vector, test_X_vector, y_vector, test_y_vector = train_test_split(
-            raw_X_vector[0:int(n_points*test_point_proportion)],
-            raw_y_vector[0:int(n_points*test_point_proportion)],
+            raw_X_vector[0:sample_size],
+            raw_y_vector[0:sample_size],
             shuffle=False, test_size=HOLDBACK_PROPORTION)
         r_squared = carbon_model_pipeline.score(X_vector, y_vector)
         r_squared_test = carbon_model_pipeline.score(
             test_X_vector, test_y_vector)
         LOGGER.info(
-            f'{n_points} points: train {r_squared} vs. test {r_squared_test}')
+            f'{sample_size} points: train {r_squared} vs. test {r_squared_test}')
         overfit_csv_file.write(
-            f'{n_points},{r_squared},{r_squared_test}\n')
+            f'{sample_size},{r_squared},{r_squared_test}\n')
         overfit_csv_file.flush()
 
         carbon_model_pipeline = Pipeline([
