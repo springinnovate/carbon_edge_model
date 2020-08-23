@@ -135,13 +135,13 @@ def generate_sample_points_for_carbon_model(
             if not point_list:
                 continue
 
+            if time.time() - last_time > 5.0:
+                LOGGER.debug(f'working ... {points_remaining} left {index}')
+                last_time = time.time()
+
             # raster_index_to_array_list is an xoff, yoff, array list
             # TODO: loop through each point in point list
-            LOGGER.debug(f'now test {len(point_list)} points in window index {window_index}')
             for lng, lat in point_list:
-                if time.time() - last_time > 5.0:
-                    LOGGER.debug(f'working ... {points_remaining} left {index}')
-                    last_time = time.time()
                 # check each array/raster and ensure it's not nodata or if it
                 # is, set to the valid value
                 working_sample_list = []
