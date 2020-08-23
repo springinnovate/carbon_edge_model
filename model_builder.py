@@ -274,7 +274,7 @@ if __name__ == '__main__':
             key=lambda v: abs(v[0]))
         LOGGER.debug('calculating score')
         LOGGER.info(
-            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list]) +
+            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list if x[0] > 0]) +
             f'R^2 fit: {model.score(X_vector_transform, y_vector)}\n'
             f'''validation data R^2: {
                 model.score(poly.fit_transform(valid_X_vector), valid_y_vector)}'''
