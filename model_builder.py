@@ -19,6 +19,7 @@ from sklearn.linear_model import Ridge
 from sklearn.linear_model import RidgeCV
 from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.covariance import EmpiricalCovariance
 
 import taskgraph
 
@@ -261,14 +262,21 @@ if __name__ == '__main__':
     task_graph.join()
     del task_graph
 
+    _, X_vector, y_vector = training_set
+    _, valid_X_vector, valid_y_vector = validation_set
+
+    LOGGER.info('calcualte covariance:')
+    cov = EmpiricalCovariance().fit(X_vector)
+    numpy.savetxt(
+        "covarance.csv", cov.covariance_, delimiter=",",
+        header=','.join(feature_name_list))
+
     for model_name, model_object in models_to_test:
         LOGGER.debug(f'building {model_name}')
-        _, X_vector, y_vector = training_set
         LOGGER.debug('doing poly transform')
         X_vector_transform = poly.fit_transform(X_vector)
         LOGGER.debug('doing fit')
         model = model_object.fit(X_vector_transform, y_vector)
-        _, valid_X_vector, valid_y_vector = validation_set
         coeff_id_list = sorted(zip(
             model.coef_, poly.get_feature_names(feature_name_list)),
             key=lambda v: abs(v[0]))
