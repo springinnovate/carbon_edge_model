@@ -151,7 +151,7 @@ def generate_sample_points_for_carbon_model(
                     LOGGER.exception(
                         f'error on {raster_path}'
                         f'\n{lng_min}, {lat_min}, {lng_max}, {lat_max}'
-                        f'\n{x_min}, {y_min}, {x_max-x_min}, {y_max-y_min}')
+                        f'\n{x_min}, {y_min}, {x_max}, {y_max}, {x_max-x_min}, {y_max-y_min}')
                     raise
 
             # raster_index_to_array_list is an xoff, yoff, array list
