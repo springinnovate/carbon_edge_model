@@ -150,7 +150,6 @@ def generate_sample_points_for_carbon_model(
                     gdal.ApplyGeoTransform(inv_gt, lng_max, lat_min))]
 
                 try:
-                    LOGGER.debug(f'read window of size {x_max-x_min}, {y_max-y_min}')
                     raster_index_to_array_list.append((
                         raster_path, x_min, y_min, nodata, nodata_replace, inv_gt,
                         band.ReadAsArray(
@@ -164,6 +163,7 @@ def generate_sample_points_for_carbon_model(
 
             # raster_index_to_array_list is an xoff, yoff, array list
             # TODO: loop through each point in point list
+            LOGGER.debug(f'now test {len(point_list)} points in window index {window_index}')
             for lng, lat in point_list:
                 # check each array/raster and ensure it's not nodata or if it
                 # is, set to the valid value
