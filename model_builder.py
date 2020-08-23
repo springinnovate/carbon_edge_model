@@ -134,47 +134,24 @@ def generate_sample_points_for_carbon_model(
         for window_index, point_list in window_index_to_point_list_map.items():
             if not point_list:
                 continue
-            # load all raster blocks
-            LOGGER.debug(f'load raster blocks for index {window_index}')
-            raster_index_to_array_list = []
-            for index, (raster_path, band, nodata, nodata_replace,
-                        gt, inv_gt) in enumerate(band_inv_gt_list):
-                if time.time() - last_time > 5.0:
-                    LOGGER.debug(f'working ... {points_remaining} left {index}')
-                    last_time = time.time()
-                lng_min, lat_min, lng_max, lat_max = baccini_lng_lat_bb_list[
-                    window_index]
-                x_min, y_min = [int(v) for v in (
-                    gdal.ApplyGeoTransform(inv_gt, lng_min, lat_max))]
-                x_max, y_max = [int(v) for v in (
-                    gdal.ApplyGeoTransform(inv_gt, lng_max, lat_min))]
-
-                try:
-                    raster_index_to_array_list.append((
-                        raster_path, x_min, y_min, nodata, nodata_replace, inv_gt,
-                        band.ReadAsArray(
-                            x_min, y_min, x_max-x_min, y_max-y_min)))
-                except Exception:
-                    LOGGER.exception(
-                        f'error on {raster_path}'
-                        f'\n{lng_min}, {lat_min}, {lng_max}, {lat_max}'
-                        f'\n{x_min}, {y_min}, {x_max}, {y_max}, {x_max-x_min}, {y_max-y_min}')
-                    raise
 
             # raster_index_to_array_list is an xoff, yoff, array list
             # TODO: loop through each point in point list
             LOGGER.debug(f'now test {len(point_list)} points in window index {window_index}')
             for lng, lat in point_list:
+                if time.time() - last_time > 5.0:
+                    LOGGER.debug(f'working ... {points_remaining} left {index}')
+                    last_time = time.time()
                 # check each array/raster and ensure it's not nodata or if it
                 # is, set to the valid value
                 working_sample_list = []
                 valid_working_list = True
-                for raster_path, xoff, yoff, nodata, nodata_replace, inv_gt, array in \
-                        raster_index_to_array_list:
-                    x, y = [int(v) for v in gdal.ApplyGeoTransform(
-                        inv_gt, lng, lat)]
+                for index, (raster_path, band, nodata, nodata_replace,
+                            gt, inv_gt) in enumerate(band_inv_gt_list):
+                    x, y = [int(v) for v in (
+                        gdal.ApplyGeoTransform(inv_gt, lng, lat))]
 
-                    val = array[x-xoff, y-yoff]
+                    val = band.ReadAsArray(x, y, 1, 1)[0, 0]
 
                     if nodata is None or not numpy.isclose(val, nodata):
                         working_sample_list.append(val)
@@ -182,8 +159,6 @@ def generate_sample_points_for_carbon_model(
                         working_sample_list.append(nodata_replace)
                     else:
                         # nodata value, skip
-                        LOGGER.debug(
-                            f'got nodata {nodata} {val} for {xoff} {yoff} on {raster_path}')
                         valid_working_list = False
                         break
 
@@ -195,7 +170,7 @@ def generate_sample_points_for_carbon_model(
                     # first element is dep
                     # second element is forest mask -- don't include it
                     X_vector.append(working_sample_list[2:])
-        return valid_points, X_vector, y_vector
+    return valid_points, X_vector, y_vector
 
 
 if __name__ == '__main__':
