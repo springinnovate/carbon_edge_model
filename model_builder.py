@@ -257,6 +257,7 @@ if __name__ == '__main__':
                 raster_path_nodata_replacement_list +
                 convolution_raster_list)]
 
+    LOGGER.info('calculate points')
     training_set = point_task_dict['training'].get()
     validation_set = point_task_dict['validation'].get()
     task_graph.close()
@@ -268,11 +269,12 @@ if __name__ == '__main__':
     n_points = len(X_vector)
     X_vector = training_set[1]+validation_set[1][0::n_points//2]
     y_vector = training_set[2]+validation_set[2][0::n_points//2]
-    valid_X_vector = +validation_set[1][n_points//2::]
-    valid_y_vector = +validation_set[2][n_points//2::]
+    valid_X_vector = validation_set[1][n_points//2::]
+    valid_y_vector = validation_set[2][n_points//2::]
 
     LOGGER.info('calcualte covariance:')
-    cov = EmpiricalCovariance().fit(preprocessing.normalize(X_vector, norm='l2'))
+    cov = EmpiricalCovariance().fit(preprocessing.normalize(
+        X_vector, norm='l2'))
     numpy.savetxt(
         "covarance.csv", cov.covariance_, delimiter=",",
         header=','.join(feature_name_list))
