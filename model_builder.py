@@ -138,9 +138,9 @@ def generate_sample_points_for_carbon_model(
                 lng_min, lat_max, lng_max, lat_min = baccini_lng_lat_bb_list[
                     window_index]
                 x_min, y_min = [int(v) for v in (
-                    gdal.ApplyGeoTransform(inv_gt, lng_min, lat_min))]
+                    gdal.ApplyGeoTransform(inv_gt, lng_min, lat_max))]
                 x_max, y_max = [int(v) for v in (
-                    gdal.ApplyGeoTransform(inv_gt, lng_max, lat_max))]
+                    gdal.ApplyGeoTransform(inv_gt, lng_max, lat_min))]
 
                 try:
                     raster_index_to_array_list.append((
