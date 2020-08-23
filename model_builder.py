@@ -135,6 +135,7 @@ def generate_sample_points_for_carbon_model(
             if not point_list:
                 continue
             # load all raster blocks
+            LOGGER.debug(f'load raster blocks for index {window_index}')
             raster_index_to_array_list = []
             for index, (raster_path, band, nodata, nodata_replace,
                         gt, inv_gt) in enumerate(band_inv_gt_list):
@@ -149,6 +150,7 @@ def generate_sample_points_for_carbon_model(
                     gdal.ApplyGeoTransform(inv_gt, lng_max, lat_min))]
 
                 try:
+                    LOGGER.debug(f'read window of size {x_max-x_min}, {y_max-y_min}')
                     raster_index_to_array_list.append((
                         raster_path, x_min, y_min, nodata, nodata_replace, inv_gt,
                         band.ReadAsArray(
