@@ -2,6 +2,7 @@
 import argparse
 import collections
 import logging
+import pickle
 import os
 import sys
 import time
@@ -264,6 +265,12 @@ if __name__ == '__main__':
     _, X_vector, y_vector = training_set
     _, valid_X_vector, valid_y_vector = validation_set
 
+    n_points = len(X_vector)
+    X_vector = training_set[1]+validation_set[1][0::n_points//2]
+    y_vector = training_set[2]+validation_set[2][0::n_points//2]
+    valid_X_vector = +validation_set[1][n_points//2::]
+    valid_y_vector = +validation_set[2][n_points//2::]
+
     LOGGER.info('calcualte covariance:')
     cov = EmpiricalCovariance().fit(preprocessing.normalize(X_vector, norm='l2'))
     numpy.savetxt(
@@ -287,5 +294,15 @@ if __name__ == '__main__':
                 model.score(poly.fit_transform(valid_X_vector), valid_y_vector)}'''
             f'y int: {model.intercept_}\n'
             )
+
+        model_filename = f'carbon_model_{model_name}_{len(X_vector)}_pts.mod'
+        with open(model_filename, 'w') as model_file:
+            pickle.dump(model, model_file)
+
+        with open(model_filename, 'r') as model_file:
+            loaded_model = pickle.load(model_file)
+
+        LOGGER.info(f'loaded model R^2: {poly.fit_transform(valid_X_vector), valid_y_vector)} loaded_model.')
+
 
     LOGGER.debug('all done!')
