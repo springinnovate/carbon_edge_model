@@ -8,6 +8,7 @@ import sys
 from osgeo import gdal
 from osgeo import osr
 import pygeoprocessing
+import pygeoprocessing.multiprocessing
 import numpy
 import scipy.ndimage
 import taskgraph
@@ -145,7 +146,7 @@ def mask_ranges(
     """
     base_nodata = pygeoprocessing.get_raster_info(
         base_raster_path)['nodata'][0]
-    pygeoprocessing.raster_calculator(
+    pygeoprocessing.multiprocessing.raster_calculator(
         [(base_raster_path, 1), (base_nodata, 'raw'),
          (mask_value_list, 'raw'),
          (MASK_NODATA, 'raw')], _mask_vals_op,
