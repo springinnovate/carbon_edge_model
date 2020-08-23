@@ -12,14 +12,8 @@ import numpy
 import pygeoprocessing
 import rtree
 from sklearn import preprocessing
-from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LassoLarsCV
-from sklearn.linear_model import LassoLarsIC
-from sklearn.linear_model import Lasso
-from sklearn.linear_model import LassoCV
-from sklearn.linear_model import Ridge
-from sklearn.linear_model import RidgeCV
-from sklearn.linear_model import SGDRegressor
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.covariance import EmpiricalCovariance
 import taskgraph
@@ -239,17 +233,13 @@ if __name__ == '__main__':
         point_task_dict[data_type] = generate_point_task
 
     LOGGER.debug('fit model')
-    poly = PolynomialFeatures(2)
-    models_to_test = [
-        #('linear regression', LinearRegression),
-        #('LassoLarsIC', LassoLarsIC(max_iter=100000, verbose=True)),
-        ('LassoLarsCV', LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)),
-        #('lasso', Lasso),
-        #('lasso CV', LassoCV),
-        #('ridge', Ridge),
-        #('ridge CV', RidgeCV(normalize=True)),
-        #('SGDRegressor', SGDRegressor(max_iter=10000, verbose=True,)),
-        ]
+    poly_trans = PolynomialFeatures(2)
+    lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
+    model_name = 'lasso_lars_cv'
+    carbon_model_pipeline = Pipeline([
+         ('poly_trans', poly_trans),
+         (model_name, lasso_lars_cv),
+     ])
 
     feature_name_list = [
             os.path.basename(os.path.splitext(path_ndr[0])[0])
@@ -279,32 +269,29 @@ if __name__ == '__main__':
         "covarance.csv", cov.covariance_, delimiter=",",
         header=','.join(feature_name_list))
 
-    for model_name, model_object in models_to_test:
-        LOGGER.debug(f'building {model_name}')
-        LOGGER.debug('doing poly transform')
-        X_vector_transform = poly.fit_transform(X_vector)
-        LOGGER.debug('doing fit')
-        model = model_object.fit(X_vector_transform, y_vector)
-        coeff_id_list = sorted(zip(
-            model.coef_, poly.get_feature_names(feature_name_list)),
-            key=lambda v: abs(v[0]))
-        LOGGER.debug('calculating score')
-        LOGGER.info(
-            f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list if x[0] > 0]) +
-            f'R^2 fit: {model.score(X_vector_transform, y_vector)}\n'
-            f'''validation data R^2: {
-                model.score(poly.fit_transform(valid_X_vector), valid_y_vector)}'''
-            f'y int: {model.intercept_}\n'
-            )
+    LOGGER.debug(f'building {model_name}')
+    LOGGER.debug('doing poly transform')
+    LOGGER.debug('doing fit')
+    model = carbon_model_pipeline.fit(X_vector, y_vector)
+    coeff_id_list = sorted(zip(
+        model.coef_, poly_trans.get_feature_names(feature_name_list)),
+        key=lambda v: abs(v[0]))
+    LOGGER.debug('calculating score')
+    LOGGER.info(
+        f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list if x[0] > 0]) +
+        f'R^2 fit: {model.score(X_vector, y_vector)}\n'
+        f'''validation data R^2: {
+            model.score(valid_X_vector, valid_y_vector)}'''
+        f'y int: {model.intercept_}\n'
+        )
 
-        model_filename = f'carbon_model_{model_name}_{len(X_vector)}_pts.mod'
-        with open(model_filename, 'w') as model_file:
-            pickle.dump(model, model_file)
+    model_filename = f'carbon_model_{model_name}_{len(X_vector)}_pts.mod'
+    with open(model_filename, 'w') as model_file:
+        pickle.dump(model, model_file)
 
-        with open(model_filename, 'r') as model_file:
-            loaded_model = pickle.load(model_file)
-        loaded_model_score = loaded_model.score(
-            poly.fit_transform(valid_X_vector), valid_y_vector)
-        LOGGER.info(f'loaded model R^2: {loaded_model_score} loaded_model.')
+    with open(model_filename, 'r') as model_file:
+        loaded_model = pickle.load(model_file)
+    loaded_model_score = loaded_model.score(valid_X_vector, valid_y_vector)
+    LOGGER.info(f'loaded model R^2: {loaded_model_score} loaded_model.')
 
     LOGGER.debug('all done!')
