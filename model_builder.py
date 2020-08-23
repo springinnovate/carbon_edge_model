@@ -142,10 +142,15 @@ def generate_sample_points_for_carbon_model(
                 x_max, y_max = [int(v) for v in (
                     gdal.ApplyGeoTransform(inv_gt, lng_max, lat_max))]
 
-                raster_index_to_array_list.append((
-                    x_min, y_min, nodata, nodata_replace, inv_gt,
-                    band.ReadAsArray(
-                        x_min, y_min, x_max-x_min, y_max-y_min)))
+                try:
+                    raster_index_to_array_list.append((
+                        x_min, y_min, nodata, nodata_replace, inv_gt,
+                        band.ReadAsArray(
+                            x_min, y_min, x_max-x_min, y_max-y_min)))
+                except Exception:
+                    LOGGER.exception(
+                        f'\n{lng_min}, {lat_min}, {lng_max}, {lat_max}'
+                        f'\n{x_min}, {y_min}, {x_max-x_min}, {y_max-y_min}')
 
             # raster_index_to_array_list is an xoff, yoff, array list
             # TODO: loop through each point in point list
