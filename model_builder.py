@@ -149,6 +149,7 @@ def generate_sample_points_for_carbon_model(
                             x_min, y_min, x_max-x_min, y_max-y_min)))
                 except Exception:
                     LOGGER.exception(
+                        f'error on {raster_path}'
                         f'\n{lng_min}, {lat_min}, {lng_max}, {lat_max}'
                         f'\n{x_min}, {y_min}, {x_max-x_min}, {y_max-y_min}')
 
