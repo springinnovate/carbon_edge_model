@@ -135,7 +135,7 @@ def generate_sample_points_for_carbon_model(
             raster_index_to_array_list = []
             for index, (raster_path, band, nodata, nodata_replace,
                         gt, inv_gt) in enumerate(band_inv_gt_list):
-                lng_min, lat_max, lng_max, lat_min = baccini_lng_lat_bb_list[
+                lng_min, lat_min, lng_max, lat_max = baccini_lng_lat_bb_list[
                     window_index]
                 x_min, y_min = [int(v) for v in (
                     gdal.ApplyGeoTransform(inv_gt, lng_min, lat_max))]
