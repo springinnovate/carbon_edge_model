@@ -317,10 +317,11 @@ if __name__ == '__main__':
         int(n_strides * test_point_proportion)
         for test_point_proportion in numpy.linspace(0.1, 1.0, 10)
     }
-    for test_strides in test_stride_set-{0}:
+    for test_strides in sorted(test_stride_set-{0}, reverse=True):
         model_filename = os.path.join(
             model_dir,
-            f'carbon_model_lasso_lars_cv_{test_strides*points_per_stride}_pts.mod')
+            f'carbon_model_lasso_lars_cv_'
+            f'{test_strides*points_per_stride}_pts.mod')
         LOGGER.info(f'build {model_filename} model')
         X_vector_path_list = []
         y_vector_path = []
