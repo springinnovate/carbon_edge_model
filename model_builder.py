@@ -270,7 +270,7 @@ if __name__ == '__main__':
     forest_mask_raster_path = os.path.join(BASE_DATA_DIR, 'forest_mask.tif')
 
     try:
-        array_cache_dir = os.makedirs(os.path.join(BASE_DATA_DIR, 'array_cache'))
+        array_cache_dir = os.path.join(BASE_DATA_DIR, 'array_cache')
         os.makedirs(array_cache_dir)
     except OSError:
         pass
