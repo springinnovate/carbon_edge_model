@@ -285,7 +285,8 @@ if __name__ == '__main__':
         generate_point_task = task_graph.add_task(
             func=generate_sample_points_for_carbon_model,
             args=(
-                args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
+                args.n_points//points_per_stride,
+                (baccini_10s_2014_biomass_path, baccini_nodata),
                 forest_mask_raster_path,
                 raster_path_nodata_replacement_list + convolution_raster_list,
                 args.max_min_lat, target_X_array_path, target_y_array_path),
