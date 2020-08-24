@@ -317,7 +317,7 @@ if __name__ == '__main__':
         model_filename = os.path.join(
             model_dir,
             f'carbon_model_lasso_lars_cv_{test_strides*points_per_stride}_pts.mod')
-
+        LOGGER.info(f'build {model_filename} model')
         X_vector_path_list = []
         y_vector_path = []
 
@@ -334,9 +334,6 @@ if __name__ == '__main__':
                 model_filename),
             target_path_list=[model_filename])
         build_model_task_list.append((test_strides, build_model_task))
-
-    r_2_fit, r_2_test_fit, model = build_model(
-        X_vector_path_list, y_vector_path, test_strides, model_filename)
 
     with open('fit_test_{y_vector.size}_points.csv', 'w') as fit_file:
         fit_file.write(f'n_points,r_squared,r_squared_test\n')
