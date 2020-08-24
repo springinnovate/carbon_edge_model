@@ -167,8 +167,10 @@ def generate_sample_points_for_carbon_model(
                     # second element is forest mask -- don't include it
                     X_vector.append(working_sample_list[2:])
 
-    numpy.savez_compressed(target_X_array_path, X_vector)
-    numpy.savez_compressed(target_y_array_path, y_vector)
+    with open(target_X_array_path, 'wb') as target_X_array_file:
+        numpy.savez_compressed(target_X_array_file, X_vector)
+    with open(target_y_array_path, 'wb') as target_y_array_file:
+        numpy.savez_compressed(target_y_array_file, y_vector)
 
 
 def build_model(
