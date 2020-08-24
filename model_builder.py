@@ -234,7 +234,7 @@ if __name__ == '__main__':
         point_task_list.append(generate_point_task)
 
     LOGGER.debug('construct pipeline')
-    poly_trans = PolynomialFeatures(2)
+    poly_trans = PolynomialFeatures(2, interaction_only=True)
     lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
     model_name = 'lasso_lars_cv'
     carbon_model_pipeline = Pipeline([
@@ -297,27 +297,30 @@ if __name__ == '__main__':
 
     # test for overfit
     n_points = len(raw_X_vector)
-    overfit_csv_file = open('overfit_test.csv', 'w')
+    overfit_csv_file = open('overfit_test_{y_vector.size}_points.csv', 'w')
     overfit_csv_file.write(f'n_points,r_squared,r_squared_test\n')
-    for test_point_proportion in numpy.linspace(1, 0.1, 10):
-        sample_size = int(n_points*test_point_proportion)
+    for test_point_proportion in numpy.linspace(0.1, 0.9, 9):
         X_vector, test_X_vector, y_vector, test_y_vector = train_test_split(
-            raw_X_vector[0:sample_size],
-            raw_y_vector[0:sample_size],
-            shuffle=False, test_size=HOLDBACK_PROPORTION)
-        r_squared = carbon_model_pipeline.score(X_vector, y_vector)
-        r_squared_test = carbon_model_pipeline.score(
-            test_X_vector, test_y_vector)
+            raw_X_vector, raw_y_vector,
+            shuffle=False, test_size=test_point_proportion)
+
+        sample_size = y_vector.size
+        poly_trans = PolynomialFeatures(2, interaction_only=True)
+        lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
+        model_name = 'lasso_lars_cv'
+        carbon_model_pipeline = Pipeline([
+             ('poly_trans', poly_trans),
+             (model_name, lasso_lars_cv),
+         ])
+        model = carbon_model_pipeline.fit(X_vector, y_vector)
+        r_squared = model.score(X_vector, y_vector)
+        r_squared_test = model.score(test_X_vector, test_y_vector)
+
         LOGGER.info(
             f'{sample_size} points: train {r_squared} vs. test {r_squared_test}')
         overfit_csv_file.write(
             f'{sample_size},{r_squared},{r_squared_test}\n')
         overfit_csv_file.flush()
-
-        carbon_model_pipeline = Pipeline([
-            ('poly_trans', poly_trans),
-            (model_name, lasso_lars_cv),
-        ])
 
     overfit_csv_file.close()
 
