@@ -167,10 +167,8 @@ def generate_sample_points_for_carbon_model(
                     # second element is forest mask -- don't include it
                     X_vector.append(working_sample_list[2:])
 
-    with open(target_X_array_path, 'wb') as target_X_array_file:
-        numpy.savez_compressed(target_X_array_file, X_vector)
-    with open(target_y_array_path, 'wb') as target_y_array_file:
-        numpy.savez_compressed(target_y_array_file, y_vector)
+    numpy.savez_compressed(target_X_array_path, X_vector)
+    numpy.savez_compressed(target_y_array_path, y_vector)
 
 
 def build_model(
@@ -272,7 +270,8 @@ if __name__ == '__main__':
     forest_mask_raster_path = os.path.join(BASE_DATA_DIR, 'forest_mask.tif')
 
     try:
-        os.makedirs(os.path.join(BASE_DATA_DIR, 'array'))
+        array_cache_dir = os.makedirs(os.path.join(BASE_DATA_DIR, 'array_cache'))
+        os.makedirs(array_cache_dir)
     except OSError:
         pass
     LOGGER.info(f'create {args.n_points} points')
@@ -281,9 +280,9 @@ if __name__ == '__main__':
     task_xy_vector_list = []
     for point_stride in range(n_strides):
         target_X_array_path = os.path.join(
-            BASE_DATA_DIR, 'array_cache', f'X_array_{points_per_stride}.npz')
+            array_cache_dir, f'X_array_{points_per_stride}.npz')
         target_y_array_path = os.path.join(
-            BASE_DATA_DIR, 'array_cache', f'y_array_{points_per_stride}.npz')
+            array_cache_dir, f'y_array_{points_per_stride}.npz')
         generate_point_task = task_graph.add_task(
             func=generate_sample_points_for_carbon_model,
             args=(
