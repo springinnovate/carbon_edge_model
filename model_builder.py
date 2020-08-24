@@ -311,9 +311,13 @@ if __name__ == '__main__':
     except OSError:
         pass
     build_model_task_list = []
-    for test_point_proportion in numpy.linspace(0.1, 1.0, 10):
-        test_strides = int(n_strides * test_point_proportion)
 
+    # Try to make 10 cutoffs
+    test_stride_set = {
+        int(n_strides * test_point_proportion)
+        for test_point_proportion in numpy.linspace(0.1, 1.0, 10)
+    }
+    for test_strides in test_stride_set-{0}:
         model_filename = os.path.join(
             model_dir,
             f'carbon_model_lasso_lars_cv_{test_strides*points_per_stride}_pts.mod')
