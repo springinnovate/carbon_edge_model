@@ -42,7 +42,10 @@ def generate_sample_points_for_carbon_model(
         n_points,
         baccini_raster_path_nodata,
         forest_mask_raster_path,
-        independent_raster_path_nodata_list, max_min_lat, seed=None):
+        independent_raster_path_nodata_list, max_min_lat,
+        target_X_array_path,
+        target_y_array_path,
+        seed=None):
     """Generate a set of lat/lng points that are evenly distributed.
 
     Args:
@@ -55,10 +58,12 @@ def generate_sample_points_for_carbon_model(
             (path, nodata, nodata_replace) tuples.
         max_min_lat (float): absolute maximum latitude allowed in a sampled
             point.
+        target_X_array_path (str): path to X vector on disk,
+        target_y_array_path (str): path to y vector on disk
         seed (int): seed for randomization
 
     Returns:
-        Tuple of (lng_lat_list, X_vector, y_vector).
+        None
 
     """
     if seed is not None:
@@ -161,14 +166,16 @@ def generate_sample_points_for_carbon_model(
                     # first element is dep
                     # second element is forest mask -- don't include it
                     X_vector.append(working_sample_list[2:])
-    return valid_points, X_vector, y_vector
+
+    numpy.savez_compressed(target_X_array_path, X_vector)
+    numpy.savez_compressed(target_y_array_path, y_vector)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Model maker')
     parser.add_argument(
         '--n_points', type=int, required=True,
-        help='Number of points to sample')
+        help='Number of points to sample, should be multiple of 1e4')
     parser.add_argument(
         '--max_min_lat', type=float, default=40.0,
         help='Min/max lat to cutoff')
@@ -220,20 +227,35 @@ if __name__ == '__main__':
 
     point_task_dict = {}
     point_task_list = []
-    for worker_id in range(args.n_workers):
+    points_per_stride = 10000
+    try:
+        os.makedirs(os.path.join(BASE_DATA_DIR, 'array'))
+    except OSError:
+        pass
+    X_array_path_list = []
+    y_array_path_list = []
+    for point_stride in range(args.n_points // points_per_stride):
+        target_X_array_path = os.path.join(
+            BASE_DATA_DIR, 'array_cache', f'X_array_{points_per_stride}.npz')
+        target_y_array_path = os.path.join(
+            BASE_DATA_DIR, 'array_cache', f'y_array_{points_per_stride}.npz')
         generate_point_task = task_graph.add_task(
             func=generate_sample_points_for_carbon_model,
             args=(
                 args.n_points, (baccini_10s_2014_biomass_path, baccini_nodata),
                 forest_mask_raster_path,
                 raster_path_nodata_replacement_list + convolution_raster_list,
-                args.max_min_lat),
-            kwargs={'seed': worker_id+1},
+                args.max_min_lat, target_X_array_path, target_y_array_path),
+            kwargs={'seed': point_stride+1},
+            target_path_list=[target_X_array_path, target_y_array_path],
             store_result=True,
-            task_name=f'predict with seed {worker_id+1}')
+            task_name=(
+                f'calculating points {point_stride*points_per_stride} to '
+                f'{(point_stride+1)*points_per_stride}'))
         point_task_list.append(generate_point_task)
 
     LOGGER.debug('construct pipeline')
+    # Model with Polynomial features into a lasso lars cv
     poly_trans = PolynomialFeatures(2, interaction_only=True)
     lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
     model_name = 'lasso_lars_cv'
@@ -250,54 +272,14 @@ if __name__ == '__main__':
 
     LOGGER.info('collect raw X vector')
     raw_X_vector = numpy.concatenate(
-        [task.get()[1] for task in point_task_list])
+        [numpy.load(path) for path in X_array_path_list])
     LOGGER.info('collect raw y vector')
     raw_y_vector = numpy.concatenate(
-        [task.get()[2] for task in point_task_list])
-    LOGGER.info('calculate test/train split')
-    X_vector, test_X_vector, y_vector, test_y_vector = train_test_split(
-        raw_X_vector, raw_y_vector, shuffle=False,
-        test_size=HOLDBACK_PROPORTION)
-    LOGGER.info(f'base vector shape {len(point_task_list[0].get()[1])}')
-    LOGGER.info(f'raw_X_vector shape: {raw_X_vector.shape}')
-    LOGGER.info(f'X_vector {X_vector.shape} elements, y_vector {y_vector.shape} elements, test_X_vector {test_X_vector.shape} elements, test_y_vector {test_y_vector.shape} elements')
-    task_graph.close()
-    task_graph.join()
-
-    n_points = len(X_vector)
-    LOGGER.info('calcualte covariance:')
-    cov = EmpiricalCovariance().fit(preprocessing.normalize(
-        X_vector, norm='l2'))
-    numpy.savetxt(
-        f"covarance_{n_points}.csv", cov.covariance_, delimiter=",",
-        header=','.join(feature_name_list))
-
-    LOGGER.debug(f'building {model_name}')
-    model = carbon_model_pipeline.fit(X_vector, y_vector)
-    coeff_id_list = sorted(zip(
-        lasso_lars_cv.coef_, poly_trans.get_feature_names(feature_name_list)),
-        key=lambda v: abs(v[0]))
-    LOGGER.debug('calculating score')
-    LOGGER.info(
-        f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list if x[0] > 0]) +
-        f'R^2 fit: {model.score(X_vector, y_vector)}\n'
-        f'''validation data R^2: {
-            model.score(test_X_vector, test_y_vector)}'''
-        f'y int: {lasso_lars_cv.intercept_}\n'
-        )
-
-    model_filename = f'carbon_model_{model_name}_{len(X_vector)}_pts.mod'
-    with open(model_filename, 'wb') as model_file:
-        pickle.dump(model, model_file)
-
-    with open(model_filename, 'rb') as model_file:
-        loaded_model = pickle.load(model_file)
-    loaded_model_score = loaded_model.score(test_X_vector, test_y_vector)
-    LOGGER.info(f'loaded model R^2: {loaded_model_score} loaded_model.')
+        [numpy.load(path) for path in y_array_path_list])
 
     # test for overfit
     n_points = len(raw_X_vector)
-    overfit_csv_file = open('overfit_test_{y_vector.size}_points.csv', 'w')
+    overfit_csv_file = open(f'fit_test_{raw_y_vector.size}_points.csv', 'w')
     overfit_csv_file.write(f'n_points,r_squared,r_squared_test\n')
     for test_point_proportion in numpy.linspace(0.1, 0.9, 9):
         X_vector, test_X_vector, y_vector, test_y_vector = train_test_split(
@@ -305,13 +287,6 @@ if __name__ == '__main__':
             shuffle=False, test_size=test_point_proportion)
 
         sample_size = y_vector.size
-        poly_trans = PolynomialFeatures(2, interaction_only=True)
-        lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
-        model_name = 'lasso_lars_cv'
-        carbon_model_pipeline = Pipeline([
-             ('poly_trans', poly_trans),
-             (model_name, lasso_lars_cv),
-         ])
         model = carbon_model_pipeline.fit(X_vector, y_vector)
         r_squared = model.score(X_vector, y_vector)
         r_squared_test = model.score(test_X_vector, test_y_vector)
@@ -321,6 +296,81 @@ if __name__ == '__main__':
         overfit_csv_file.write(
             f'{sample_size},{r_squared},{r_squared_test}\n')
         overfit_csv_file.flush()
+
+        model_filename = f'carbon_model_{model_name}_{len(y_vector)}_pts.mod'
+        with open(model_filename, 'wb') as model_file:
+            pickle.dump(model, model_file)
+
+    overfit_csv_file.close()
+
+    # LOGGER.info('calculate test/train split')
+    # X_vector, test_X_vector, y_vector, test_y_vector = train_test_split(
+    #     raw_X_vector, raw_y_vector, shuffle=False,
+    #     test_size=HOLDBACK_PROPORTION)
+    # LOGGER.info(f'base vector shape {len(point_task_list[0].get()[1])}')
+    # LOGGER.info(f'raw_X_vector shape: {raw_X_vector.shape}')
+    # LOGGER.info(f'X_vector {X_vector.shape} elements, y_vector {y_vector.shape} elements, test_X_vector {test_X_vector.shape} elements, test_y_vector {test_y_vector.shape} elements')
+    # task_graph.close()
+    # task_graph.join()
+
+    # # I calcualted this once and have the file so Becky can see it later
+    # # n_points = len(X_vector)
+    # # LOGGER.info('calcualte covariance:')
+    # # cov = EmpiricalCovariance().fit(preprocessing.normalize(
+    # #     X_vector, norm='l2'))
+    # # numpy.savetxt(
+    # #     f"covarance_{n_points}.csv", cov.covariance_, delimiter=",",
+    # #     header=','.join(feature_name_list))
+
+    # LOGGER.debug(f'building {model_name}')
+    # model = carbon_model_pipeline.fit(X_vector, y_vector)
+    # coeff_id_list = sorted(zip(
+    #     lasso_lars_cv.coef_, poly_trans.get_feature_names(feature_name_list)),
+    #     key=lambda v: abs(v[0]))
+    # LOGGER.debug('calculating score')
+    # LOGGER.info(
+    #     f"coeff:\n" + '\n'.join([str(x) for x in coeff_id_list if x[0] > 0]) +
+    #     f'R^2 fit: {model.score(X_vector, y_vector)}\n'
+    #     f'''validation data R^2: {
+    #         model.score(test_X_vector, test_y_vector)}'''
+    #     f'y int: {lasso_lars_cv.intercept_}\n'
+    #     )
+
+    # model_filename = f'carbon_model_{model_name}_{len(X_vector)}_pts.mod'
+    # with open(model_filename, 'wb') as model_file:
+    #     pickle.dump(model, model_file)
+
+    # with open(model_filename, 'rb') as model_file:
+    #     loaded_model = pickle.load(model_file)
+    # loaded_model_score = loaded_model.score(test_X_vector, test_y_vector)
+    # LOGGER.info(f'loaded model R^2: {loaded_model_score} loaded_model.')
+
+    # # test for overfit
+    # n_points = len(raw_X_vector)
+    # overfit_csv_file = open('overfit_test_{y_vector.size}_points.csv', 'w')
+    # overfit_csv_file.write(f'n_points,r_squared,r_squared_test\n')
+    # for test_point_proportion in numpy.linspace(0.1, 0.9, 9):
+    #     X_vector, test_X_vector, y_vector, test_y_vector = train_test_split(
+    #         raw_X_vector, raw_y_vector,
+    #         shuffle=False, test_size=test_point_proportion)
+
+    #     sample_size = y_vector.size
+    #     poly_trans = PolynomialFeatures(2, interaction_only=True)
+    #     lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
+    #     model_name = 'lasso_lars_cv'
+    #     carbon_model_pipeline = Pipeline([
+    #          ('poly_trans', poly_trans),
+    #          (model_name, lasso_lars_cv),
+    #      ])
+    #     model = carbon_model_pipeline.fit(X_vector, y_vector)
+    #     r_squared = model.score(X_vector, y_vector)
+    #     r_squared_test = model.score(test_X_vector, test_y_vector)
+
+    #     LOGGER.info(
+    #         f'{sample_size} points: train {r_squared} vs. test {r_squared_test}')
+    #     overfit_csv_file.write(
+    #         f'{sample_size},{r_squared},{r_squared_test}\n')
+    #     overfit_csv_file.flush()
 
     overfit_csv_file.close()
 
