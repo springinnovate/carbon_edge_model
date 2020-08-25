@@ -356,9 +356,9 @@ if __name__ == '__main__':
             task_name=(
                 f'build model for {test_strides*points_per_stride} points'))
         r_2_fit, r_2_test_fit = build_model_task.get()
-        fit_file.write(
-            f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}\n')
-        fit_file.flush()
+        with open('fit_test_{y_vector.size}_points.csv', 'wa') as fit_file:
+            fit_file.write(
+                f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}\n')
         LOGGER.info(
             f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}')
 
