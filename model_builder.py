@@ -29,7 +29,7 @@ logging.basicConfig(
     stream=sys.stdout)
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger('taskgraph').setLevel(logging.DEBUG)
+logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 HOLDBACK_PROPORTION = 0.2
@@ -356,7 +356,7 @@ if __name__ == '__main__':
             task_name=(
                 f'build model for {test_strides*points_per_stride} points'))
         r_2_fit, r_2_test_fit = build_model_task.get()
-        with open('fit_test_{y_vector.size}_points.csv', 'wa') as fit_file:
+        with open('fit_test_{y_vector.size}_points.csv', 'a') as fit_file:
             fit_file.write(
                 f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}\n')
         LOGGER.info(
