@@ -2,6 +2,7 @@
 import argparse
 import collections
 import logging
+import pickle
 import os
 import sys
 import time
@@ -183,7 +184,7 @@ def build_model(
         target_model_path (str): path to file to save the regression model to
 
     Returns:
-        (r^2 fit of training, r^2 fit of test, and model)
+        (r^2 fit of training, r^2 fit of test)
 
     """
 
@@ -212,7 +213,10 @@ def build_model(
     r_squared = model.score(X_vector, y_vector)
     r_squared_test = model.score(test_X_vector, test_y_vector)
 
-    return r_squared, r_squared_test, model
+    with open(target_model_path, 'wb') as model_file:
+        pickle.dump(model_file, model)
+
+    return r_squared, r_squared_test
 
 
 if __name__ == '__main__':
