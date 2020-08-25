@@ -214,7 +214,7 @@ def build_model(
     r_squared_test = model.score(test_X_vector, test_y_vector)
 
     with open(target_model_path, 'wb') as model_file:
-        pickle.dump(model_file, model)
+        pickle.dump(model, model_file)
 
     return r_squared, r_squared_test
 
