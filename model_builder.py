@@ -199,10 +199,10 @@ def build_model(
      ])
 
     raw_X_vector = numpy.concatenate(
-        [numpy.load(path) for path in X_vector_path_list[0:n_arrays]])
+        [numpy.load(path)['arr_0'] for path in X_vector_path_list[0:n_arrays]])
     LOGGER.info('collect raw y vector')
     raw_y_vector = numpy.concatenate(
-        [numpy.load(path) for path in y_vector_path[0:n_arrays]])
+        [numpy.load(path)['arr_0'] for path in y_vector_path[0:n_arrays]])
 
     n_points = len(raw_X_vector)
 
