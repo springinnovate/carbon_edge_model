@@ -295,6 +295,8 @@ if __name__ == '__main__':
                 args.max_min_lat, target_X_array_path, target_y_array_path,
                 lat_lng_array_path),
             kwargs={'seed': point_stride+1},
+            ignore_path_list=[
+                target_X_array_path, target_y_array_path, lat_lng_array_path],
             target_path_list=[target_X_array_path, target_y_array_path],
             store_result=True,
             task_name=(
