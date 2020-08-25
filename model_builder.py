@@ -345,7 +345,9 @@ if __name__ == '__main__':
                 X_vector_path_list, y_vector_path, test_strides,
                 model_filename),
             store_result=True,
-            target_path_list=[model_filename])
+            target_path_list=[model_filename],
+            task_name=(
+                f'build model for {test_strides*points_per_stride} points'))
         build_model_task_list.append((test_strides, build_model_task))
 
     with open('fit_test_{y_vector.size}_points.csv', 'w') as fit_file:
