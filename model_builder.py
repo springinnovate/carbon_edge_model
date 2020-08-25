@@ -323,6 +323,9 @@ if __name__ == '__main__':
         pass
     build_model_task_list = []
 
+    with open('fit_test_{y_vector.size}_points.csv', 'w') as fit_file:
+        fit_file.write(f'n_points,r_squared,r_squared_test\n')
+
     # Try to make 10 cutoffs
     test_stride_set = {
         int(n_strides * test_point_proportion)
@@ -352,17 +355,11 @@ if __name__ == '__main__':
             target_path_list=[model_filename],
             task_name=(
                 f'build model for {test_strides*points_per_stride} points'))
-        build_model_task.join()
-        build_model_task_list.append((test_strides, build_model_task))
-
-    with open('fit_test_{y_vector.size}_points.csv', 'w') as fit_file:
-        fit_file.write(f'n_points,r_squared,r_squared_test\n')
-        for test_strides, build_model_task in build_model_task_list:
-            r_2_fit, r_2_test_fit = build_model_task.get()
-            fit_file.write(
-                f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}\n')
-            fit_file.flush()
-            LOGGER.info(
-                f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}')
+        r_2_fit, r_2_test_fit = build_model_task.get()
+        fit_file.write(
+            f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}\n')
+        fit_file.flush()
+        LOGGER.info(
+            f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}')
 
     LOGGER.debug('all done!')
