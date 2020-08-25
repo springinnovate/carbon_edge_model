@@ -328,7 +328,7 @@ if __name__ == '__main__':
         int(n_strides * test_point_proportion)
         for test_point_proportion in numpy.linspace(0.1, 1.0, 10)
     }
-    for test_strides in sorted(test_stride_set-{0}, reverse=True):
+    for test_strides in sorted(test_stride_set-{0}):
         model_filename = os.path.join(
             model_dir,
             f'carbon_model_lasso_lars_cv_'
