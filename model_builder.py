@@ -2,7 +2,6 @@
 import argparse
 import collections
 import logging
-import pickle
 import os
 import sys
 import time
@@ -11,11 +10,9 @@ from osgeo import gdal
 import numpy
 import pygeoprocessing
 import rtree
-from sklearn import preprocessing
 from sklearn.linear_model import LassoLarsCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.covariance import EmpiricalCovariance
 from sklearn.model_selection import train_test_split
 import taskgraph
 
@@ -31,7 +28,7 @@ logging.basicConfig(
     stream=sys.stdout)
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger('taskgraph').setLevel(logging.INFO)
+logging.getLogger('taskgraph').setLevel(logging.DEBUG)
 
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 HOLDBACK_PROPORTION = 0.2
