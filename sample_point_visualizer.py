@@ -76,5 +76,5 @@ if __name__ == '__main__':
     target_vector_path = 'test_points.gpkg'
     generate_sample_point_vector(
         x_vector_list, y_vector_list, lng_lat_vector_list,
-        [feature_name_list + convolution_field_names],
+        feature_name_list + convolution_field_names,
         target_vector_path)
