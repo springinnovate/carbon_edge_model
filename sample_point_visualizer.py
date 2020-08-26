@@ -36,7 +36,6 @@ def generate_sample_point_vector(
                 x_vector, y_vector, lng_lat_vector):
             feature = ogr.Feature(layer.GetLayerDefn())
             for x_val, field_name in zip(x_values, field_names):
-                print(x_val)
                 feature.SetField(field_name, float(x_val))
             feature.SetField(y_fieldname, float(y_val))
 
