@@ -22,16 +22,16 @@ def generate_sample_point_vector(
     srs.ImportFromEPSG(4326)
     layer = vector.CreateLayer("carbon_model_sample_points", srs, ogr.wkbPoint)
     for field_name in field_names:
-        print(field_name)
         vector_field = ogr.FieldDefn(field_name, ogr.OFTReal)
         layer.CreateField(vector_field)
 
     y_fieldname = 'baccini_carbon'
     layer.CreateField(ogr.FieldDefn(y_fieldname, ogr.OFTReal))
 
-    for x_vector, y_vector, lng_lat_vector in zip(
-                x_vector_list, y_vector_list, lng_lat_vector_list):
-        print(lng_lat_vector)
+    layer.StartTransaction()
+    for index, (x_vector, y_vector, lng_lat_vector) in enumerate(zip(
+                x_vector_list, y_vector_list, lng_lat_vector_list)):
+        print(f'converting vector {index+1} of {len(lng_lat_vector_list)}')
         for x_values, y_val, (lng, lat) in zip(
                 x_vector, y_vector, lng_lat_vector):
             feature = ogr.Feature(layer.GetLayerDefn())
@@ -44,7 +44,7 @@ def generate_sample_point_vector(
             feature.SetGeometry(point)
             layer.CreateFeature(feature)
             feature = None
-            break
+    layer.CommitTransaction()
     layer = None
     vector = None
 
