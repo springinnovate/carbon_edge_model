@@ -15,6 +15,8 @@ from sklearn.linear_model import LassoLarsCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.model_selection import train_test_split
+from sklearn.covariance import EmpiricalCovariance
+import sklearn.preprocessing
 import taskgraph
 
 import carbon_model_data
@@ -34,6 +36,22 @@ logging.getLogger('taskgraph').setLevel(logging.INFO)
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 HOLDBACK_PROPORTION = 0.2
 MODEL_FIT_WORKSPACE = 'carbon_model'
+POINTS_PER_STRIDE = 10000
+STRIDE_SETS = [2**n for n in range(8)]
+MAX_N_POINTS = POINTS_PER_STRIDE*max(STRIDE_SETS)
+
+
+def make_covariance_csv(
+        X_vector_path_list, feature_name_list, target_csv_path):
+    LOGGER.info('calcualte covariance:')
+    X_vector = numpy.concatenate(
+        [numpy.load(path)['arr_0'] for path in X_vector_path_list])
+
+    cov = EmpiricalCovariance().fit(sklearn.preprocessing.normalize(
+        X_vector, norm='l2'))
+    numpy.savetxt(
+        target_csv_path, cov.covariance_, delimiter=",",
+        header=','.join(feature_name_list))
 
 
 def generate_sample_points_for_carbon_model(
@@ -119,7 +137,7 @@ def generate_sample_points_for_carbon_model(
         v = numpy.random.random((points_remaining,))
         # pick between -180 and 180
         lng_arr = (2.0 * numpy.pi * u) * 180/numpy.pi - 180
-        lat_arr = numpy.arccos(2*v-1) * 180/numpy.pi
+        lat_arr = numpy.arccos(2*v-1) * 180/numpy.pi - 90
         valid_mask = numpy.abs(lat_arr) <= max_min_lat
 
         window_index_to_point_list_map = collections.defaultdict(list)
@@ -222,9 +240,6 @@ def build_model(
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Model maker')
     parser.add_argument(
-        '--n_points', type=int, required=True,
-        help='Number of points to sample, should be multiple of 1e4')
-    parser.add_argument(
         '--max_min_lat', type=float, default=40.0,
         help='Min/max lat to cutoff')
     parser.add_argument(
@@ -278,11 +293,10 @@ if __name__ == '__main__':
         os.makedirs(array_cache_dir)
     except OSError:
         pass
-    LOGGER.info(f'create {args.n_points} points')
-    points_per_stride = 10000
-    n_strides = args.n_points // points_per_stride
+
+    LOGGER.info(f'create {MAX_N_POINTS} points')
     task_xy_vector_list = []
-    for point_stride in range(n_strides):
+    for point_stride in range(max(STRIDE_SETS)):
         lat_lng_array_path = os.path.join(
             array_cache_dir, f'lng_lat_array_{point_stride}.npz')
         target_X_array_path = os.path.join(
@@ -292,20 +306,20 @@ if __name__ == '__main__':
         generate_point_task = task_graph.add_task(
             func=generate_sample_points_for_carbon_model,
             args=(
-                points_per_stride,
+                POINTS_PER_STRIDE,
                 (baccini_10s_2014_biomass_path, baccini_nodata),
                 forest_mask_raster_path,
                 raster_path_nodata_replacement_list + convolution_raster_list,
                 args.max_min_lat, target_X_array_path, target_y_array_path,
                 lat_lng_array_path),
-            kwargs={'seed': point_stride+1},
+            kwargs={'seed': point_stride},
             ignore_path_list=[
                 target_X_array_path, target_y_array_path, lat_lng_array_path],
             target_path_list=[target_X_array_path, target_y_array_path],
             store_result=True,
             task_name=(
-                f'calculating points {point_stride*points_per_stride} to '
-                f'{(point_stride+1)*points_per_stride}'))
+                f'calculating points {point_stride*POINTS_PER_STRIDE} to '
+                f'{(point_stride+1)*POINTS_PER_STRIDE}'))
         task_xy_vector_list.append(
             (generate_point_task, target_X_array_path, target_y_array_path))
 
@@ -315,7 +329,20 @@ if __name__ == '__main__':
             raster_path_nodata_replacement_list +
             convolution_raster_list)]
 
-    # test for overfit
+    covariance_vector_path_list = []
+    for (generate_point_task, target_X_array_path, _) in task_xy_vector_list:
+        generate_point_task.join()
+        covariance_vector_path_list.append(target_X_array_path)
+    n_points = len(covariance_vector_path_list)*POINTS_PER_STRIDE
+    covariance_file_path = f"covarance_{n_points}.csv"
+    task_graph.add_task(
+        func=make_covariance_csv,
+        args=(
+            covariance_vector_path_list, feature_name_list,
+            covariance_file_path),
+        target_path_list=[covariance_file_path],
+        task_name=f'make covariance for {n_points}')
+
     model_dir = 'models'
     try:
         os.makedirs(model_dir)
@@ -323,19 +350,17 @@ if __name__ == '__main__':
         pass
     build_model_task_list = []
 
-    with open('fit_test_{y_vector.size}_points.csv', 'w') as fit_file:
+    with open(f'fit_test_{MAX_N_POINTS}_points.csv', 'w') as fit_file:
         fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
     # Try to make 10 cutoffs
-    test_stride_set = {
-        int(n_strides * test_point_proportion)
-        for test_point_proportion in numpy.linspace(0.1, 1.0, 10)
-    }
-    for test_strides in sorted(test_stride_set-{0}):
+
+    build_model_task_list = []
+    for test_strides in STRIDE_SETS:
+        n_points = test_strides*POINTS_PER_STRIDE
         model_filename = os.path.join(
             model_dir,
-            f'carbon_model_lasso_lars_cv_'
-            f'{test_strides*points_per_stride}_pts.mod')
+            f'carbon_model_lasso_lars_cv_{n_points}_pts.mod')
         LOGGER.info(f'build {model_filename} model')
         X_vector_path_list = []
         y_vector_path = []
@@ -353,13 +378,13 @@ if __name__ == '__main__':
                 model_filename),
             store_result=True,
             target_path_list=[model_filename],
-            task_name=(
-                f'build model for {test_strides*points_per_stride} points'))
+            task_name=f'build model for {n_points} points')
+        build_model_task_list.append((n_points, build_model_task))
+
+    for n_points, build_model_task in build_model_task_list:
         r_2_fit, r_2_test_fit = build_model_task.get()
-        with open('fit_test_{y_vector.size}_points.csv', 'a') as fit_file:
-            fit_file.write(
-                f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}\n')
-        LOGGER.info(
-            f'{test_strides*points_per_stride},{r_2_fit},{r_2_test_fit}')
+        with open(f'fit_test_{MAX_N_POINTS}_points.csv', 'a') as fit_file:
+            fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
+        LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
     LOGGER.debug('all done!')
