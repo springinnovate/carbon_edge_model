@@ -22,6 +22,7 @@ def generate_sample_point_vector(
     srs.ImportFromEPSG(4326)
     layer = vector.CreateLayer("carbon_model_sample_points", srs, ogr.wkbPoint)
     for field_name in field_names:
+        print(field_name)
         vector_field = ogr.FieldDefn(field_name, ogr.OFTReal)
         layer.CreateField(vector_field)
 
