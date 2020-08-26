@@ -65,9 +65,9 @@ if __name__ == '__main__':
             lng_lat_vector_path_list,
             X_vector_path_list,
             y_vector_path_list):
-        lng_lat_vector_list.append(numpy.load(ll_path))
-        x_vector_list.append(numpy.load(xv_path))
-        y_vector_list.append(numpy.load(yv_path))
+        lng_lat_vector_list.append(numpy.load(ll_path)['arr_0'])
+        x_vector_list.append(numpy.load(xv_path)['arr_0'])
+        y_vector_list.append(numpy.load(yv_path)['arr_0'])
         break
 
     convolution_field_names = [
