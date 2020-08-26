@@ -29,18 +29,20 @@ def generate_sample_point_vector(
     y_fieldname = 'baccini_carbon'
     layer.CreateField(ogr.FieldDefn(y_fieldname, ogr.OFTReal))
 
-    for x_vector, y_val, (lng, lat) in zip(
+    for x_vector, y_vector, lng_lat_vector in zip(
                 x_vector_list, y_vector_list, lng_lat_vector_list):
-        feature = ogr.Feature(layer.GetLayerDefn())
-        for x_val, field_name in zip(x_vector, field_names):
-            feature.SetField(field_name, x_val)
-        feature.SetField(y_fieldname, y_val)
+        for x_values, y_val, (lng, lat) in zip(
+                x_vector, y_vector, lng_lat_vector):
+            feature = ogr.Feature(layer.GetLayerDefn())
+            for x_val, field_name in zip(x_vector, field_names):
+                feature.SetField(field_name, x_val)
+            feature.SetField(y_fieldname, y_val)
 
-        point = ogr.CreateGeometryFromWkt(f"POINT({lng} {lat})")
-        feature.SetGeometry(point)
-        layer.CreateFeature(feature)
-        feature = None
-        break
+            point = ogr.CreateGeometryFromWkt(f"POINT({lng} {lat})")
+            feature.SetGeometry(point)
+            layer.CreateFeature(feature)
+            feature = None
+            break
     layer = None
     vector = None
 
