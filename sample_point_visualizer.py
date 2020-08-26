@@ -61,7 +61,7 @@ if __name__ == '__main__':
     y_vector_list = []
     lng_lat_vector_list = []
 
-    for index, ll_path, xv_path, yv_path in enumerate(zip(
+    for index, (ll_path, xv_path, yv_path) in enumerate(zip(
             lng_lat_vector_path_list,
             X_vector_path_list,
             y_vector_path_list)):
