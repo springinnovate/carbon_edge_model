@@ -61,14 +61,15 @@ if __name__ == '__main__':
     y_vector_list = []
     lng_lat_vector_list = []
 
-    for ll_path, xv_path, yv_path in zip(
+    for index, ll_path, xv_path, yv_path in enumerate(zip(
             lng_lat_vector_path_list,
             X_vector_path_list,
-            y_vector_path_list):
+            y_vector_path_list)):
+        if index > 10:
+            break
         lng_lat_vector_list.append(numpy.load(ll_path)['arr_0'])
         x_vector_list.append(numpy.load(xv_path)['arr_0'])
         y_vector_list.append(numpy.load(yv_path)['arr_0'])
-        break
 
     convolution_field_names = [
         f'{mask_id}_gf_{EXPECTED_MAX_EDGE_EFFECT_KM}'
