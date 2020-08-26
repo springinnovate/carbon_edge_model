@@ -36,8 +36,8 @@ def generate_sample_point_vector(
                 x_vector, y_vector, lng_lat_vector):
             feature = ogr.Feature(layer.GetLayerDefn())
             for x_val, field_name in zip(x_vector, field_names):
-                feature.SetField(field_name, x_val)
-            feature.SetField(y_fieldname, y_val)
+                feature.SetField(field_name, float(x_val))
+            feature.SetField(y_fieldname, float(y_val))
 
             point = ogr.CreateGeometryFromWkt(f"POINT({lng} {lat})")
             feature.SetGeometry(point)
