@@ -31,6 +31,7 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
+MAX_CARBON = 360
 
 MODEL_URI = (
     'gs://ecoshard-root/global_carbon_regression/models/'
@@ -81,6 +82,9 @@ def _carbon_op(*args):
         [array[valid_mask] for array in args[0:3*n:3]])
 
     result[valid_mask] = model.predict(array_arg_list.transpose())
+    # clamp just in case
+    result[valid_mask & (result > MAX_CARBON)] = MAX_CARBON
+    result[valid_mask & (result < 0)] = 0
     return result
 
 
