@@ -429,8 +429,8 @@ def main():
     with open(model_path, 'rb') as model_file:
         carbon_model = pickle.load(model_file)
     evaluate_model_with_landcover(
-        carbon_model, args.landcover_type_raster_path, workspace_dir,
-        churn_dir, args.n_workers, task_graph)
+        carbon_model, args.landcover_type_raster_path, convolution_file_paths,
+        workspace_dir, churn_dir, args.n_workers, task_graph)
 
     task_graph.close()
     task_graph.join()
