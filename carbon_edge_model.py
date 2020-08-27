@@ -239,9 +239,6 @@ def warp_and_gaussian_filter_data(
                 'target_projection_wkt': base_raster_info['projection_wkt'],
                 'working_dir': target_data_dir,
                 },
-            hash_algorithm='md5',
-            copy_duplicate_artifact=True,
-            hardlink_allowed=True,
             target_path_list=[aligned_raster_path],
             task_name=f'align {base_raster_path} data')
     LOGGER.info('wait for data to align')
