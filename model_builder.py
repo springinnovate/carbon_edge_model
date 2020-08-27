@@ -333,12 +333,13 @@ if __name__ == '__main__':
             convolution_raster_list)]
 
     covariance_vector_path_list = []
+    covariance_point_task_list = []
     for (generate_point_task, target_X_array_path, _) in task_xy_vector_list:
-        generate_point_task.join()
+        covariance_point_task_list.append(generate_point_task)
         covariance_vector_path_list.append(target_X_array_path)
     n_points = len(covariance_vector_path_list)*POINTS_PER_STRIDE
     covariance_file_path = f"covarance_{n_points}.csv"
-    task_graph.add_task(
+    _ = task_graph.add_task(
         func=make_covariance_csv,
         args=(
             covariance_vector_path_list, feature_name_list,
@@ -351,12 +352,6 @@ if __name__ == '__main__':
         os.makedirs(model_dir)
     except OSError:
         pass
-    build_model_task_list = []
-
-    with open(f'fit_test_{MAX_N_POINTS}_points.csv', 'w') as fit_file:
-        fit_file.write(f'n_points,r_squared,r_squared_test\n')
-
-    # Try to make 10 cutoffs
 
     build_model_task_list = []
     for test_strides in STRIDE_SETS:
@@ -368,9 +363,10 @@ if __name__ == '__main__':
         X_vector_path_list = []
         y_vector_path = []
 
+        local_point_task_list = []
         for (generate_point_task, target_X_array_path,
                 target_y_array_path) in task_xy_vector_list:
-            generate_point_task.join()
+            local_point_task_list.append(generate_point_task)
             X_vector_path_list.append(target_X_array_path)
             y_vector_path.append(target_y_array_path)
 
@@ -381,8 +377,12 @@ if __name__ == '__main__':
                 model_filename),
             store_result=True,
             target_path_list=[model_filename],
+            dependent_task_list=[local_point_task_list],
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
+
+    with open(f'fit_test_{MAX_N_POINTS}_points.csv', 'w') as fit_file:
+        fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
     for n_points, build_model_task in build_model_task_list:
         r_2_fit, r_2_test_fit = build_model_task.get()
