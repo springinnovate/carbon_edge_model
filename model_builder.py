@@ -366,7 +366,7 @@ if __name__ == '__main__':
 
         local_point_task_list = []
         for (generate_point_task, target_X_array_path,
-                target_y_array_path) in task_xy_vector_list:
+                target_y_array_path) in task_xy_vector_list[0:test_strides]:
             local_point_task_list.append(generate_point_task)
             X_vector_path_list.append(target_X_array_path)
             y_vector_path.append(target_y_array_path)
