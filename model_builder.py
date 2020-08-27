@@ -108,7 +108,6 @@ def generate_sample_points_for_carbon_model(
     LOGGER.info('build baccini iterblocks spatial index')
     offset_list = list(pygeoprocessing.iterblocks(
         (baccini_raster_path_nodata[0], 1), offset_only=True, largest_block=0))
-    baccini_memory_block_index = rtree.index.Index()
     gt_baccini = band_inv_gt_list[0][-2]
     baccini_lng_lat_bb_list = []
     LOGGER.debug(f'creating {len(offset_list)} index boxes')
@@ -123,8 +122,9 @@ def generate_sample_points_for_carbon_model(
                     gt_baccini,
                     offset_dict['xoff']+offset_dict['win_xsize'],
                     offset_dict['yoff']))]
-        baccini_lng_lat_bb_list.append(bb_lng_lat)
-        baccini_memory_block_index.insert(index, bb_lng_lat)
+        baccini_lng_lat_bb_list.append((index, bb_lng_lat))
+    LOGGER.debug('creating the index all at once')
+    baccini_memory_block_index = rtree.index.Index(baccini_lng_lat_bb_list)
 
     points_remaining = n_points
     lng_lat_vector = []
