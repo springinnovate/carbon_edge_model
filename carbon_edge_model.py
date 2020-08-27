@@ -78,13 +78,15 @@ def _carbon_op(*args):
                 array[nodata_mask] = nodata_replace
             else:
                 valid_mask &= ~nodata_mask
-    array_arg_list = numpy.array(
-        [array[valid_mask] for array in args[0:3*n:3]])
 
-    result[valid_mask] = model.predict(array_arg_list.transpose())
-    # clamp just in case
-    result[valid_mask & (result > MAX_CARBON)] = MAX_CARBON
-    result[valid_mask & (result < 0)] = 0
+    if numpy.count_nonzero(valid_mask) > 0:
+        # .predict will crash if there's an empty list passed to it
+        array_arg_list = numpy.array(
+            [array[valid_mask] for array in args[0:3*n:3]])
+        result[valid_mask] = model.predict(array_arg_list.transpose())
+        # clamp just in case
+        result[valid_mask & (result > MAX_CARBON)] = MAX_CARBON
+        result[valid_mask & (result < 0)] = 0
     return result
 
 
