@@ -98,7 +98,7 @@ if __name__ == '__main__':
     pixel_conversion *= args.factor
 
     if args.clip_vector:
-        print(f'clipping to {args.clip_vector}')
+        LOGGER.debug(f'clipping to {args.clip_vector}')
         working_dir = os.path.dirname(args.target_area_raster_path)
         clip_raster_path = os.path.join(working_dir, 'tmp_clip.tif')
         if os.path.exists(clip_raster_path):
@@ -108,14 +108,16 @@ if __name__ == '__main__':
             args.base_raster_path)
         clip_vector_info = pygeoprocessing.get_vector_info(
             args.clip_vector)
-        print(clip_vector_info)
+        LOGGER.debug(clip_vector_info)
         pygeoprocessing.warp_raster(
             args.base_raster_path, base_raster_info['pixel_size'],
             clip_raster_path, 'near',
             target_bb=clip_vector_info['bounding_box'],
             target_projection_wkt=clip_vector_info['projection_wkt'],
             working_dir=working_dir)
+        LOGGER.debug('done clipping')
         base_raster_path = clip_raster_path
+        sys.exit(-1)
     else:
         base_raster_path = args.base_raster_path
 
