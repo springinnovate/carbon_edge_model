@@ -80,7 +80,7 @@ def _carbon_op(*args):
         [array[valid_mask] for array in args[0:3*n:3]])
     LOGGER.debug(f' arg list shape: {array_arg_list.shape}')
 
-    result[valid_mask] = model.predict(array_arg_list)
+    result[valid_mask] = model.predict(array_arg_list.transpose())
     return result
 
 
