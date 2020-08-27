@@ -345,6 +345,7 @@ if __name__ == '__main__':
             covariance_vector_path_list, feature_name_list,
             covariance_file_path),
         target_path_list=[covariance_file_path],
+        dependent_task_list=covariance_point_task_list,
         task_name=f'make covariance for {n_points}')
 
     model_dir = 'models'
@@ -377,7 +378,7 @@ if __name__ == '__main__':
                 model_filename),
             store_result=True,
             target_path_list=[model_filename],
-            dependent_task_list=[local_point_task_list],
+            dependent_task_list=local_point_task_list,
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
