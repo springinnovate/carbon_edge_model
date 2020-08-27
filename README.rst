@@ -94,6 +94,9 @@ against 64,000 points using the method described above.
 
 :math:`\frac{ \sum_{t=0}^{N}f(t,k) }{N}`
 
+Goodness of fit
+***************
+
 .. list-table:: R^2 performance vs sample points
    :widths: 25 25 50
    :header-rows: 1
@@ -187,3 +190,11 @@ Data required for this model are automatically fetched from public Google Bucket
     * ``tri_10sec.tif``
     * ``wind_speed_10sec.tif``
     * ``baccini_10s_2014_md5_5956a9d06d4dffc89517cefb0f6bb008.tif``
+
+Coefficents
+***********
+
+.. csv-table:: Normalized coefficents in 640,000 point model
+   :file: images/coef_640000.csv
+   :widths: 30, 70
+   :header-rows: 1

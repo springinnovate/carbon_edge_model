@@ -40,4 +40,17 @@ if __name__ == '__main__':
 
     with open(args.model_path, 'rb') as model_file:
         model = pickle.load(model_file)
-    print(model[2])
+    base_feature_names = carbon_model_data
+
+    parameter_name_list = [
+        val[0] for val in carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA] + [
+        f'{raster_type[0]}_gf' for raster_type in carbon_model_data.MASK_TYPES]
+
+    coeff_parameter_list = zip(
+        model[1].coef_,
+        model[0].get_feature_names(parameter_name_list))
+
+    print('\n'.join([
+        f"{value:+.3e},{parameter_name.replace(' ', '*').replace('.tif', '')}" for value, parameter_name in sorted(
+            coeff_parameter_list, reverse=True, key=lambda x: abs(x[0]))
+        if abs(value) > 1e-4]))
