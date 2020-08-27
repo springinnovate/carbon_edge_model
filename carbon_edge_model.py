@@ -217,7 +217,10 @@ def warp_and_gaussian_filter_data(
     # Expected data is given by `carbon_model_data`.
     base_raster_data_path_list = [
         os.path.join(base_data_dir, filename)
-        for filename, _, _ in carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA]
+        for filename, _, _ in
+        carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA] + [
+        os.path.join(BASE_DATA_DIR, os.path.baesname(
+            BACCINI_10s_2014_BIOMASS_URI))]
     # sanity check:
     missing_raster_list = []
     for path in base_raster_data_path_list:
