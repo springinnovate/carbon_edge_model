@@ -66,11 +66,8 @@ def _carbon_op(*args):
     result[:] = args[3*n]  # assign target nodata
     model = args[3*n+1]
     valid_mask = numpy.ones(args[0].shape, dtype=numpy.bool)
-    print(len(args))
-    print(len(args[0::3*n]))
-    it = iter(args[0::3*n])
+    it = iter(args[0:3*n])
     for index, array in enumerate(it):
-        print(index)
         nodata = next(it)
         nodata_replace = next(it)
         if nodata is not None:
