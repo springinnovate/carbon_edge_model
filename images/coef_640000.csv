@@ -1,3 +1,4 @@
+Coefficient,Feature Term
 +1.084e+02,urban_gf*forest_gf
 +5.622e+01,cropland_gf^2
 +5.146e+01,cropland_gf*forest_gf

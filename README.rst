@@ -195,6 +195,5 @@ Coefficents
 ***********
 
 .. csv-table:: Normalized coefficents in 640,000 point model
-   :file: images/coef_640000.csv
-   :widths: 30, 70
+   :file: ./images/coef_640000.csv
    :header-rows: 1
