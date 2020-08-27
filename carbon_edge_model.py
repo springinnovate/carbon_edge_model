@@ -3,6 +3,7 @@ import argparse
 import logging
 import multiprocessing
 import os
+import pickle
 import sys
 
 from osgeo import gdal
@@ -43,6 +44,38 @@ MASK_TYPES = [
     ('forest_10sec', (3, ))]
 
 MASK_NODATA = 2
+
+
+def _carbon_op(*args):
+    """Evaluate carbon model.
+
+    Args:
+        args (list): a list length 3*n+2 long where the first 3*n elements
+            are (array, nodata, nodata_replace) tuples, these arrays
+            are replaced or nodata'd then passed to the 3*n+2th argument
+            which is the carbon model, 3*n+1th is nodata.
+
+    Returns:
+        Evaluation of array on given arg model.
+    """
+    result = numpy.empty(args[0].shape, dtype=numpy.float32)
+    n = (len(args)-2) // 3
+    result[:] = args[3*n]  # assign target nodata
+    model = args[3*n+1]
+    valid_mask = numpy.ones(args[0].shape, type=numpy.bool)
+    it = iter(args[0::3*n])
+    for array in it:
+        nodata = next(it)
+        nodata_replace = next(it)
+        if nodata is not None:
+            nodata_mask = numpy.isclose(array, nodata)
+            if nodata_replace is not None:
+                array[nodata_mask] = nodata_replace
+            else:
+                valid_mask &= ~nodata_mask
+    array_arg_list = [array[valid_mask] for array in args[0:n:3]]
+    result[valid_mask] = model.predict(array_arg_list)
+    return result
 
 
 def sub_pos_op(array_a, array_b):
@@ -237,11 +270,13 @@ def warp_and_gaussian_filter_data(
 
 
 def evaluate_model_with_landcover(
-        landcover_type_raster_path, workspace_dir, data_dir,
+        carbon_model, landcover_type_raster_path, workspace_dir, data_dir,
         n_workers, task_graph, max_biomass=360.0):
     """Evaluate the model over a landcover raster.
 
     Args:
+        carbon_model (scikit.learn.model): a trained model expecting vector
+            input for output
         landcover_type_raster_path (str): path to ESA style landcover raster
         workspace_dir (str): path to general workspace dir
         data_dir (str): path to directory containing base data refered to
@@ -268,12 +303,30 @@ def evaluate_model_with_landcover(
     except OSError:
         pass
 
+    raster_info_tuple_list = [
+        ((os.path.join(data_dir, filename), 1),
+         (nodata, 'raw'),
+         (nodata_replace, 'raw'))
+        for filename, nodata, nodata_replace in
+        carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA]
+
+    target_nodata = -1
+    raster_path_band_list = [
+        item for sublist in raster_info_tuple_list for item in sublist] + \
+        [(target_nodata, 'raw'), (carbon_model, 'raw')]
+
     # This raster is the modeled forest biomass
     forest_carbon_stocks_raster_path = os.path.join(
         churn_dir, f'{landtype_basename}_forest_biomass_per_ha.tif')
 
     # TODO: Invoke the SCIPY.learn model
-    pass
+    regression_model_task = task_graph.add_task(
+        func=pygeoprocessing.raster_calculator,
+        args=(
+            raster_path_band_list, _carbon_op,
+            forest_carbon_stocks_raster_path, gdal.GDT_Float32, target_nodata),
+        target_path_list=[forest_carbon_stocks_raster_path],
+        task_name='predict carbon stocks')
 
     # NON-FOREST BIOMASS
     LOGGER.info(f'convert baccini non forest into biomass_per_ha')
@@ -319,11 +372,6 @@ def main():
             'Path to landtype raster where codes correspond to:\n'
             '\t1: cropland\n\t2: urban\n\t3: forest\n\t4: other'))
     parser.add_argument(
-        '--point_vector_path', help=(
-            'Path to point vector to evaluate carbon stocks at'))
-    parser.add_argument(
-        '--fid', type=int, help='fid to query from point vector if selected')
-    parser.add_argument(
         '--workspace_dir', default='carbon_model_workspace', help=(
             'Path to workspace dir, the carbon stock file will be named '
             '"c_stocks_[landcover_type_raster_path]. Default is '
@@ -354,9 +402,13 @@ def main():
     task_graph.join()
 
     LOGGER.info('evaulate carbon model')
+
+    carbon_model = pickle.loads(os.path.join(
+        BASE_DATA_DIR, 'models',
+        'carbon_model_lasso_lars_cv_poly_no_trans_160000_pts.mod'))
     evaluate_model_with_landcover(
-        args.landcover_type_raster_path, workspace_dir, churn_dir,
-        args.n_workers, task_graph)
+        carbon_model, args.landcover_type_raster_path, workspace_dir,
+        churn_dir, args.n_workers, task_graph)
 
     task_graph.close()
     task_graph.join()
