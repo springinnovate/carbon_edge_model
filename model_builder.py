@@ -122,8 +122,7 @@ def generate_sample_points_for_carbon_model(
                     gt_baccini,
                     offset_dict['xoff']+offset_dict['win_xsize'],
                     offset_dict['yoff']))]
-        baccini_lng_lat_bb_list.append((index, bb_lng_lat))
-        LOGGER.debug(baccini_lng_lat_bb_list[-1])
+        baccini_lng_lat_bb_list.append((index, bb_lng_lat, None))
     LOGGER.debug('creating the index all at once')
     baccini_memory_block_index = rtree.index.Index(baccini_lng_lat_bb_list)
 
