@@ -40,4 +40,4 @@ if __name__ == '__main__':
 
     with open(args.model_path, 'rb') as model_file:
         model = pickle.load(model_file)
-    print(model)
+    print(model[2])
