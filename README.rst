@@ -200,4 +200,44 @@ Data required for this model are automatically fetched from public Google Bucket
 Coefficents
 ***********
 
-This is a link to a sorted and searchable table of factors and coefficients used in this model: https://github.com/therealspring/carbon_edge_model/blob/master/images/coef_640000.csv
+Below is a truncated version of the normalized coefficients used in the 640,000 point model. A complete and searchable table of factors and can be found at: https://github.com/therealspring/carbon_edge_model/blob/master/images/coef_640000.csv
+
+
+.. list-table:: Truncated Coefficient Table (full table at https://github.com/therealspring/carbon_edge_model/blob/master/images/coef_640000.csv)
+   :widths: 25 25
+   :header-rows: 1
+
+   * - Coefficient
+     - Feature Term
+   * - `+1.084e+02`
+     - `urban_gf*forest_gf`
+   * - `+5.622e+01`
+     - `cropland_gf^2`
+   * - `+5.146e+01`
+     - `cropland_gf*forest_gf`
+   * - `+4.534e+01`
+     - `forest_gf^2`
+   * - `-3.438e+01`
+     - `cropland_gf*urban_gf`
+   * - `-1.537e+01`
+     - `urban_gf^2`
+   * - `-9.928e+00`
+     - `phh2o_10sec`
+   * - `-9.519e+00`
+     - `bio_11_30sec*urban_gf`
+   * - `+6.126e+00`
+     - `AWCh3_10sec`
+   * - `-5.611e+00`
+     - `bio_02_30sec*forest_gf`
+   * - `-5.002e+00`
+     - `PHIKCL_10sec`
+   * - `-4.264e+00`
+     - `bio_10_30sec*urban_gf`
+   * - `+4.188e+00`
+     - `tri_10sec*urban_gf`
+
+License
+-------
+
+This software is permissively licensed under The Apache 2.0 open source license.
+
