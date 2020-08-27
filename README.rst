@@ -133,21 +133,25 @@ Below is modeled data compared against global Baccini biomass layer:
 
 
 Baccini Biomass Layer:
+
 .. image:: images/base_baccini.PNG
   :width: 400
   :alt: Base Baccini Biomass Layer in Brazil
 
 Modeled Biomass Layer:
+
 .. image:: images/modeled_carbon.png
   :width: 400
   :alt: Modeled Biomass Layer in Brazil
 
 Error:
+
 .. image:: images/bra_error.png
   :width: 400
   :alt: Modeled Biomass Layer in Brazil
 
 Error legend:
+
 .. image:: images/error_legend.png
   :alt: Error Legend
 
