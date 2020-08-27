@@ -416,9 +416,8 @@ def main():
 
     LOGGER.info('evaulate carbon model')
 
-    carbon_model = pickle.loads(os.path.join(
-        BASE_DATA_DIR, 'models',
-        'carbon_model_lasso_lars_cv_poly_no_trans_160000_pts.mod'))
+    with open(model_path, 'rb') as model_file:
+        carbon_model = pickle.loads(model_file)
     evaluate_model_with_landcover(
         carbon_model, args.landcover_type_raster_path, workspace_dir,
         churn_dir, args.n_workers, task_graph)
