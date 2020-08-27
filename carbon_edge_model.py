@@ -31,6 +31,10 @@ logging.getLogger('taskgraph').setLevel(logging.DEBUG)
 
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 
+MODEL_URI = (
+    'gs://ecoshard-root/global_carbon_regression/models/'
+    'carbon_model_lasso_lars_cv_poly_no_trans_640000_pts.mod')
+
 # Landcover classification codes
 # 1: cropland
 # 2: urban
@@ -393,6 +397,20 @@ def main():
 
     LOGGER.info("download data")
     carbon_model_data.fetch_data(BASE_DATA_DIR, task_graph)
+
+    model_dir = os.path.join(BASE_DATA_DIR, 'models')
+    try:
+        os.makedirs(model_dir)
+    except OSError:
+        pass
+
+    model_path = os.path.join(model_dir, os.path.basename(MODEL_URI))
+    _ = task_graph.add_task(
+        func=carbon_model_data.download_gs,
+        args=(MODEL_URI, model_path),
+        target_path_list=[model_path],
+        task_name=f'download model {MODEL_URI} to {model_path}')
+
     task_graph.join()
 
     LOGGER.info("prep data")
