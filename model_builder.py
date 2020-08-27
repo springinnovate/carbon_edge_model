@@ -391,3 +391,5 @@ if __name__ == '__main__':
         LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
     LOGGER.debug('all done!')
+    task_graph.close()
+    task_graph.join()
