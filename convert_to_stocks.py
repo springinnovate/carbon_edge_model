@@ -1,6 +1,7 @@
 """Convert a raster in X/Ha to X*const/pixel."""
 import argparse
 import math
+import os
 import logging
 import sys
 
@@ -69,6 +70,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--factor', default=1.0, type=float,
         help='Additional factor to multiply values by.')
+    parser.add_argument('--clip_vector', help=(
+        'optional path to vector to clip the target raster.'))
     args = parser.parse_args()
 
     base_raster_info = pygeoprocessing.get_raster_info(args.base_raster_path)
@@ -93,6 +96,23 @@ if __name__ == '__main__':
             [area_of_pixel(pixel_height, lat_val)] for lat_val in lat_vals])
 
     pixel_conversion *= args.factor
+
+    if args.clip_vector:
+        working_dir = os.path.dirname(args.target_area_raster_path)
+        clip_raster_path = os.path.join(working_dir, 'tmp_clip.tif')
+        if os.path.exists(clip_raster_path):
+            os.remove(clip_raster_path)
+
+        base_raster_info = pygeoprocessing.get_raster_info(
+            args.base_raster_path)
+        clip_vector_info = pygeoprocessing.get_vector_info(
+            args.clip_vector)
+        pygeoprocessing.warp_raster(
+            args.base_raster_path, base_raster_info['pixel_size'],
+            clip_raster_path, 'near',
+            target_bb=clip_vector_info['bounding_box'],
+            target_projection_wkt=clip_vector_info['projection_wkt'],
+            working_dir=working_dir)
 
     nodata = base_raster_info['nodata'][0]
     pygeoprocessing.raster_calculator(
