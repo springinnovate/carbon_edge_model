@@ -142,6 +142,8 @@ def generate_sample_points_for_carbon_model(
 
         window_index_to_point_list_map = collections.defaultdict(list)
         for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
+            if lat < -46:
+                LOGGER.debug(f'{lat} is < -46')
             if time.time() - last_time > 5.0:
                 LOGGER.debug(f'working ... {points_remaining} left')
                 last_time = time.time()
