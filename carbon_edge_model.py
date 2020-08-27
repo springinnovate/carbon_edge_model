@@ -318,11 +318,10 @@ def evaluate_model_with_landcover(
         item for sublist in raster_info_tuple_list for item in sublist] + \
         [(target_nodata, 'raw'), (carbon_model, 'raw')]
 
-    # This raster is the modeled forest biomass
+    # This raster is the predicted forest biomass
     forest_carbon_stocks_raster_path = os.path.join(
         churn_dir, f'{landtype_basename}_forest_biomass_per_ha.tif')
-
-    # TODO: Invoke the SCIPY.learn model
+    LOGGER.info('scheduling the regression model')
     regression_model_task = task_graph.add_task(
         func=pygeoprocessing.raster_calculator,
         args=(
