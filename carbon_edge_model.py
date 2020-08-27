@@ -76,7 +76,8 @@ def _carbon_op(*args):
                 array[nodata_mask] = nodata_replace
             else:
                 valid_mask &= ~nodata_mask
-    array_arg_list = numpy.array([array[valid_mask] for array in args[0:n:3]])
+    array_arg_list = numpy.array(
+        [array[valid_mask] for array in args[0:3*n:3]])
     LOGGER.debug(f' arg list shape: {array_arg_list.shape}')
 
     result[valid_mask] = model.predict(array_arg_list)
