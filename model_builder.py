@@ -31,7 +31,7 @@ logging.basicConfig(
     stream=sys.stdout)
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger('taskgraph').setLevel(logging.DEBUG)
+logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 HOLDBACK_PROPORTION = 0.2
