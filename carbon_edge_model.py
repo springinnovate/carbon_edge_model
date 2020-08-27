@@ -9,7 +9,6 @@ import sys
 from osgeo import gdal
 from osgeo import osr
 import pygeoprocessing
-import pygeoprocessing.multiprocessing
 import numpy
 import scipy.ndimage
 import taskgraph
