@@ -92,8 +92,6 @@ against 64,000 points using the method described above.
   :width: 400
   :alt: Brazil point samples zoomed for detail
 
-:math:`\frac{ \sum_{t=0}^{N}f(t,k) }{N}`
-
 Goodness of fit
 ***************
 
@@ -104,6 +102,7 @@ Goodness of fit
    * - n_points
      - r_squared
      - r_squared_test
+     - model used
    * - 40000
      - 0.843442966
      - 0.810843161
@@ -119,6 +118,7 @@ Goodness of fit
    * - 640000
      - 0.864520049
      - 0.810522805
+     - X
 
 Data
 ****
