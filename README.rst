@@ -96,7 +96,7 @@ Goodness of fit
 ***************
 
 .. list-table:: R^2 performance vs sample points
-   :widths: 25 25 50
+   :widths: 25 25 50 2
    :header-rows: 1
 
    * - n_points
@@ -122,7 +122,7 @@ Goodness of fit
    * - 640000
      - 0.864520049
      - 0.810522805
-     - X
+     - **X**
 
 Data
 ****
