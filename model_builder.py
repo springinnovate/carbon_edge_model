@@ -229,7 +229,7 @@ def build_model(
         raw_X_vector, raw_y_vector,
         shuffle=False, test_size=0.2)
 
-    LOGGER.info(f'doing fit on {n_points*10000} points')
+    LOGGER.info(f'doing fit on {n_points} points')
     model = carbon_model_pipeline.fit(X_vector, y_vector)
     r_squared = model.score(X_vector, y_vector)
     r_squared_test = model.score(test_X_vector, test_y_vector)
@@ -378,7 +378,8 @@ if __name__ == '__main__':
                 model_filename),
             store_result=True,
             target_path_list=[model_filename],
-            dependent_task_list=local_point_task_list,
+            dependent_task_list=(
+                local_point_task_list + build_model_task_list[-1::]),
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
