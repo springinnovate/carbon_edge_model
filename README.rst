@@ -126,6 +126,28 @@ The table below shows the results of several training runs. The first column was
      - 0.810522805
      - **<----------**
 
+Example in Local Area
+---------------------
+
+Below is modeled data compared against global Baccini biomass layer:
+
+
+.. image:: images/base_baccini.PNG
+  :width: 400
+  :alt: Base Baccini Biomass Layer in Brazil
+
+.. image:: images/modeled_carbon.png
+  :width: 400
+  :alt: Modeled Biomass Layer in Brazil
+
+.. image:: images/bra_error.png
+  :width: 400
+  :alt: Modeled Biomass Layer in Brazil
+
+.. image:: images/error_legend.png
+  :alt: Error Legend
+
+
 Data
 ****
 
