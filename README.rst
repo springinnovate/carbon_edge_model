@@ -194,10 +194,4 @@ Data required for this model are automatically fetched from public Google Bucket
 Coefficents
 ***********
 
-Start
-
-.. csv-table:: Normalized coefficents in 640,000 point model
-   :file: ./images/coef_640000.csv
-   :header-rows: 1
-
-Test
+This is a link to a sorted and searchable table of factors and coefficients used in this model: https://github.com/therealspring/carbon_edge_model/blob/master/images/coef_640000.csv
