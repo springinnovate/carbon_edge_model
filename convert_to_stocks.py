@@ -98,6 +98,7 @@ if __name__ == '__main__':
     pixel_conversion *= args.factor
 
     if args.clip_vector:
+        print(f'clipping to {args.clip_vector}')
         working_dir = os.path.dirname(args.target_area_raster_path)
         clip_raster_path = os.path.join(working_dir, 'tmp_clip.tif')
         if os.path.exists(clip_raster_path):
@@ -113,9 +114,12 @@ if __name__ == '__main__':
             target_bb=clip_vector_info['bounding_box'],
             target_projection_wkt=clip_vector_info['projection_wkt'],
             working_dir=working_dir)
+        base_raster_path = clip_raster_path
+    else:
+        base_raster_path = args.base_raster_path
 
     nodata = base_raster_info['nodata'][0]
     pygeoprocessing.raster_calculator(
-        [(args.base_raster_path, 1), pixel_conversion, (nodata, 'raw')],
+        [(base_raster_path, 1), pixel_conversion, (nodata, 'raw')],
         conversion_op, args.target_area_raster_path,
         base_raster_info['datatype'], nodata)
