@@ -8,7 +8,6 @@ import sys
 
 from osgeo import gdal
 from osgeo import osr
-from sklearn.preprocessing import PolynomialFeatures
 import pygeoprocessing
 import numpy
 import scipy.ndimage
@@ -28,7 +27,7 @@ logging.basicConfig(
     stream=sys.stdout)
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger('taskgraph').setLevel(logging.DEBUG)
+logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 
@@ -81,7 +80,7 @@ def _carbon_op(*args):
         [array[valid_mask] for array in args[0:3*n:3]])
     LOGGER.debug(f' arg list shape: {array_arg_list.shape}')
 
-    result[valid_mask] = model.predict(array_arg_list)
+    result[valid_mask] = model.predict(array_arg_list.transpose())
     return result
 
 
