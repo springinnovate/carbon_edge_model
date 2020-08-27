@@ -113,7 +113,6 @@ if __name__ == '__main__':
             args.base_raster_path, base_raster_info['pixel_size'],
             clip_raster_path, 'near',
             target_bb=clip_vector_info['bounding_box'],
-            target_projection_wkt=clip_vector_info['projection_wkt'],
             working_dir=working_dir)
         LOGGER.debug('done clipping')
         base_raster_path = clip_raster_path
