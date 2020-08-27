@@ -38,5 +38,6 @@ if __name__ == '__main__':
     parser.add_argument('model_path', help='path to pickled model')
     args = parser.parse_args()
 
-    model = pickle.load(args.model_path)
+    with open(args.model_path, 'rb') as model_file:
+        model = pickle.load(model_file)
     print(model)
