@@ -95,6 +95,8 @@ against 64,000 points using the method described above.
 Goodness of fit
 ***************
 
+The table below shows the results of several training runs. The first column was the number of points selected for the model using the method in the previous section. The `r_squared` vs `r_squared_test` are the R^2 scores calculated on the training data and the holdout data respectively. In each instance 80% of the points were used for training while 20% were held out for validation. We gain confidence that the model is accurate and not overfitting at around 320,000 points but we get a slightly better R^2 at 640,000.
+
 .. list-table:: R^2 performance vs sample points
    :widths: 25 25 50 2
    :header-rows: 1
@@ -122,7 +124,7 @@ Goodness of fit
    * - 640000
      - 0.864520049
      - 0.810522805
-     - **<---**
+     - **<----------**
 
 Data
 ****
