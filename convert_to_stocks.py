@@ -116,7 +116,6 @@ if __name__ == '__main__':
             working_dir=working_dir)
         LOGGER.debug('done clipping')
         base_raster_path = clip_raster_path
-        sys.exit(-1)
     else:
         base_raster_path = args.base_raster_path
 
