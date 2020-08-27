@@ -251,7 +251,7 @@ if __name__ == '__main__':
 
     LOGGER.info('initalizing')
     task_graph = taskgraph.TaskGraph(
-        BASE_DATA_DIR, args.n_workers, 5.0)
+        BASE_DATA_DIR, args.n_workers, 15.0)
 
     LOGGER.info('fetch model data')
     raster_path_nodata_replacement_list = carbon_model_data.fetch_data(
