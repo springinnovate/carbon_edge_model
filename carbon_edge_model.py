@@ -65,7 +65,7 @@ def _carbon_op(*args):
     n = (len(args)-2) // 3
     result[:] = args[3*n]  # assign target nodata
     model = args[3*n+1]
-    valid_mask = numpy.ones(args[0].shape, type=numpy.bool)
+    valid_mask = numpy.ones(args[0].shape, dtype=numpy.bool)
     it = iter(args[0::3*n])
     for array in it:
         nodata = next(it)
