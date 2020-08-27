@@ -9,6 +9,7 @@ import sys
 from osgeo import gdal
 from osgeo import osr
 import pygeoprocessing
+import pygeoprocessing.multiprocessing
 import numpy
 import scipy.ndimage
 import taskgraph
@@ -78,7 +79,6 @@ def _carbon_op(*args):
                 valid_mask &= ~nodata_mask
     array_arg_list = numpy.array(
         [array[valid_mask] for array in args[0:3*n:3]])
-    LOGGER.debug(f' arg list shape: {array_arg_list.shape}')
 
     result[valid_mask] = model.predict(array_arg_list.transpose())
     return result
@@ -328,7 +328,7 @@ def evaluate_model_with_landcover(
         churn_dir, f'{landtype_basename}_forest_biomass_per_ha.tif')
     LOGGER.info('scheduling the regression model')
     regression_model_task = task_graph.add_task(
-        func=pygeoprocessing.raster_calculator,
+        func=pygeoprocessing.multiprocessing.raster_calculator,
         args=(
             raster_path_band_list, _carbon_op,
             forest_carbon_stocks_raster_path, gdal.GDT_Float32, target_nodata),
