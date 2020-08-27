@@ -108,7 +108,7 @@ def raster_where(
         f'selecting {if_true_raster_path} if {condition_raster_path} is 1 '
         f'else {else_raster_path}, upper upper_threshold {upper_threshold}, '
         f'target is {target_raster_path}')
-    pygeoprocessing.multiprocessing.raster_calculator(
+    pygeoprocessing.raster_calculator(
         [(condition_raster_path, 1), (if_true_raster_path, 1),
          (else_raster_path, 1), (upper_threshold, 'raw'), (nodata, 'raw')],
         where_op, target_raster_path, gdal.GDT_Float32, nodata)
@@ -178,7 +178,7 @@ def mask_ranges(
     """
     base_nodata = pygeoprocessing.get_raster_info(
         base_raster_path)['nodata'][0]
-    pygeoprocessing.multiprocessing.raster_calculator(
+    pygeoprocessing.raster_calculator(
         [(base_raster_path, 1), (base_nodata, 'raw'),
          (mask_value_list, 'raw'),
          (MASK_NODATA, 'raw')], _mask_vals_op,
