@@ -108,6 +108,7 @@ if __name__ == '__main__':
             args.base_raster_path)
         clip_vector_info = pygeoprocessing.get_vector_info(
             args.clip_vector)
+        print(clip_vector_info)
         pygeoprocessing.warp_raster(
             args.base_raster_path, base_raster_info['pixel_size'],
             clip_raster_path, 'near',
