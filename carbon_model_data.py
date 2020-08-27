@@ -166,7 +166,7 @@ def create_convolutions(
             reexecution.
 
     Returns:
-        None
+        List of convolution file paths created by this function
     """
     churn_dir = os.path.join(target_data_dir, 'convolution_kernels')
     try:

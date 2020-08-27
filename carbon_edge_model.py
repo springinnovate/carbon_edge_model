@@ -8,6 +8,7 @@ import sys
 
 from osgeo import gdal
 from osgeo import osr
+from sklearn.preprocessing import PolynomialFeatures
 import pygeoprocessing
 import numpy
 import scipy.ndimage
@@ -80,7 +81,7 @@ def _carbon_op(*args):
         [array[valid_mask] for array in args[0:3*n:3]])
     LOGGER.debug(f' arg list shape: {array_arg_list.shape}')
 
-    result[valid_mask] = model.predict(array_arg_list.transpose())
+    result[valid_mask] = model.predict(array_arg_list)
     return result
 
 
@@ -265,15 +266,17 @@ def warp_and_gaussian_filter_data(
         mask_path_task_map[mask_type] = (lulc_mask_raster_path, mask_task)
 
     LOGGER.info('create gaussian filter of landcover types')
-    carbon_model_data.create_convolutions(
+    convolution_file_paths = carbon_model_data.create_convolutions(
         landcover_type_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
         carbon_model_data.BASE_DATA_DIR, task_graph)
     LOGGER.info('wait for convolution to complete')
     task_graph.join()
+    return convolution_file_paths
 
 
 def evaluate_model_with_landcover(
-        carbon_model, landcover_type_raster_path, workspace_dir, data_dir,
+        carbon_model, landcover_type_raster_path, convolution_file_paths,
+        workspace_dir, data_dir,
         n_workers, task_graph, max_biomass=360.0):
     """Evaluate the model over a landcover raster.
 
@@ -281,6 +284,8 @@ def evaluate_model_with_landcover(
         carbon_model (scikit.learn.model): a trained model expecting vector
             input for output
         landcover_type_raster_path (str): path to ESA style landcover raster
+        convolution_file_paths (list): list of convolutions raster paths in
+            the same order as expected by the model.
         workspace_dir (str): path to general workspace dir
         data_dir (str): path to directory containing base data refered to
             by CARBON_EDGE_MODEL_DATA_NODATA.
@@ -311,7 +316,9 @@ def evaluate_model_with_landcover(
          (nodata, 'raw'),
          (nodata_replace, 'raw'))
         for filename, nodata, nodata_replace in
-        carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA]
+        carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA] + [
+            (file_path, None, None)
+            for file_path in convolution_file_paths]
 
     target_nodata = -1
     raster_path_band_list = [
@@ -413,7 +420,7 @@ def main():
     task_graph.join()
 
     LOGGER.info("prep data")
-    warp_and_gaussian_filter_data(
+    convolution_file_paths = warp_and_gaussian_filter_data(
         args.landcover_type_raster_path, BASE_DATA_DIR, churn_dir, task_graph)
     task_graph.join()
 
