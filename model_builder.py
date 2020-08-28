@@ -33,7 +33,7 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
-EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
+EXPECTED_MAX_EDGE_EFFECT_KM = 2.0
 HOLDBACK_PROPORTION = 0.2
 MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
@@ -208,8 +208,7 @@ def build_model(
         (r^2 fit of training, r^2 fit of test)
 
     """
-
-    poly_trans = PolynomialFeatures(2, interaction_only=False)
+    poly_trans = PolynomialFeatures(3, interaction_only=False)
     lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
     model_name = 'lasso_lars_cv'
     carbon_model_pipeline = Pipeline([
@@ -359,7 +358,7 @@ if __name__ == '__main__':
         n_points = test_strides*POINTS_PER_STRIDE
         model_filename = os.path.join(
             model_dir,
-            f'carbon_model_lasso_lars_cv_poly_no_trans_{n_points}_pts.mod')
+            f'carbon_model_lasso_lars_cv_poly_3_no_trans_{n_points}_pts.mod')
         LOGGER.info(f'build {model_filename} model')
         X_vector_path_list = []
         y_vector_path = []

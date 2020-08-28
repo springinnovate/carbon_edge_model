@@ -16,6 +16,7 @@ import taskgraph
 
 from carbon_model_data import BASE_DATA_DIR
 from carbon_model_data import BACCINI_10s_2014_BIOMASS_URI
+from model_builder import EXPECTED_MAX_EDGE_EFFECT_KM
 import carbon_model_data
 
 gdal.SetCacheMax(2**27)
@@ -30,8 +31,7 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
-EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
-MAX_CARBON = 360
+MAX_CARBON = 368  # 99th percentile of baccini
 
 MODEL_URI = (
     'gs://ecoshard-root/global_carbon_regression/models/'
