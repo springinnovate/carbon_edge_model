@@ -128,7 +128,7 @@ def create_mask(base_raster_path, mask_values, target_raster_path):
     """Create a mask of base raster where in `mask_values` it's 1, else 0."""
     # reclassify clipped file as the output file
     nodata = pygeoprocessing.get_raster_info(base_raster_path)['nodata'][0]
-    pygeoprocessing.multiprocessing.raster_calculator(
+    pygeoprocessing.raster_calculator(
         [(base_raster_path, 1), (nodata, 'raw'), (mask_values, 'raw')],
         _reclassify_vals_op, target_raster_path, gdal.GDT_Byte, None)
 
