@@ -79,7 +79,7 @@ if __name__ == '__main__':
             lng_lat_vector_path_list,
             X_vector_path_list,
             y_vector_path_list)):
-        if index > 10:
+        if index > 3:
             break
         lng_lat_vector_list.append(numpy.load(ll_path)['arr_0'])
         x_vector_list.append(numpy.load(xv_path)['arr_0'])
