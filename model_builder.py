@@ -13,9 +13,9 @@ import pygeoprocessing
 import rtree
 from sklearn.linear_model import LassoLarsCV
 from sklearn.pipeline import Pipeline
+from sklearn.svm import SVR
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.model_selection import train_test_split
-from sklearn.covariance import EmpiricalCovariance
 import sklearn.preprocessing
 import taskgraph
 
@@ -37,22 +37,9 @@ EXPECTED_MAX_EDGE_EFFECT_KM = 2.0
 HOLDBACK_PROPORTION = 0.2
 MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
-MAX_STRIDE = 6
-STRIDE_SETS = [2**n for n in range(MAX_STRIDE)]
-MAX_N_POINTS = POINTS_PER_STRIDE*max(STRIDE_SETS)
-
-
-def make_covariance_csv(
-        X_vector_path_list, feature_name_list, target_csv_path):
-    LOGGER.info('calcualte covariance:')
-    X_vector = numpy.concatenate(
-        [numpy.load(path)['arr_0'] for path in X_vector_path_list])
-
-    cov = EmpiricalCovariance().fit(sklearn.preprocessing.normalize(
-        X_vector, norm='l2'))
-    numpy.savetxt(
-        target_csv_path, cov.covariance_, delimiter=",",
-        header=','.join(feature_name_list))
+N_POINT_SAMPLE_STRIDES = 2**6
+N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
+POLY_ORDER = 2
 
 
 def generate_sample_points_for_carbon_model(
@@ -208,13 +195,17 @@ def build_model(
         (r^2 fit of training, r^2 fit of test)
 
     """
-    poly_trans = PolynomialFeatures(3, interaction_only=False)
+    poly_trans = PolynomialFeatures(POLY_ORDER, interaction_only=False)
     lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
     model_name = 'lasso_lars_cv'
-    carbon_model_pipeline = Pipeline([
+    lasso_lars_cv_model = Pipeline([
          ('poly_trans', poly_trans),
          (model_name, lasso_lars_cv),
      ])
+
+    svr = SVR(kernel='rbf', cache_size=4098, verbose=False)
+
+    model = svr
 
     raw_X_vector = numpy.concatenate(
         [numpy.load(path)['arr_0'] for path in X_vector_path_list[0:n_arrays]])
@@ -229,7 +220,7 @@ def build_model(
         shuffle=False, test_size=0.2)
 
     LOGGER.info(f'doing fit on {n_points} points')
-    model = carbon_model_pipeline.fit(X_vector, y_vector)
+    model.fit(X_vector, y_vector)
     r_squared = model.score(X_vector, y_vector)
     r_squared_test = model.score(test_X_vector, test_y_vector)
 
@@ -296,9 +287,9 @@ if __name__ == '__main__':
     except OSError:
         pass
 
-    LOGGER.info(f'create {MAX_N_POINTS} points')
+    LOGGER.info(f'create {N_POINTS} points')
     task_xy_vector_list = []
-    for point_stride in range(max(STRIDE_SETS)):
+    for point_stride in range(N_POINT_SAMPLE_STRIDES):
         lat_lng_array_path = os.path.join(
             array_cache_dir, f'lng_lat_array_{point_stride}.npz')
         target_X_array_path = os.path.join(
@@ -331,22 +322,6 @@ if __name__ == '__main__':
             raster_path_nodata_replacement_list +
             convolution_raster_list)]
 
-    covariance_vector_path_list = []
-    covariance_point_task_list = []
-    for (generate_point_task, target_X_array_path, _) in task_xy_vector_list:
-        covariance_point_task_list.append(generate_point_task)
-        covariance_vector_path_list.append(target_X_array_path)
-    n_points = len(covariance_vector_path_list)*POINTS_PER_STRIDE
-    covariance_file_path = f"covarance_{n_points}.csv"
-    _ = task_graph.add_task(
-        func=make_covariance_csv,
-        args=(
-            covariance_vector_path_list, feature_name_list,
-            covariance_file_path),
-        target_path_list=[covariance_file_path],
-        dependent_task_list=covariance_point_task_list,
-        task_name=f'make covariance for {n_points}')
-
     model_dir = 'models'
     try:
         os.makedirs(model_dir)
@@ -354,11 +329,14 @@ if __name__ == '__main__':
         pass
 
     build_model_task_list = []
-    for test_strides in STRIDE_SETS:
+    # TODO: note this is hard-coded to be 10,000 to 100,000 points
+    for test_strides in range(1, 2):
         n_points = test_strides*POINTS_PER_STRIDE
         model_filename = os.path.join(
             model_dir,
-            f'carbon_model_lasso_lars_cv_poly_3_no_trans_{n_points}_pts.mod')
+            #f'carbon_model_svmlasso_lars_cv_poly_{POLY_ORDER}_'
+            f'carbon_model_svm_'
+            f'{EXPECTED_MAX_EDGE_EFFECT_KM}_gf_{n_points}_pts.mod')
         LOGGER.info(f'build {model_filename} model')
         X_vector_path_list = []
         y_vector_path = []
@@ -382,14 +360,15 @@ if __name__ == '__main__':
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
-    with open(f'fit_test_{MAX_N_POINTS}_points.csv', 'w') as fit_file:
-        fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
-    for n_points, build_model_task in build_model_task_list:
-        r_2_fit, r_2_test_fit = build_model_task.get()
-        with open(f'fit_test_{MAX_N_POINTS}_points.csv', 'a') as fit_file:
-            fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
-        LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
+    # with open(f'fit_test_{N_POINTS}_points.csv', 'w') as fit_file:
+    #     fit_file.write(f'n_points,r_squared,r_squared_test\n')
+
+    # for n_points, build_model_task in build_model_task_list:
+    #     r_2_fit, r_2_test_fit = build_model_task.get()
+    #     with open(f'fit_test_{N_POINTS}_points.csv', 'a') as fit_file:
+    #         fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
+    #     LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
     LOGGER.debug('all done!')
     task_graph.close()
