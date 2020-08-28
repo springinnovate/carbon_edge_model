@@ -135,12 +135,12 @@ def create_mask(base_raster_path, mask_values, target_raster_path):
 
 def make_kernel_raster(pixel_radius, target_path):
     """Create kernel with given radius to `target_path`."""
-    truncate = 4
+    truncate = 2
     size = int(pixel_radius * 2 * truncate + 1)
     step_fn = numpy.zeros((size, size))
     step_fn[size//2, size//2] = 1
     kernel_array = scipy.ndimage.filters.gaussian_filter(
-        step_fn, pixel_radius, order=0, mode='reflect', cval=0.0,
+        step_fn, pixel_radius, order=0, mode='constant', cval=0.0,
         truncate=truncate)
     pygeoprocessing.numpy_array_to_raster(
         kernel_array, -1, (1., -1.), (0.,  0.), None,
