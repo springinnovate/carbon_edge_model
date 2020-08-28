@@ -20,12 +20,6 @@ def generate_sample_point_csv(
             csv_file.write(','.join([str(v) for v in x_vector[0]]) + '\n')
 
 
-def generate_sample_csv(
-        x_vector_list, y_vector_list, lng_lat_vector_list, field_names,
-        target_vector_path):
-    """Create sample point vector."""
-
-
 def generate_sample_point_vector(
         x_vector_list, y_vector_list, lng_lat_vector_list, field_names,
         target_vector_path):
