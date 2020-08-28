@@ -16,7 +16,9 @@ def generate_sample_point_csv(
     """Dump samples to a CSV file."""
     with open(target_csv_path, 'w') as csv_file:
         csv_file.write(','.join(field_names) + '\n')
+        print(len(x_vector_list))
         for x_vector in x_vector_list:
+            print(len(x_vector))
             csv_file.write(','.join([str(v) for v in x_vector[0]]) + '\n')
 
 
