@@ -256,7 +256,7 @@ if __name__ == '__main__':
     esa_to_carbon_model_landcover_type_raster_path = os.path.join(
         BASE_DATA_DIR, 'esa_carbon_model_landcover_types.tif')
     create_carbon_lancover_mask_task = task_graph.add_task(
-        func=pygeoprocessing.multiprocessing.raster_calculator,
+        func=pygeoprocessing.raster_calculator,
         args=(
             [(esa_lulc_raster_path, 1)],
             esa_to_carbon_model_landcover_types._reclassify_esa_vals_op,
