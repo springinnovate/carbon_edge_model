@@ -17,7 +17,8 @@ def generate_sample_point_csv(
     with open(target_csv_path, 'w') as csv_file:
         csv_file.write(','.join(field_names) + '\n')
         for x_vector in x_vector_list:
-            csv_file.write(','.join([str(v) for v in x_vector]) + '\n')
+            csv_file.write(','.join([str(v) for v in x_vector[0]]) + '\n')
+
 
 def generate_sample_csv(
         x_vector_list, y_vector_list, lng_lat_vector_list, field_names,
