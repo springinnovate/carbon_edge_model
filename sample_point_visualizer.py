@@ -11,6 +11,20 @@ import carbon_model_data
 EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
 
 
+def generate_sample_point_csv(
+        x_vector_list, y_vector_list, field_names, target_csv_path):
+    """Dump samples to a CSV file."""
+    with open(target_csv_path, 'w') as csv_file:
+        csv_file.write(','.join(field_names) + '\n')
+        for x_vector in x_vector_list:
+            csv_file.write(','.join([str(v) for v in x_vector]) + '\n')
+
+def generate_sample_csv(
+        x_vector_list, y_vector_list, lng_lat_vector_list, field_names,
+        target_vector_path):
+    """Create sample point vector."""
+
+
 def generate_sample_point_vector(
         x_vector_list, y_vector_list, lng_lat_vector_list, field_names,
         target_vector_path):
@@ -82,3 +96,8 @@ if __name__ == '__main__':
         x_vector_list, y_vector_list, lng_lat_vector_list,
         feature_name_list + convolution_field_names,
         target_vector_path)
+
+    target_csv_path = 'test_points.csv'
+    generate_sample_point_csv(
+        x_vector_list, y_vector_list,
+        feature_name_list + convolution_field_names, target_csv_path)
