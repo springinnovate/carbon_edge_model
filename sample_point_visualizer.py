@@ -18,8 +18,8 @@ def generate_sample_point_csv(
         csv_file.write(','.join(field_names) + '\n')
         print(len(x_vector_list))
         for x_vector in x_vector_list:
-            print(len(x_vector))
-            csv_file.write(','.join([str(v) for v in x_vector[0]]) + '\n')
+            for sample_vec in x_vector:
+                csv_file.write(','.join([str(v) for v in sample_vec]) + '\n')
 
 
 def generate_sample_point_vector(
