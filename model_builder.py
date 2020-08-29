@@ -81,7 +81,7 @@ MODEL_DICT = {
         ('SGDRegressor', SGDRegressor(max_iter=100000)),
     ])
 }
-MODEL_NAME = 'lasso_lars_cv'
+MODEL_NAME = 'lsvr'
 
 
 def generate_sample_points_for_carbon_model(
