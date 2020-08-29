@@ -366,7 +366,7 @@ if __name__ == '__main__':
     # TODO: note this is hard-coded to be 10,000 to 100,000 points
     for model_name in MODEL_DICT:
         build_model_task_list[model_name] = []
-        for test_strides in range(1, N_POINT_SAMPLE_STRIDES):
+        for test_strides in range(2, N_POINT_SAMPLE_STRIDES):
             n_points = test_strides*POINTS_PER_STRIDE
             model_filename = os.path.join(
                 model_dir,
@@ -409,7 +409,7 @@ if __name__ == '__main__':
             r_2_fit, r_2_test_fit = build_model_task.get()
             with open(csv_filename, 'a') as fit_file:
                 fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
-            LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
+            LOGGER.info(f'{model_name},{n_points},{r_2_fit},{r_2_test_fit}')
 
     LOGGER.debug('all done!')
     task_graph.close()
