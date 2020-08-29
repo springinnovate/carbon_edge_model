@@ -42,7 +42,7 @@ MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
 N_POINT_SAMPLE_STRIDES = 2**6
 N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
-POLY_ORDER = 2
+POLY_ORDER = 3
 
 
 def generate_sample_points_for_carbon_model(
@@ -350,6 +350,7 @@ if __name__ == '__main__':
             model_dir,
             #f'carbon_model_svmlasso_lars_cv_poly_{POLY_ORDER}_'
             f'carbon_model_lsvr_'
+            f'poly_{POLY_ORDER}_'
             f'{EXPECTED_MAX_EDGE_EFFECT_KM}_gf_{n_points}_pts.mod')
         LOGGER.info(f'build {model_filename} model')
         X_vector_path_list = []
@@ -375,12 +376,12 @@ if __name__ == '__main__':
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
-    with open(f'fit_test_{N_POINTS}_lsvr_points.csv', 'w') as fit_file:
+    with open(f'fit_test_{N_POINTS}_lsvr_p{POLY_ORDER}_points.csv', 'w') as fit_file:
         fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
     for n_points, build_model_task in build_model_task_list:
         r_2_fit, r_2_test_fit = build_model_task.get()
-        with open(f'fit_test_{N_POINTS}_lsvr_points.csv', 'a') as fit_file:
+        with open(f'fit_test_{N_POINTS}_lsvr_p_{POLY_ORDER}_points.csv', 'a') as fit_file:
             fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
         LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
