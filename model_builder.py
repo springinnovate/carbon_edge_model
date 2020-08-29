@@ -207,7 +207,7 @@ def build_model(
         ('poly_trans', poly_trans),
         ('svr', SVR(kernel='rbf', cache_size=4098, verbose=False))])
 
-    model = svr_model
+    model = lasso_lars_cv_model
 
     raw_X_vector = numpy.concatenate(
         [numpy.load(path)['arr_0'] for path in X_vector_path_list[0:n_arrays]])
