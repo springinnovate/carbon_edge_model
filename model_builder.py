@@ -44,7 +44,7 @@ MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
 N_POINT_SAMPLE_STRIDES = 2**6
 N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
-POLY_ORDER = 2
+POLY_ORDER = 3
 MODEL_DICT = {
     'lasso_lars_cv': Pipeline([
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
