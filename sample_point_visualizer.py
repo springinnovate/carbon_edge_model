@@ -15,11 +15,12 @@ def generate_sample_point_csv(
         x_vector_list, y_vector_list, field_names, target_csv_path):
     """Dump samples to a CSV file."""
     with open(target_csv_path, 'w') as csv_file:
-        csv_file.write(','.join(field_names) + '\n')
+        csv_file.write('biomass,' + ','.join(field_names) + '\n')
         print(len(x_vector_list))
-        for x_vector in x_vector_list:
+        for x_vector, y in zip(x_vector_list, y_vector_list):
             for sample_vec in x_vector:
-                csv_file.write(','.join([str(v) for v in sample_vec]) + '\n')
+                csv_file.write(
+                    f'{y[0]},' + ','.join([str(v) for v in sample_vec]) + '\n')
 
 
 def generate_sample_point_vector(
