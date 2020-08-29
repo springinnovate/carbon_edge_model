@@ -43,7 +43,7 @@ POINTS_PER_STRIDE = 10000
 N_POINT_SAMPLE_STRIDES = 2**6
 N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
 POLY_ORDER = 3
-MODEL_NAME = 'lasso'
+MODEL_NAME = 'sgdr'
 
 
 def generate_sample_points_for_carbon_model(
