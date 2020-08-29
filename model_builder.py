@@ -16,6 +16,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.svm import SVR
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.preprocessing import Normalizer
+from sklearn.kernel_approximation import Nystroem
+from sklearn.linear_model import SGDRegressor
+
 from sklearn.model_selection import train_test_split
 import taskgraph
 
@@ -37,7 +40,7 @@ EXPECTED_MAX_EDGE_EFFECT_KM = 2.0
 HOLDBACK_PROPORTION = 0.2
 MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
-N_POINT_SAMPLE_STRIDES = 2**6
+N_POINT_SAMPLE_STRIDES = 2**7
 N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
 POLY_ORDER = 2
 
@@ -206,9 +209,17 @@ def build_model(
 
     svr_model = Pipeline([
         ('poly_trans', poly_trans),
+        ('Normalizer', Normalizer()),
         ('svr', SVR(kernel='rbf', cache_size=4098, verbose=False))])
 
-    model = lasso_lars_cv_model
+    sgd_regressor = Pipeline([
+        ('poly_trans', poly_trans),
+        ('Normalizer', Normalizer()),
+        ('Nystroem', Nystroem()),
+        ('SGDRegressor', SGDRegressor(max_iter=100000))
+        ])
+
+    model = sgd_regressor
 
     raw_X_vector = numpy.concatenate(
         [numpy.load(path)['arr_0'] for path in X_vector_path_list[0:n_arrays]])
@@ -363,7 +374,7 @@ if __name__ == '__main__':
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
-    with open(f'fit_test_{N_POINTS}_svn_points.csv', 'w') as fit_file:
+    with open(f'fit_test_{N_POINTS}_sgd_regressor_points.csv', 'w') as fit_file:
         fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
     for n_points, build_model_task in build_model_task_list:
