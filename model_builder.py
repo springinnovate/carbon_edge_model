@@ -224,7 +224,8 @@ def generate_sample_points_for_carbon_model(
 
 def build_model(
         X_vector_path_list, y_vector_path, n_arrays, target_model_path):
-    """Create and test a model wn_lists
+    """Create and test a model wn_lists.
+
     Args:
         X_vector_path_list (list): list containing paths to npz files of
             10000 points each for the X vector
@@ -250,7 +251,7 @@ def build_model(
         shuffle=False, test_size=0.2)
 
     LOGGER.info(f'doing fit on {n_points} points {MODEL_NAME}')
-    model = model_dict[MODEL_NAME]
+    model = MODEL_DICT[MODEL_NAME]
     model.fit(X_vector, y_vector)
     r_squared = model.score(X_vector, y_vector)
     r_squared_test = model.score(test_X_vector, test_y_vector)
@@ -365,7 +366,6 @@ if __name__ == '__main__':
         n_points = test_strides*POINTS_PER_STRIDE
         model_filename = os.path.join(
             model_dir,
-            #f'carbon_model_svmlasso_lars_cv_poly_{POLY_ORDER}_'
             f'carbon_model_{MODEL_NAME}_'
             f'poly_{POLY_ORDER}_'
             f'{EXPECTED_MAX_EDGE_EFFECT_KM}_gf_{n_points}_pts.mod')
@@ -393,12 +393,13 @@ if __name__ == '__main__':
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
-    with open(f'fit_test_{N_POINTS}_{MODEL_NAME}_p{POLY_ORDER}_points.csv', 'w') as fit_file:
+    csv_filename = f'fit_test_{N_POINTS}_{MODEL_NAME}_p{POLY_ORDER}_points.csv'
+    with open(csv_filename, 'w') as fit_file:
         fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
     for n_points, build_model_task in build_model_task_list:
         r_2_fit, r_2_test_fit = build_model_task.get()
-        with open(f'fit_test_{N_POINTS}_{MODEL_NAME}_p{POLY_ORDER}_points.csv', 'a') as fit_file:
+        with open(csv_filename, 'a') as fit_file:
             fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
         LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
