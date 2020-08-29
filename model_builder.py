@@ -12,6 +12,7 @@ import numpy
 import pygeoprocessing
 import rtree
 from sklearn.linear_model import LassoLarsCV
+from sklearn.linear_model import LassoLarsIC
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVR
 from sklearn.preprocessing import PolynomialFeatures
@@ -44,7 +45,43 @@ POINTS_PER_STRIDE = 10000
 N_POINT_SAMPLE_STRIDES = 2**6
 N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
 POLY_ORDER = 3
-MODEL_NAME = 'lsvr'
+MODEL_DICT = {
+    'lasso_lars_cv': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('Normalizer', Normalizer()),
+        ('lasso_lars_cv', LassoLarsCV(
+            n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2, cv=20)),
+     ]),
+
+    'lasso_lars_ic_bic': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('Normalizer', Normalizer()),
+        ('lasso_lars_ic_bic', LassoLarsIC(
+            criterion='bic', max_iter=100000, eps=1e-2)),
+     ]),
+
+    'lasso_lars_ic_aic': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('Normalizer', Normalizer()),
+        ('lasso_lars_ic_aic', LassoLarsIC(
+            criterion='aic', max_iter=100000, eps=1e-2)),
+     ]),
+
+    'lsvr': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
+    'sgdr': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('Normalizer', Normalizer()),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem()),
+        ('SGDRegressor', SGDRegressor(max_iter=100000)),
+    ])
+}
+MODEL_NAME = 'lasso_lars_ic_aic'
 
 
 def generate_sample_points_for_carbon_model(
@@ -200,31 +237,6 @@ def build_model(
         (r^2 fit of training, r^2 fit of test)
 
     """
-    poly_trans = PolynomialFeatures(POLY_ORDER, interaction_only=False)
-    lasso_lars_cv = LassoLarsCV(
-        n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2)
-    model_dict = {
-        'lasso': Pipeline([
-            ('poly_trans', poly_trans),
-            ('Normalizer', Normalizer()),
-            ('lasso_lars_cv', lasso_lars_cv),
-         ]),
-
-        'lsvr': Pipeline([
-            ('poly_trans', poly_trans),
-            ('StandardScaler', StandardScaler()),
-            ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-        ]),
-
-        'sgdr': Pipeline([
-            ('poly_trans', poly_trans),
-            ('Normalizer', Normalizer()),
-            ('StandardScaler', StandardScaler()),
-            ('Nystroem', Nystroem()),
-            ('SGDRegressor', SGDRegressor(max_iter=100000)),
-        ])
-    }
-
     raw_X_vector = numpy.concatenate(
         [numpy.load(path)['arr_0'] for path in X_vector_path_list[0:n_arrays]])
     LOGGER.info('collect raw y vector')
