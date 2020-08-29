@@ -332,7 +332,7 @@ if __name__ == '__main__':
 
     build_model_task_list = []
     # TODO: note this is hard-coded to be 10,000 to 100,000 points
-    for test_strides in range(1, 2):
+    for test_strides in range(1, 10):
         n_points = test_strides*POINTS_PER_STRIDE
         model_filename = os.path.join(
             model_dir,
@@ -362,12 +362,12 @@ if __name__ == '__main__':
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
-    with open(f'fit_test_{N_POINTS}_points.csv', 'w') as fit_file:
+    with open(f'fit_test_{N_POINTS}_svn_points.csv', 'w') as fit_file:
         fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
     for n_points, build_model_task in build_model_task_list:
         r_2_fit, r_2_test_fit = build_model_task.get()
-        with open(f'fit_test_{N_POINTS}_points.csv', 'a') as fit_file:
+        with open(f'fit_test_{N_POINTS}_svn_points.csv', 'a') as fit_file:
             fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
         LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
