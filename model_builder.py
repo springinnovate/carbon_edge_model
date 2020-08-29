@@ -379,7 +379,7 @@ if __name__ == '__main__':
 
     for n_points, build_model_task in build_model_task_list:
         r_2_fit, r_2_test_fit = build_model_task.get()
-        with open(f'fit_test_{N_POINTS}_svn_points.csv', 'a') as fit_file:
+        with open(f'fit_test_{N_POINTS}_sgd_regressor_points.csv', 'a') as fit_file:
             fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
         LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
