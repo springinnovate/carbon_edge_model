@@ -199,13 +199,11 @@ def build_model(
     lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
     model_name = 'lasso_lars_cv'
     lasso_lars_cv_model = Pipeline([
-        ('normalize', Normalizer),
         ('poly_trans', poly_trans),
         (model_name, lasso_lars_cv),
      ])
 
     svr_model = Pipeline([
-        ('normalize', Normalizer),
         ('poly_trans', poly_trans),
         ('svr', SVR(kernel='rbf', cache_size=4098, verbose=False))])
 
