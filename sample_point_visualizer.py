@@ -7,8 +7,7 @@ from osgeo import osr
 import numpy
 
 import carbon_model_data
-
-EXPECTED_MAX_EDGE_EFFECT_KM = 3.0
+import model_builder
 
 
 def generate_sample_point_csv(
@@ -84,7 +83,7 @@ if __name__ == '__main__':
         y_vector_list.append(numpy.load(yv_path)['arr_0'])
 
     convolution_field_names = [
-        f'{mask_id}_gf_{EXPECTED_MAX_EDGE_EFFECT_KM}'
+        f'{mask_id}_gf_{model_builder.EXPECTED_MAX_EDGE_EFFECT_KM}'
         for mask_id, _ in carbon_model_data.MASK_TYPES]
     feature_name_list = [
         val[0] for val in carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA]
