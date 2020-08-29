@@ -18,7 +18,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.preprocessing import Normalizer
 from sklearn.kernel_approximation import Nystroem
 from sklearn.linear_model import SGDRegressor
-
+from sklearn.svm import LinearSVR
 from sklearn.model_selection import train_test_split
 import taskgraph
 
@@ -210,7 +210,7 @@ def build_model(
     svr_model = Pipeline([
         ('poly_trans', poly_trans),
         ('Normalizer', Normalizer()),
-        ('svr', SVR(kernel='rbf', cache_size=4098, verbose=False))])
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000))])
 
     sgd_regressor = Pipeline([
         ('poly_trans', poly_trans),
@@ -219,7 +219,7 @@ def build_model(
         ('SGDRegressor', SGDRegressor(max_iter=100000))
         ])
 
-    model = sgd_regressor
+    model = svr_model
 
     raw_X_vector = numpy.concatenate(
         [numpy.load(path)['arr_0'] for path in X_vector_path_list[0:n_arrays]])
@@ -349,7 +349,7 @@ if __name__ == '__main__':
         model_filename = os.path.join(
             model_dir,
             #f'carbon_model_svmlasso_lars_cv_poly_{POLY_ORDER}_'
-            f'carbon_model_svm_'
+            f'carbon_model_lsvr_'
             f'{EXPECTED_MAX_EDGE_EFFECT_KM}_gf_{n_points}_pts.mod')
         LOGGER.info(f'build {model_filename} model')
         X_vector_path_list = []
@@ -375,12 +375,12 @@ if __name__ == '__main__':
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
-    with open(f'fit_test_{N_POINTS}_sgd_regressor_points.csv', 'w') as fit_file:
+    with open(f'fit_test_{N_POINTS}_lsvr_points.csv', 'w') as fit_file:
         fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
     for n_points, build_model_task in build_model_task_list:
         r_2_fit, r_2_test_fit = build_model_task.get()
-        with open(f'fit_test_{N_POINTS}_sgd_regressor_points.csv', 'a') as fit_file:
+        with open(f'fit_test_{N_POINTS}_lsvr_points.csv', 'a') as fit_file:
             fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
         LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
