@@ -223,7 +223,7 @@ def build_model(
         raw_X_vector, raw_y_vector,
         shuffle=False, test_size=0.2)
 
-    LOGGER.info(f'doing fit on {n_points} points')
+    LOGGER.info(f'doing fit on {n_points} points {model}')
     model.fit(X_vector, y_vector)
     r_squared = model.score(X_vector, y_vector)
     r_squared_test = model.score(test_X_vector, test_y_vector)
