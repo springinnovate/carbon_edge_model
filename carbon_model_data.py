@@ -31,7 +31,6 @@ CARBON_EDGE_MODEL_DATA_NODATA = [
     ('bdod_10sec.tif', 0, None),
     ('BDRICM_10sec.tif', 255, None),
     ('BDRLOG_10sec.tif', 255, None),
-    ('bio_01_30sec.tif', -9999, None),
     ('bio_04_30sec.tif', -9999, None),
     ('bio_05_30sec.tif', -9999, None),
     ('bio_07_30sec.tif', -9999, None),
