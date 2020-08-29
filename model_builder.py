@@ -203,9 +203,11 @@ def build_model(
          (model_name, lasso_lars_cv),
      ])
 
-    svr = SVR(kernel='rbf', cache_size=4098, verbose=False)
+    svr_model = Pipeline([
+        ('poly_trans', poly_trans),
+        ('svr', SVR(kernel='rbf', cache_size=4098, verbose=False))])
 
-    model = svr
+    model = svr_model
 
     raw_X_vector = numpy.concatenate(
         [numpy.load(path)['arr_0'] for path in X_vector_path_list[0:n_arrays]])
@@ -360,15 +362,14 @@ if __name__ == '__main__':
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
+    with open(f'fit_test_{N_POINTS}_points.csv', 'w') as fit_file:
+        fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
-    # with open(f'fit_test_{N_POINTS}_points.csv', 'w') as fit_file:
-    #     fit_file.write(f'n_points,r_squared,r_squared_test\n')
-
-    # for n_points, build_model_task in build_model_task_list:
-    #     r_2_fit, r_2_test_fit = build_model_task.get()
-    #     with open(f'fit_test_{N_POINTS}_points.csv', 'a') as fit_file:
-    #         fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
-    #     LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
+    for n_points, build_model_task in build_model_task_list:
+        r_2_fit, r_2_test_fit = build_model_task.get()
+        with open(f'fit_test_{N_POINTS}_points.csv', 'a') as fit_file:
+            fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
+        LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
     LOGGER.debug('all done!')
     task_graph.close()
