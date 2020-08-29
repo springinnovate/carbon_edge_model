@@ -369,8 +369,9 @@ if __name__ == '__main__':
                 model_filename),
             store_result=True,
             target_path_list=[model_filename],
-            dependent_task_list=local_point_task_list + [
-                v[1] for v in build_model_task_list[-1::]],
+            dependent_task_list=local_point_task_list,
+            # dependent_task_list=local_point_task_list + [
+            #     v[1] for v in build_model_task_list[-1::]],
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
