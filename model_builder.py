@@ -223,7 +223,8 @@ def generate_sample_points_for_carbon_model(
 
 
 def build_model(
-        X_vector_path_list, y_vector_path, n_arrays, target_model_path):
+        X_vector_path_list, y_vector_path, n_arrays, model_name,
+        target_model_path):
     """Create and test a model wn_lists.
 
     Args:
@@ -232,6 +233,7 @@ def build_model(
         y_vector_path_list (list): list containing paths to npz files of
             10000 points each for the y vector
         n_arrays (int): the nubmer of 10000 arrays to use in the model training
+        model_name (str): model to use
         target_model_path (str): path to file to save the regression model to
 
     Returns:
@@ -250,8 +252,8 @@ def build_model(
         raw_X_vector, raw_y_vector,
         shuffle=False, test_size=0.2)
 
-    LOGGER.info(f'doing fit on {n_points} points {MODEL_NAME}')
-    model = MODEL_DICT[MODEL_NAME]
+    LOGGER.info(f'doing fit on {n_points} points {model_name}')
+    model = MODEL_DICT[model_name]
     model.fit(X_vector, y_vector)
     r_squared = model.score(X_vector, y_vector)
     r_squared_test = model.score(test_X_vector, test_y_vector)
@@ -360,48 +362,54 @@ if __name__ == '__main__':
     except OSError:
         pass
 
-    build_model_task_list = []
+    build_model_task_list = {}
     # TODO: note this is hard-coded to be 10,000 to 100,000 points
-    for test_strides in range(1, N_POINT_SAMPLE_STRIDES):
-        n_points = test_strides*POINTS_PER_STRIDE
-        model_filename = os.path.join(
-            model_dir,
-            f'carbon_model_{MODEL_NAME}_'
-            f'poly_{POLY_ORDER}_'
-            f'{EXPECTED_MAX_EDGE_EFFECT_KM}_gf_{n_points}_pts.mod')
-        LOGGER.info(f'build {model_filename} model')
-        X_vector_path_list = []
-        y_vector_path = []
+    for model_name in MODEL_DICT:
+        build_model_task_list[model_name] = []
+        for test_strides in range(1, N_POINT_SAMPLE_STRIDES):
+            n_points = test_strides*POINTS_PER_STRIDE
+            model_filename = os.path.join(
+                model_dir,
+                f'carbon_model_{model_name}_'
+                f'poly_{POLY_ORDER}_'
+                f'{EXPECTED_MAX_EDGE_EFFECT_KM}_gf_{n_points}_pts.mod')
+            LOGGER.info(f'build {model_filename} model')
+            X_vector_path_list = []
+            y_vector_path = []
 
-        local_point_task_list = []
-        for (generate_point_task, target_X_array_path,
-                target_y_array_path) in task_xy_vector_list[0:test_strides]:
-            local_point_task_list.append(generate_point_task)
-            X_vector_path_list.append(target_X_array_path)
-            y_vector_path.append(target_y_array_path)
+            local_point_task_list = []
+            for (generate_point_task, target_X_array_path,
+                    target_y_array_path) in task_xy_vector_list[0:test_strides]:
+                local_point_task_list.append(generate_point_task)
+                X_vector_path_list.append(target_X_array_path)
+                y_vector_path.append(target_y_array_path)
 
-        build_model_task = task_graph.add_task(
-            func=build_model,
-            args=(
-                X_vector_path_list, y_vector_path, test_strides,
-                model_filename),
-            store_result=True,
-            target_path_list=[model_filename],
-            dependent_task_list=local_point_task_list,
-            # dependent_task_list=local_point_task_list + [
-            #     v[1] for v in build_model_task_list[-1::]],
-            task_name=f'build model for {n_points} points')
-        build_model_task_list.append((n_points, build_model_task))
+            build_model_task = task_graph.add_task(
+                func=build_model,
+                args=(
+                    X_vector_path_list, y_vector_path, test_strides,
+                    model_name, model_filename),
+                store_result=True,
+                target_path_list=[model_filename],
+                dependent_task_list=local_point_task_list,
+                # dependent_task_list=local_point_task_list + [
+                #     v[1] for v in build_model_task_list[-1::]],
+                task_name=f'build model for {n_points} points')
+            build_model_task_list[model_name].append(
+                (n_points, build_model_task))
+            break
 
-    csv_filename = f'fit_test_{N_POINTS}_{MODEL_NAME}_p{POLY_ORDER}_points.csv'
-    with open(csv_filename, 'w') as fit_file:
-        fit_file.write(f'n_points,r_squared,r_squared_test\n')
+    for model_name in MODEL_DICT:
+        csv_filename = (
+            f'fit_test_{N_POINTS}_{model_name}_p{POLY_ORDER}_points.csv')
+        with open(csv_filename, 'w') as fit_file:
+            fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
-    for n_points, build_model_task in build_model_task_list:
-        r_2_fit, r_2_test_fit = build_model_task.get()
-        with open(csv_filename, 'a') as fit_file:
-            fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
-        LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
+        for n_points, build_model_task in build_model_task_list[model_name]:
+            r_2_fit, r_2_test_fit = build_model_task.get()
+            with open(csv_filename, 'a') as fit_file:
+                fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
+            LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
     LOGGER.debug('all done!')
     task_graph.close()
