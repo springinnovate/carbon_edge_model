@@ -43,6 +43,7 @@ POINTS_PER_STRIDE = 10000
 N_POINT_SAMPLE_STRIDES = 2**6
 N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
 POLY_ORDER = 3
+MODEL_NAME = 'lasso'
 
 
 def generate_sample_points_for_carbon_model(
@@ -201,25 +202,25 @@ def build_model(
     poly_trans = PolynomialFeatures(POLY_ORDER, interaction_only=False)
     lasso_lars_cv = LassoLarsCV(
         n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2)
-    model_name = 'lasso_lars_cv'
-    lasso_lars_cv_model = Pipeline([
-        ('poly_trans', poly_trans),
-        (model_name, lasso_lars_cv),
-     ])
+    model_dict = {
+        'lasso': Pipeline([
+            ('poly_trans', poly_trans),
+            ('Normalizer', Normalizer()),
+            ('lasso_lars_cv', lasso_lars_cv),
+         ]),
 
-    svr_model = Pipeline([
-        ('poly_trans', poly_trans),
-        ('Normalizer', Normalizer()),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000))])
+        'lsvr': Pipeline([
+            ('poly_trans', poly_trans),
+            ('Normalizer', Normalizer()),
+            ('lsvr', LinearSVR(verbose=1, max_iter=1000000))]),
 
-    sgd_regressor = Pipeline([
-        ('poly_trans', poly_trans),
-        ('Normalizer', Normalizer()),
-        ('Nystroem', Nystroem()),
-        ('SGDRegressor', SGDRegressor(max_iter=100000))
-        ])
-
-    model = svr_model
+        'sgdr': Pipeline([
+            ('poly_trans', poly_trans),
+            ('Normalizer', Normalizer()),
+            ('Nystroem', Nystroem()),
+            ('SGDRegressor', SGDRegressor(max_iter=100000))
+            ])
+    }
 
     raw_X_vector = numpy.concatenate(
         [numpy.load(path)['arr_0'] for path in X_vector_path_list[0:n_arrays]])
@@ -233,7 +234,8 @@ def build_model(
         raw_X_vector, raw_y_vector,
         shuffle=False, test_size=0.2)
 
-    LOGGER.info(f'doing fit on {n_points} points {model}')
+    LOGGER.info(f'doing fit on {n_points} points {MODEL_NAME}')
+    model = model_dict[MODEL_NAME]
     model.fit(X_vector, y_vector)
     r_squared = model.score(X_vector, y_vector)
     r_squared_test = model.score(test_X_vector, test_y_vector)
@@ -349,7 +351,7 @@ if __name__ == '__main__':
         model_filename = os.path.join(
             model_dir,
             #f'carbon_model_svmlasso_lars_cv_poly_{POLY_ORDER}_'
-            f'carbon_model_lsvr_'
+            f'carbon_model_{MODEL_NAME}_'
             f'poly_{POLY_ORDER}_'
             f'{EXPECTED_MAX_EDGE_EFFECT_KM}_gf_{n_points}_pts.mod')
         LOGGER.info(f'build {model_filename} model')
@@ -376,12 +378,12 @@ if __name__ == '__main__':
             task_name=f'build model for {n_points} points')
         build_model_task_list.append((n_points, build_model_task))
 
-    with open(f'fit_test_{N_POINTS}_lsvr_p{POLY_ORDER}_points.csv', 'w') as fit_file:
+    with open(f'fit_test_{N_POINTS}_{MODEL_NAME}_p{POLY_ORDER}_points.csv', 'w') as fit_file:
         fit_file.write(f'n_points,r_squared,r_squared_test\n')
 
     for n_points, build_model_task in build_model_task_list:
         r_2_fit, r_2_test_fit = build_model_task.get()
-        with open(f'fit_test_{N_POINTS}_lsvr_p_{POLY_ORDER}_points.csv', 'a') as fit_file:
+        with open(f'fit_test_{N_POINTS}_{MODEL_NAME}_p_{POLY_ORDER}_points.csv', 'a') as fit_file:
             fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
         LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
