@@ -18,6 +18,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.preprocessing import Normalizer
 from sklearn.kernel_approximation import Nystroem
 from sklearn.linear_model import SGDRegressor
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVR
 from sklearn.model_selection import train_test_split
 import taskgraph
@@ -43,7 +44,7 @@ POINTS_PER_STRIDE = 10000
 N_POINT_SAMPLE_STRIDES = 2**6
 N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
 POLY_ORDER = 3
-MODEL_NAME = 'sgdr'
+MODEL_NAME = 'lsvr'
 
 
 def generate_sample_points_for_carbon_model(
@@ -211,15 +212,17 @@ def build_model(
 
         'lsvr': Pipeline([
             ('poly_trans', poly_trans),
-            ('Normalizer', Normalizer()),
-            ('lsvr', LinearSVR(verbose=1, max_iter=1000000))]),
+            ('StandardScaler', StandardScaler()),
+            ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+        ]),
 
         'sgdr': Pipeline([
             ('poly_trans', poly_trans),
             ('Normalizer', Normalizer()),
+            ('StandardScaler', StandardScaler()),
             ('Nystroem', Nystroem()),
-            ('SGDRegressor', SGDRegressor(max_iter=100000))
-            ])
+            ('SGDRegressor', SGDRegressor(max_iter=100000)),
+        ])
     }
 
     raw_X_vector = numpy.concatenate(
@@ -383,7 +386,7 @@ if __name__ == '__main__':
 
     for n_points, build_model_task in build_model_task_list:
         r_2_fit, r_2_test_fit = build_model_task.get()
-        with open(f'fit_test_{N_POINTS}_{MODEL_NAME}_p_{POLY_ORDER}_points.csv', 'a') as fit_file:
+        with open(f'fit_test_{N_POINTS}_{MODEL_NAME}_p{POLY_ORDER}_points.csv', 'a') as fit_file:
             fit_file.write(f'{n_points},{r_2_fit},{r_2_test_fit}\n')
         LOGGER.info(f'{n_points},{r_2_fit},{r_2_test_fit}')
 
