@@ -196,7 +196,8 @@ def build_model(
 
     """
     poly_trans = PolynomialFeatures(POLY_ORDER, interaction_only=False)
-    lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
+    lasso_lars_cv = LassoLarsCV(
+        n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2)
     model_name = 'lasso_lars_cv'
     lasso_lars_cv_model = Pipeline([
         ('poly_trans', poly_trans),
