@@ -15,8 +15,8 @@ from sklearn.linear_model import LassoLarsCV
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVR
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import Normalizer
 from sklearn.model_selection import train_test_split
-import sklearn.preprocessing
 import taskgraph
 
 import carbon_model_data
@@ -199,11 +199,13 @@ def build_model(
     lasso_lars_cv = LassoLarsCV(n_jobs=-1, max_iter=100000, verbose=True)
     model_name = 'lasso_lars_cv'
     lasso_lars_cv_model = Pipeline([
-         ('poly_trans', poly_trans),
-         (model_name, lasso_lars_cv),
+        ('normalize', Normalizer),
+        ('poly_trans', poly_trans),
+        (model_name, lasso_lars_cv),
      ])
 
     svr_model = Pipeline([
+        ('normalize', Normalizer),
         ('poly_trans', poly_trans),
         ('svr', SVR(kernel='rbf', cache_size=4098, verbose=False))])
 
