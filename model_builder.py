@@ -333,7 +333,7 @@ if __name__ == '__main__':
 
     build_model_task_list = []
     # TODO: note this is hard-coded to be 10,000 to 100,000 points
-    for test_strides in range(1, 10):
+    for test_strides in range(1, N_POINT_SAMPLE_STRIDES):
         n_points = test_strides*POINTS_PER_STRIDE
         model_filename = os.path.join(
             model_dir,
