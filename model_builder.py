@@ -67,11 +67,11 @@ MODEL_DICT = {
     #         criterion='aic', max_iter=100000, eps=1e-2)),
     #  ]),
 
-    'lsvr': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
+    # 'lsvr': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
 
 
     'mlp_regressor': Pipeline([
