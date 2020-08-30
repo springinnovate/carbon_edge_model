@@ -365,7 +365,7 @@ if __name__ == '__main__':
     # TODO: note this is hard-coded to be 10,000 to 100,000 points
     for model_name in MODEL_DICT:
         build_model_task_list[model_name] = []
-        for test_strides in range(2, N_POINT_SAMPLE_STRIDES):
+        for test_strides in range(1, N_POINT_SAMPLE_STRIDES):
             n_points = test_strides*POINTS_PER_STRIDE
             model_filename = os.path.join(
                 model_dir,
@@ -393,7 +393,7 @@ if __name__ == '__main__':
                 dependent_task_list=local_point_task_list,
                 # dependent_task_list=local_point_task_list + [
                 #     v[1] for v in build_model_task_list[-1::]],
-                task_name=f'build model for {n_points} points')
+                task_name=f'build model {model_name} for {n_points} points')
             build_model_task_list[model_name].append(
                 (n_points, build_model_task))
 
