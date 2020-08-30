@@ -42,30 +42,30 @@ EXPECTED_MAX_EDGE_EFFECT_KM = 2.0
 HOLDBACK_PROPORTION = 0.2
 MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
-N_POINT_SAMPLE_STRIDES = 2**3
+N_POINT_SAMPLE_STRIDES = 2**2
 N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
-POLY_ORDER = 2
+POLY_ORDER = 3
 MODEL_DICT = {
-    'lasso_lars_cv': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('Normalizer', Normalizer()),
-        ('lasso_lars_cv', LassoLarsCV(
-            n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2, cv=20)),
-     ]),
+    # 'lasso_lars_cv': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('Normalizer', Normalizer()),
+    #     ('lasso_lars_cv', LassoLarsCV(
+    #         n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2, cv=20)),
+    #  ]),
 
-    'lasso_lars_ic_bic': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('Normalizer', Normalizer()),
-        ('lasso_lars_ic_bic', LassoLarsIC(
-            criterion='bic', max_iter=100000, eps=1e-2)),
-     ]),
+    # 'lasso_lars_ic_bic': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('Normalizer', Normalizer()),
+    #     ('lasso_lars_ic_bic', LassoLarsIC(
+    #         criterion='bic', max_iter=100000, eps=1e-2)),
+    #  ]),
 
-    'lasso_lars_ic_aic': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('Normalizer', Normalizer()),
-        ('lasso_lars_ic_aic', LassoLarsIC(
-            criterion='aic', max_iter=100000, eps=1e-2)),
-     ]),
+    # 'lasso_lars_ic_aic': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('Normalizer', Normalizer()),
+    #     ('lasso_lars_ic_aic', LassoLarsIC(
+    #         criterion='aic', max_iter=100000, eps=1e-2)),
+    #  ]),
 
     'lsvr': Pipeline([
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
@@ -73,13 +73,13 @@ MODEL_DICT = {
         ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
     ]),
 
-    'sgdr': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('Normalizer', Normalizer()),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem()),
-        ('SGDRegressor', SGDRegressor(max_iter=100000)),
-    ])
+    # 'sgdr': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('Normalizer', Normalizer()),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem()),
+    #     ('SGDRegressor', SGDRegressor(max_iter=100000)),
+    # ])
 }
 
 
@@ -322,7 +322,7 @@ if __name__ == '__main__':
 
     LOGGER.info(f'create {N_POINTS} points')
     task_xy_vector_list = []
-    for point_stride in range(N_POINT_SAMPLE_STRIDES):
+    for point_stride in range(2, N_POINT_SAMPLE_STRIDES+1):
         lat_lng_array_path = os.path.join(
             array_cache_dir, f'lng_lat_array_{point_stride}.npz')
         target_X_array_path = os.path.join(
@@ -365,7 +365,7 @@ if __name__ == '__main__':
     # TODO: note this is hard-coded to be 10,000 to 100,000 points
     for model_name in MODEL_DICT:
         build_model_task_list[model_name] = []
-        for test_strides in range(1, N_POINT_SAMPLE_STRIDES):
+        for test_strides in range(2, N_POINT_SAMPLE_STRIDES):
             n_points = test_strides*POINTS_PER_STRIDE
             model_filename = os.path.join(
                 model_dir,
