@@ -13,7 +13,9 @@ from osgeo import gdal
 
 BASE_DATA_DIR = os.path.join(os.path.dirname(__file__), 'model_base_data')
 
-BASE_URL = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs'
+BASE_URL = (
+    'https://storage.googleapis.com/ecoshard-root/'
+    'global_carbon_regression/inputs')
 BASE_URI = 'gs://ecoshard-root/global_carbon_regression/inputs'
 
 BACCINI_10s_2014_BIOMASS_URI = (
@@ -63,6 +65,8 @@ MASK_TYPES = [
     ('urban', 2),
     ('forest', 3)]
 OTHER_TYPE = 4
+
+EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0, 30.0]
 
 MASK_NODATA = 127
 
@@ -157,10 +161,12 @@ def create_convolutions(
 
         convolution_raster_list = []
         for mask_id, mask_code in MASK_TYPES:
-            mask_raster_path = os.path.join(target_data_dir, f'{mask_id}_mask.tif')
+            mask_raster_path = os.path.join(
+                target_data_dir, f'{mask_id}_mask.tif')
             create_mask_task = task_graph.add_task(
                 func=create_mask,
-                args=(landcover_type_raster_path, (mask_code,), mask_raster_path),
+                args=(landcover_type_raster_path,
+                      (mask_code,), mask_raster_path),
                 target_path_list=[mask_raster_path],
                 task_name=f'create {mask_id} mask')
 
