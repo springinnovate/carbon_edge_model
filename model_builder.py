@@ -42,23 +42,23 @@ EXPECTED_MAX_EDGE_EFFECT_KM = 2.0
 HOLDBACK_PROPORTION = 0.2
 MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
-N_POINT_SAMPLE_STRIDES = 2**6
+N_POINT_SAMPLE_STRIDES = 2**4
 N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
 POLY_ORDER = 3
 MODEL_DICT = {
-    'lasso_lars_cv': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('Normalizer', Normalizer()),
-        ('lasso_lars_cv', LassoLarsCV(
-            n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2, cv=20)),
-     ]),
+    # 'lasso_lars_cv': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('Normalizer', Normalizer()),
+    #     ('lasso_lars_cv', LassoLarsCV(
+    #         n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2, cv=20)),
+    #  ]),
 
-    'lasso_lars_ic_bic': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('Normalizer', Normalizer()),
-        ('lasso_lars_ic_bic', LassoLarsIC(
-            criterion='bic', max_iter=100000, eps=1e-2)),
-     ]),
+    # 'lasso_lars_ic_bic': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('Normalizer', Normalizer()),
+    #     ('lasso_lars_ic_bic', LassoLarsIC(
+    #         criterion='bic', max_iter=100000, eps=1e-2)),
+    #  ]),
 
     'lasso_lars_ic_aic': Pipeline([
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
@@ -67,21 +67,20 @@ MODEL_DICT = {
             criterion='aic', max_iter=100000, eps=1e-2)),
      ]),
 
-    'lsvr': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
+    # 'lsvr': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
 
-    'sgdr': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('Normalizer', Normalizer()),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem()),
-        ('SGDRegressor', SGDRegressor(max_iter=100000)),
-    ])
+    # 'sgdr': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('Normalizer', Normalizer()),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem()),
+    #     ('SGDRegressor', SGDRegressor(max_iter=100000)),
+    # ])
 }
-MODEL_NAME = 'lsvr'
 
 
 def generate_sample_points_for_carbon_model(
@@ -397,7 +396,6 @@ if __name__ == '__main__':
                 task_name=f'build model for {n_points} points')
             build_model_task_list[model_name].append(
                 (n_points, build_model_task))
-            break
 
     for model_name in MODEL_DICT:
         csv_filename = (
