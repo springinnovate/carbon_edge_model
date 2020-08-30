@@ -47,7 +47,7 @@ if __name__ == '__main__':
         f'{raster_type[0]}_gf' for raster_type in carbon_model_data.MASK_TYPES]
 
     coeff_parameter_list = zip(
-        model[1].coef_,
+        model[-1].coef_,
         model[0].get_feature_names(parameter_name_list))
 
     print('\n'.join([
