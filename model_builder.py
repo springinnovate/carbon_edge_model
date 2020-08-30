@@ -20,6 +20,7 @@ from sklearn.preprocessing import Normalizer
 from sklearn.kernel_approximation import Nystroem
 from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPRegressor
 from sklearn.svm import LinearSVR
 from sklearn.model_selection import train_test_split
 import taskgraph
@@ -70,6 +71,13 @@ MODEL_DICT = {
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
         ('StandardScaler', StandardScaler()),
         ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
+
+    'mlp_regressor': Pipeline([
+        ('MLPRegressor', MLPRegressor(
+            hidden_layer_sizes=(100,),
+            activation='logistic'))
     ]),
 
     # 'sgdr': Pipeline([
