@@ -115,7 +115,7 @@ def make_kernel_raster(pixel_radius, target_path):
 
 
 def create_convolutions(
-        landcover_type_raster_path, expected_max_edge_effect_km,
+        landcover_type_raster_path, expected_max_edge_effect_km_list,
         target_data_dir, task_graph):
     """Create forest convolution mask at `expected_max_edge_effect_km`.
 
@@ -127,7 +127,8 @@ def create_convolutions(
                 3: forest
                 4: other
 
-        excepcted_max_edge_effect_km (float): expected edge effect in km.
+        excepcted_max_edge_effect_km_list (list): list of floats of
+            expected edge effect in km.
         target_data_dir (path): path to directory to write resulting files
         task_graph (TaskGraph): object used to schedule work and avoid
             reexecution.
@@ -144,37 +145,38 @@ def create_convolutions(
         landcover_type_raster_path)['pixel_size']
 
     # this is calculated as 111km per degree
-    pixel_radius = (pixel_size[0] * 111 / expected_max_edge_effect_km)**-1
-    kernel_raster_path = os.path.join(
-        churn_dir, f'kernel_{pixel_radius}.tif')
-    kernel_task = task_graph.add_task(
-        func=make_kernel_raster,
-        args=(pixel_radius, kernel_raster_path),
-        target_path_list=[kernel_raster_path],
-        task_name=f'make kernel of radius {pixel_radius}')
+    for expected_max_edge_effect_km in expected_max_edge_effect_km_list:
+        pixel_radius = (pixel_size[0] * 111 / expected_max_edge_effect_km)**-1
+        kernel_raster_path = os.path.join(
+            churn_dir, f'kernel_{pixel_radius}.tif')
+        kernel_task = task_graph.add_task(
+            func=make_kernel_raster,
+            args=(pixel_radius, kernel_raster_path),
+            target_path_list=[kernel_raster_path],
+            task_name=f'make kernel of radius {pixel_radius}')
 
-    convolution_raster_list = []
-    for mask_id, mask_code in MASK_TYPES:
-        mask_raster_path = os.path.join(target_data_dir, f'{mask_id}_mask.tif')
-        create_mask_task = task_graph.add_task(
-            func=create_mask,
-            args=(landcover_type_raster_path, (mask_code,), mask_raster_path),
-            target_path_list=[mask_raster_path],
-            task_name=f'create {mask_id} mask')
+        convolution_raster_list = []
+        for mask_id, mask_code in MASK_TYPES:
+            mask_raster_path = os.path.join(target_data_dir, f'{mask_id}_mask.tif')
+            create_mask_task = task_graph.add_task(
+                func=create_mask,
+                args=(landcover_type_raster_path, (mask_code,), mask_raster_path),
+                target_path_list=[mask_raster_path],
+                task_name=f'create {mask_id} mask')
 
-        mask_gf_path = (
-            f'{os.path.splitext(mask_raster_path)[0]}_gf_'
-            f'{expected_max_edge_effect_km}.tif')
+            mask_gf_path = (
+                f'{os.path.splitext(mask_raster_path)[0]}_gf_'
+                f'{expected_max_edge_effect_km}.tif')
 
-        convolution_task = task_graph.add_task(
-            func=pygeoprocessing.convolve_2d,
-            args=(
-                (mask_raster_path, 1), (kernel_raster_path, 1),
-                mask_gf_path),
-            dependent_task_list=[create_mask_task, kernel_task],
-            target_path_list=[mask_gf_path],
-            task_name=f'create guassian filter of {mask_id}')
-        convolution_raster_list.append(((mask_gf_path, None, None)))
+            convolution_task = task_graph.add_task(
+                func=pygeoprocessing.convolve_2d,
+                args=(
+                    (mask_raster_path, 1), (kernel_raster_path, 1),
+                    mask_gf_path),
+                dependent_task_list=[create_mask_task, kernel_task],
+                target_path_list=[mask_gf_path],
+                task_name=f'create guassian filter of {mask_id}')
+            convolution_raster_list.append(((mask_gf_path, None, None)))
     task_graph.join()
 
     return convolution_raster_list

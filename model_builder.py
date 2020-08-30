@@ -38,7 +38,7 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
-EXPECTED_MAX_EDGE_EFFECT_KM = 2.0
+EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0, 30.0]
 HOLDBACK_PROPORTION = 0.2
 MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
@@ -302,7 +302,7 @@ if __name__ == '__main__':
     LOGGER.debug('create convolutions')
     convolution_raster_list = carbon_model_data.create_convolutions(
         esa_to_carbon_model_landcover_type_raster_path,
-        EXPECTED_MAX_EDGE_EFFECT_KM, BASE_DATA_DIR, task_graph)
+        EXPECTED_MAX_EDGE_EFFECT_KM_LIST, BASE_DATA_DIR, task_graph)
 
     task_graph.join()
 
