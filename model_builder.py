@@ -77,7 +77,7 @@ MODEL_DICT = {
     'lsvr_nystrom': Pipeline([
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
         ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem()),
+        ('Nystroem', Nystroem(n_components=1000)),
         ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
     ]),
 
