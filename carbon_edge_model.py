@@ -16,7 +16,6 @@ import taskgraph
 
 from carbon_model_data import BASE_DATA_DIR
 from carbon_model_data import BACCINI_10s_2014_BIOMASS_URI
-from model_builder import EXPECTED_MAX_EDGE_EFFECT_KM
 import carbon_model_data
 
 gdal.SetCacheMax(2**27)
@@ -275,7 +274,8 @@ def warp_and_gaussian_filter_data(
 
     LOGGER.info('create gaussian filter of landcover types')
     convolution_file_paths = carbon_model_data.create_convolutions(
-        landcover_type_raster_path, EXPECTED_MAX_EDGE_EFFECT_KM,
+        landcover_type_raster_path,
+        carbon_model_data.EXPECTED_MAX_EDGE_EFFECT_KM_LIST,
         carbon_model_data.BASE_DATA_DIR, task_graph)
     LOGGER.info('wait for convolution to complete')
     task_graph.join()
