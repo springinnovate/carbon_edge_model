@@ -76,7 +76,7 @@ MODEL_DICT = {
 
     'mlp_regressor': Pipeline([
         ('MLPRegressor', MLPRegressor(
-            hidden_layer_sizes=(100,),
+            hidden_layer_sizes=(100, 100),
             early_stopping=True,
             max_iter=10000,
             activation='logistic'))
