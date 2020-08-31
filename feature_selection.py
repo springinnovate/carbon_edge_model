@@ -24,7 +24,7 @@ if __name__ == '__main__':
     mut_info = mutual_info_regression(X_vector, y_vector)
     print(
         '\n'.join(
-            [f'{p_val:.4f}, {m_val:.4f}, {name}']
-            for p_val, m_val, name in sorted([
+            [f'{p_val:.4f}, {m_val:.4f}, {name}'
+             for p_val, m_val, name in sorted([
                 (p_val, m_val, name) for name, p_val, m_val in zip(
-                    parameter_name_list, p_val_list, mut_info)])))
+                    parameter_name_list, p_val_list, mut_info)])]))
