@@ -42,10 +42,9 @@ logging.getLogger('taskgraph').setLevel(logging.INFO)
 HOLDBACK_PROPORTION = 0.2
 MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
-N_POINT_SAMPLE_STRIDES = 2**6
-
 TEST_STRIDES_TO_BUILD = (4, 8, 12)
-N_POINTS = N_POINT_SAMPLE_STRIDES*POINTS_PER_STRIDE
+MAX_SAMPLE_STRIDES = max(TEST_STRIDES_TO_BUILD)
+N_POINTS = MAX_SAMPLE_STRIDES*POINTS_PER_STRIDE
 POLY_ORDER = 2
 MODEL_DICT = {
     # 'lasso_lars_cv': Pipeline([
@@ -334,7 +333,7 @@ if __name__ == '__main__':
 
     LOGGER.info(f'create {N_POINTS} points')
     task_xy_vector_list = []
-    for point_stride in range(2, N_POINT_SAMPLE_STRIDES+1):
+    for point_stride in range(2, MAX_SAMPLE_STRIDES+1):
         lat_lng_array_path = os.path.join(
             array_cache_dir, f'lng_lat_array_{point_stride}.npz')
         target_X_array_path = os.path.join(
