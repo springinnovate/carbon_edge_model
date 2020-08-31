@@ -23,6 +23,8 @@ if __name__ == '__main__':
     f_val_list, p_val_list = f_regression(X_vector, y_vector)
     mut_info = mutual_info_regression(X_vector, y_vector)
     print(
-        '\n'.join([str((name, p_val, m_val)) for name, p_val, m_val in zip(
-            parameter_name_list, p_val_list, mut_info)]))
-    print(mut_info)
+        '\n'.join(
+            [f'{p_val:.4f}, {m_val:.4f}, {name}']
+            for p_val, m_val, name in sorted([
+                (p_val, m_val, name) for name, p_val, m_val in zip(
+                    parameter_name_list, p_val_list, mut_info)])))

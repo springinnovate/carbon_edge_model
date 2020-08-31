@@ -93,6 +93,150 @@ MODEL_DICT = {
 }
 
 
+def generate_bias_sample_points_for_carbon_model(
+        n_points,
+        baccini_raster_path_nodata,
+        bias_raster_array_path,
+        forest_mask_raster_path,
+        independent_raster_path_nodata_list, max_min_lat,
+        target_X_array_path,
+        target_y_array_path,
+        target_lng_lat_array_path,
+        seed=None):
+    """Generate a set of lat/lng points that are evenly distributed.
+
+    Args:
+        n_points (int): number of points to sample
+        baccini_raster_path_nodata (tuple): tuple of path to dependent
+            variable raster with expected nodata value.
+        bias_raster_array_path (str): path to an array used to bias sampling
+            -- adjust to error in one pass?
+        forest_mask_raster_path (str): path to the forest mask, this model
+            should only generate a model for valid forest points.
+        independent_raster_path_nodata_list (list): list of
+            (path, nodata, nodata_replace) tuples.
+        max_min_lat (float): absolute maximum latitude allowed in a sampled
+            point.
+        target_X_array_path (str): path to X vector on disk,
+        target_y_array_path (str): path to y vector on disk
+        target_lng_lat_array_path (str): path to store lng/lat samples
+        seed (int): seed for randomization
+
+    Returns:
+        None
+
+    """
+    if seed is not None:
+        numpy.random.seed(seed)
+    band_inv_gt_list = []
+    raster_list = []
+    LOGGER.debug("build band list")
+    n_base_data = len(baccini_raster_path_nodata)
+    for raster_path, nodata, nodata_replace in [
+            baccini_raster_path_nodata + (None,),
+            (forest_mask_raster_path, 0, None),
+            (bias_raster_array_path, None, None)] + \
+            independent_raster_path_nodata_list:
+        LOGGER.debug(raster_path)
+        raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
+        raster_list.append(raster)
+        band = raster.GetRasterBand(1)
+        gt = raster.GetGeoTransform()
+        inv_gt = gdal.InvGeoTransform(gt)
+        band_inv_gt_list.append(
+            (raster_path, band, nodata, nodata_replace, gt, inv_gt))
+        raster = None
+        band = None
+    LOGGER.debug(len(band_inv_gt_list))
+    # build a spatial index for efficient fetching of points later
+    LOGGER.info('build baccini iterblocks spatial index')
+    offset_list = list(pygeoprocessing.iterblocks(
+        (baccini_raster_path_nodata[0], 1), offset_only=True, largest_block=0))
+    gt_baccini = band_inv_gt_list[0][-2]
+    baccini_lng_lat_bb_list = []
+    LOGGER.debug(f'creating {len(offset_list)} index boxes')
+    for index, offset_dict in enumerate(offset_list):
+        bb_lng_lat = [
+            coord for coord in (
+                gdal.ApplyGeoTransform(
+                    gt_baccini,
+                    offset_dict['xoff'],
+                    offset_dict['yoff']+offset_dict['win_ysize']) +
+                gdal.ApplyGeoTransform(
+                    gt_baccini,
+                    offset_dict['xoff']+offset_dict['win_xsize'],
+                    offset_dict['yoff']))]
+        baccini_lng_lat_bb_list.append((index, bb_lng_lat, None))
+    LOGGER.debug('creating the index all at once')
+    baccini_memory_block_index = rtree.index.Index(baccini_lng_lat_bb_list)
+
+    points_remaining = n_points
+    lng_lat_vector = []
+    X_vector = []
+    y_vector = []
+    LOGGER.debug(f'build {n_points}')
+    last_time = time.time()
+    while points_remaining > 0:
+        # from https://mathworld.wolfram.com/SpherePointPicking.html
+        u = numpy.random.random((points_remaining,))
+        v = numpy.random.random((points_remaining,))
+        # pick between -180 and 180
+        lng_arr = (2.0 * numpy.pi * u) * 180/numpy.pi - 180
+        lat_arr = numpy.arccos(2*v-1) * 180/numpy.pi - 90
+        valid_mask = numpy.abs(lat_arr) <= max_min_lat
+
+        window_index_to_point_list_map = collections.defaultdict(list)
+        for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
+            if lat < -46:
+                LOGGER.debug(f'{lat} is < -46')
+            if time.time() - last_time > 5.0:
+                LOGGER.debug(f'working ... {points_remaining} left')
+                last_time = time.time()
+
+            window_index = list(baccini_memory_block_index.intersection(
+                (lng, lat, lng, lat)))[0]
+            window_index_to_point_list_map[window_index].append((lng, lat))
+
+        for window_index, point_list in window_index_to_point_list_map.items():
+            if not point_list:
+                continue
+
+            # raster_index_to_array_list is an xoff, yoff, array list
+            # TODO: loop through each point in point list
+            for lng, lat in point_list:
+                # check each array/raster and ensure it's not nodata or if it
+                # is, set to the valid value
+                working_sample_list = []
+                valid_working_list = True
+                for index, (raster_path, band, nodata, nodata_replace,
+                            gt, inv_gt) in enumerate(band_inv_gt_list):
+                    x, y = [int(v) for v in (
+                        gdal.ApplyGeoTransform(inv_gt, lng, lat))]
+
+                    val = band.ReadAsArray(x, y, 1, 1)[0, 0]
+
+                    if nodata is None or not numpy.isclose(val, nodata):
+                        working_sample_list.append(val)
+                    elif nodata_replace is not None:
+                        working_sample_list.append(nodata_replace)
+                    else:
+                        # nodata value, skip
+                        valid_working_list = False
+                        break
+
+                if valid_working_list:
+                    points_remaining -= 1
+                    lng_lat_vector.append((lng, lat))
+                    y_vector.append(working_sample_list[0])
+                    # first element is dep
+                    # second element is forest mask -- don't include it
+                    X_vector.append(working_sample_list[3:])
+
+    numpy.savez_compressed(target_X_array_path, X_vector)
+    numpy.savez_compressed(target_y_array_path, y_vector)
+    numpy.savez_compressed(target_lng_lat_array_path, lng_lat_vector)
+
+
 def generate_sample_points_for_carbon_model(
         n_points,
         baccini_raster_path_nodata,
