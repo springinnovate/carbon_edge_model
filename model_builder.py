@@ -74,10 +74,10 @@ MODEL_DICT = {
     #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
     # ]),
 
-    'lsvr_nystrom_1000': Pipeline([
+    'lsvr_nystrom_g.2_1000': Pipeline([
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
         ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(n_components=1000)),
+        ('Nystroem', Nystroem(gamma=.2, n_components=1000)),
         ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
     ]),
 
