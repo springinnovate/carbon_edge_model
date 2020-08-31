@@ -42,7 +42,7 @@ logging.getLogger('taskgraph').setLevel(logging.INFO)
 HOLDBACK_PROPORTION = 0.2
 MODEL_FIT_WORKSPACE = 'carbon_model'
 POINTS_PER_STRIDE = 10000
-TEST_STRIDES_TO_BUILD = (1, 2, 4, 8)  # (4, 8)
+TEST_STRIDES_TO_BUILD = (6, 7, 8, 9)  # (4, 8)
 MAX_SAMPLE_STRIDES = max(TEST_STRIDES_TO_BUILD)
 N_POINTS = MAX_SAMPLE_STRIDES*POINTS_PER_STRIDE
 POLY_ORDER = 2
@@ -68,67 +68,67 @@ MODEL_DICT = {
     #         criterion='aic', max_iter=100000, eps=1e-2)),
     #  ]),
 
-    # 'lsvr': Pipeline([
+    'lsvr': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
+    # 'lsvr_nystrom_g.05_1000': Pipeline([
     #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
     #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem(gamma=.05, n_components=500)),
     #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
     # ]),
 
-    'lsvr_nystrom_g.05_1000': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(gamma=.05, n_components=500)),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
+    # 'lsvr_nystrom_g.1_1000': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem(gamma=.1, n_components=500)),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
 
-    'lsvr_nystrom_g.1_1000': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(gamma=.1, n_components=500)),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
+    # 'lsvr_nystrom_g.2_1000': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem(gamma=.2, n_components=500)),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
 
-    'lsvr_nystrom_g.2_1000': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(gamma=.2, n_components=500)),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
+    # 'lsvr_nystrom_g.3_500': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem(gamma=.3, n_components=500)),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
 
-    'lsvr_nystrom_g.3_500': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(gamma=.3, n_components=500)),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
+    # 'lsvr_nystrom_g.4_500': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem(gamma=.4, n_components=500)),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
 
-    'lsvr_nystrom_g.4_500': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(gamma=.4, n_components=500)),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
+    # 'lsvr_nystrom_g.5_500': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem(gamma=.5, n_components=500)),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
 
-    'lsvr_nystrom_g.5_500': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(gamma=.5, n_components=500)),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
+    # 'lsvr_nystrom_g.75_500': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem(gamma=.75, n_components=500)),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
 
-    'lsvr_nystrom_g.75_500': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(gamma=.75, n_components=500)),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
-
-    'lsvr_nystrom_g1.0_500': Pipeline([
-        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-        ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(gamma=1.0, n_components=500)),
-        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
-    ]),
+    # 'lsvr_nystrom_g1.0_500': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('Nystroem', Nystroem(gamma=1.0, n_components=500)),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
 
     # 'mlp_regressor': Pipeline([
     #     ('MLPRegressor', MLPRegressor(
