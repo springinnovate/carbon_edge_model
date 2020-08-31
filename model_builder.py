@@ -68,20 +68,26 @@ MODEL_DICT = {
     #         criterion='aic', max_iter=100000, eps=1e-2)),
     #  ]),
 
-    'lsvr': Pipeline([
+    # 'lsvr': Pipeline([
+    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+    #     ('StandardScaler', StandardScaler()),
+    #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    # ]),
+
+    'lsvr_nystrom': Pipeline([
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
         ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem()),
         ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
     ]),
 
-
-    'mlp_regressor': Pipeline([
-        ('MLPRegressor', MLPRegressor(
-            hidden_layer_sizes=(100, 100, 100),
-            early_stopping=True,
-            max_iter=10000,
-            activation='relu'))
-    ]),
+    # 'mlp_regressor': Pipeline([
+    #     ('MLPRegressor', MLPRegressor(
+    #         hidden_layer_sizes=(100, 100, 100),
+    #         early_stopping=True,
+    #         max_iter=10000,
+    #         activation='relu'))
+    # ]),
 
     # 'sgdr': Pipeline([
     #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
@@ -131,7 +137,6 @@ def generate_bias_sample_points_for_carbon_model(
     band_inv_gt_list = []
     raster_list = []
     LOGGER.debug("build band list")
-    n_base_data = len(baccini_raster_path_nodata)
     for raster_path, nodata, nodata_replace in [
             baccini_raster_path_nodata + (None,),
             (forest_mask_raster_path, 0, None),

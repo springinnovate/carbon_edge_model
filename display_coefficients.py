@@ -24,13 +24,12 @@ if __name__ == '__main__':
 
     with open(args.model_path, 'rb') as model_file:
         model = pickle.load(model_file)
-    base_feature_names = carbon_model_data
 
     parameter_name_list = [
         val[0] for val in carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA] + [
         f'{raster_type[0]}_gf_{dist}'
-        for raster_type in carbon_model_data.MASK_TYPES
-        for dist in carbon_model_data.MAX_EFFECT_EDGEDIST]
+        for dist in carbon_model_data.EXPECTED_MAX_EDGE_EFFECT_KM_LIST
+        for raster_type in carbon_model_data.MASK_TYPES]
 
     coeff_parameter_list = zip(
         model[-1].coef_,
