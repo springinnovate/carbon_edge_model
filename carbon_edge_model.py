@@ -433,6 +433,8 @@ def main():
             target_path_list=[model_path],
             task_name=f'download model {MODEL_URI} to {model_path}')
         task_graph.join()
+    else:
+        model_path = args.model_path
 
     LOGGER.info("prep data")
     convolution_file_paths = warp_and_gaussian_filter_data(
