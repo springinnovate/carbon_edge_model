@@ -148,6 +148,10 @@ def generate_bias_sample_points_for_carbon_model(
         raster = None
         band = None
     LOGGER.debug(len(band_inv_gt_list))
+
+    bias_min, bias_max, bias_mean, bias_stdev = band.GetStatistics()
+    upper_bias = max(bias_max, abs(bias_min))
+
     # build a spatial index for efficient fetching of points later
     LOGGER.info('build baccini iterblocks spatial index')
     offset_list = list(pygeoprocessing.iterblocks(
@@ -214,6 +218,13 @@ def generate_bias_sample_points_for_carbon_model(
                         gdal.ApplyGeoTransform(inv_gt, lng, lat))]
 
                     val = band.ReadAsArray(x, y, 1, 1)[0, 0]
+
+                    if index == 2:
+                        # this is the bias raster
+                        v_num = (upper_bias - val) / upper_bias
+                        if numpy.random.random() < v_num:
+                            valid_working_list = False
+                            break
 
                     if nodata is None or not numpy.isclose(val, nodata):
                         working_sample_list.append(val)
