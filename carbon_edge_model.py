@@ -393,6 +393,8 @@ def main():
             '"c_stocks_[landcover_type_raster_path]. Default is '
             '`carbon_model_workspace`"'))
     parser.add_argument(
+        '--local_model_path', help='point to local model rather than default')
+    parser.add_argument(
         '--n_workers', type=int, default=multiprocessing.cpu_count(), help=(
             'number of cpu workers to allocate'))
 
@@ -417,14 +419,14 @@ def main():
     except OSError:
         pass
 
-    model_path = os.path.join(model_dir, os.path.basename(MODEL_URI))
-    _ = task_graph.add_task(
-        func=carbon_model_data.download_gs,
-        args=(MODEL_URI, model_path),
-        target_path_list=[model_path],
-        task_name=f'download model {MODEL_URI} to {model_path}')
-
-    task_graph.join()
+    if not args.local_model_path:
+        model_path = os.path.join(model_dir, os.path.basename(MODEL_URI))
+        _ = task_graph.add_task(
+            func=carbon_model_data.download_gs,
+            args=(MODEL_URI, model_path),
+            target_path_list=[model_path],
+            task_name=f'download model {MODEL_URI} to {model_path}')
+        task_graph.join()
 
     LOGGER.info("prep data")
     convolution_file_paths = warp_and_gaussian_filter_data(
