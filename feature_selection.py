@@ -2,6 +2,7 @@
 import pickle
 
 from sklearn.feature_selection import f_regression
+import numpy
 
 if __name__ == '__main__':
     X_vector_path = 'model_base_data/array_cache/X_array_0.npz'
