@@ -181,6 +181,7 @@ def create_convolutions(
         landcover_type_raster_path)['pixel_size']
 
     # this is calculated as 111km per degree
+    convolution_raster_list = []
     for expected_max_edge_effect_km in expected_max_edge_effect_km_list:
         pixel_radius = (pixel_size[0] * 111 / expected_max_edge_effect_km)**-1
         kernel_raster_path = os.path.join(
@@ -191,7 +192,6 @@ def create_convolutions(
             target_path_list=[kernel_raster_path],
             task_name=f'make kernel of radius {pixel_radius}')
 
-        convolution_raster_list = []
         for mask_id, mask_code in MASK_TYPES:
             mask_raster_path = os.path.join(
                 target_data_dir, f'{mask_id}_mask.tif')
