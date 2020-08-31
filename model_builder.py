@@ -132,6 +132,7 @@ def generate_sample_points_for_carbon_model(
             baccini_raster_path_nodata + (None,),
             (forest_mask_raster_path, 0, None)] + \
             independent_raster_path_nodata_list:
+        LOGGER.debug(raster_path)
         raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
         raster_list.append(raster)
         band = raster.GetRasterBand(1)
@@ -141,7 +142,7 @@ def generate_sample_points_for_carbon_model(
             (raster_path, band, nodata, nodata_replace, gt, inv_gt))
         raster = None
         band = None
-
+    LOGGER.debug(len(band_inv_gt_list))
     # build a spatial index for efficient fetching of points later
     LOGGER.info('build baccini iterblocks spatial index')
     offset_list = list(pygeoprocessing.iterblocks(
