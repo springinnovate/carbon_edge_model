@@ -74,10 +74,59 @@ MODEL_DICT = {
     #     ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
     # ]),
 
+    'lsvr_nystrom_g.05_1000': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem(gamma=.05, n_components=500)),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
+    'lsvr_nystrom_g.1_1000': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem(gamma=.1, n_components=500)),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
     'lsvr_nystrom_g.2_1000': Pipeline([
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
         ('StandardScaler', StandardScaler()),
-        ('Nystroem', Nystroem(gamma=.2, n_components=1000)),
+        ('Nystroem', Nystroem(gamma=.2, n_components=500)),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
+    'lsvr_nystrom_g.3_500': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem(gamma=.3, n_components=500)),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
+    'lsvr_nystrom_g.4_500': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem(gamma=.4, n_components=500)),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
+    'lsvr_nystrom_g.5_500': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem(gamma=.5, n_components=500)),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
+    'lsvr_nystrom_g.75_500': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem(gamma=.75, n_components=500)),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
+    'lsvr_nystrom_g1.0_500': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem(gamma=1.0, n_components=500)),
         ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
     ]),
 
