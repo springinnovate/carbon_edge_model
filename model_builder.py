@@ -47,26 +47,26 @@ MAX_SAMPLE_STRIDES = max(TEST_STRIDES_TO_BUILD)
 N_POINTS = MAX_SAMPLE_STRIDES*POINTS_PER_STRIDE
 POLY_ORDER = 2
 MODEL_DICT = {
-    # 'lasso_lars_cv': Pipeline([
-    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-    #     ('Normalizer', Normalizer()),
-    #     ('lasso_lars_cv', LassoLarsCV(
-    #         n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2, cv=20)),
-    #  ]),
+    'lasso_lars_cv': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('Normalizer', Normalizer()),
+        ('lasso_lars_cv', LassoLarsCV(
+            n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2, cv=20)),
+     ]),
 
-    # 'lasso_lars_ic_bic': Pipeline([
-    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-    #     ('Normalizer', Normalizer()),
-    #     ('lasso_lars_ic_bic', LassoLarsIC(
-    #         criterion='bic', max_iter=100000, eps=1e-2)),
-    #  ]),
+    'lasso_lars_ic_bic': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('Normalizer', Normalizer()),
+        ('lasso_lars_ic_bic', LassoLarsIC(
+            criterion='bic', max_iter=100000, eps=1e-2)),
+     ]),
 
-    # 'lasso_lars_ic_aic': Pipeline([
-    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-    #     ('Normalizer', Normalizer()),
-    #     ('lasso_lars_ic_aic', LassoLarsIC(
-    #         criterion='aic', max_iter=100000, eps=1e-2)),
-    #  ]),
+    'lasso_lars_ic_aic': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('Normalizer', Normalizer()),
+        ('lasso_lars_ic_aic', LassoLarsIC(
+            criterion='aic', max_iter=100000, eps=1e-2)),
+     ]),
 
     'lsvr': Pipeline([
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
@@ -83,13 +83,13 @@ MODEL_DICT = {
             activation='logistic'))
     ]),
 
-    # 'sgdr': Pipeline([
-    #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
-    #     ('Normalizer', Normalizer()),
-    #     ('StandardScaler', StandardScaler()),
-    #     ('Nystroem', Nystroem()),
-    #     ('SGDRegressor', SGDRegressor(max_iter=100000)),
-    # ]),
+    'sgdr': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('Normalizer', Normalizer()),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem()),
+        ('SGDRegressor', SGDRegressor(max_iter=100000)),
+    ]),
 }
 
 
