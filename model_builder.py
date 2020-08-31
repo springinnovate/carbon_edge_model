@@ -51,7 +51,7 @@ MODEL_DICT = {
         ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
         ('Normalizer', Normalizer()),
         ('lasso_lars_cv', LassoLarsCV(
-            n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2, cv=20)),
+            n_jobs=-1, max_iter=100000, verbose=True, eps=1e-2, cv=5)),
      ]),
 
     'lasso_lars_ic_bic': Pipeline([
