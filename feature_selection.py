@@ -2,6 +2,7 @@
 import pickle
 
 from sklearn.feature_selection import f_regression
+from sklearn.feature_selection import mutual_info_regression
 import numpy
 
 if __name__ == '__main__':
@@ -14,3 +15,5 @@ if __name__ == '__main__':
 
     f_reg = f_regression(X_vector, y_vector)
     print(f_reg)
+    mut_info = mutual_info_regression(X_vector, y_vector)
+    print(mut_info)
