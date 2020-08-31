@@ -333,7 +333,7 @@ if __name__ == '__main__':
 
     LOGGER.info(f'create {N_POINTS} points')
     task_xy_vector_list = []
-    for point_stride in range(2, MAX_SAMPLE_STRIDES+1):
+    for point_stride in range(1, MAX_SAMPLE_STRIDES+1):
         lat_lng_array_path = os.path.join(
             array_cache_dir, f'lng_lat_array_{point_stride}.npz')
         target_X_array_path = os.path.join(
