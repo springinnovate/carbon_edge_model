@@ -16,7 +16,7 @@ if __name__ == '__main__':
         val[0] for val in carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA] + [
         f'{raster_type[0]}_gf_{dist}'
         for raster_type in carbon_model_data.MASK_TYPES
-        for dist in carbon_model_data.MAX_EFFECT_EDGEDIST]
+        for dist in carbon_model_data.EXPECTED_MAX_EDGE_EFFECT_KM_LIST]
 
     f_reg = f_regression(X_vector, y_vector)
     mut_info = mutual_info_regression(X_vector, y_vector)
