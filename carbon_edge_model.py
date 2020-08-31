@@ -285,7 +285,7 @@ def warp_and_gaussian_filter_data(
 def evaluate_model_with_landcover(
         carbon_model, landcover_type_raster_path, convolution_file_paths,
         workspace_dir, data_dir,
-        n_workers, task_graph, max_biomass=360.0):
+        n_workers, file_suffix, task_graph, max_biomass=360.0):
     """Evaluate the model over a landcover raster.
 
     Args:
@@ -298,6 +298,7 @@ def evaluate_model_with_landcover(
         data_dir (str): path to directory containing base data refered to
             by CARBON_EDGE_MODEL_DATA_NODATA.
         n_workers (int): number of workers to allocate to raster calculator
+        file_suffix (str): append this to target rasters
         task_graph (TaskGraph): TaskGraph object that can be used for
             scheduling
         max_biomass (float): threshold modeled biomass to this value
@@ -334,7 +335,8 @@ def evaluate_model_with_landcover(
 
     # This raster is the predicted forest biomass
     forest_carbon_stocks_raster_path = os.path.join(
-        churn_dir, f'{landtype_basename}_forest_biomass_per_ha.tif')
+        churn_dir,
+        f'{landtype_basename}_forest_biomass_per_ha{file_suffix}.tif')
     LOGGER.info('scheduling the regression model')
     regression_model_task = task_graph.add_task(
         func=pygeoprocessing.multiprocessing.raster_calculator,
@@ -352,7 +354,8 @@ def evaluate_model_with_landcover(
     # combine both the non-forest and forest into one map for each
     # scenario based on their masks
     total_carbon_stocks_raster_path = os.path.join(
-        workspace_dir, f'biomass_per_ha_stocks_{landtype_basename}.tif')
+        workspace_dir,
+        f'biomass_per_ha_stocks_{landtype_basename}{file_suffix}.tif')
 
     forest_mask_path = os.path.join(
         data_dir, f'mask_of_forest_10sec.tif')
@@ -397,6 +400,9 @@ def main():
     parser.add_argument(
         '--n_workers', type=int, default=multiprocessing.cpu_count(), help=(
             'number of cpu workers to allocate'))
+    parser.add_argument(
+        '--file_suffix', default='',
+        help='add this to the end of output files')
 
     args = parser.parse_args()
     workspace_dir = args.workspace_dir
@@ -439,7 +445,7 @@ def main():
         carbon_model = pickle.load(model_file)
     evaluate_model_with_landcover(
         carbon_model, args.landcover_type_raster_path, convolution_file_paths,
-        workspace_dir, churn_dir, args.n_workers, task_graph)
+        workspace_dir, churn_dir, args.n_workers, args.file_suffix, task_graph)
 
     task_graph.close()
     task_graph.join()
