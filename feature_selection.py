@@ -12,5 +12,5 @@ if __name__ == '__main__':
     with open(y_vector_path, 'rb') as y_vector_file:
         y_vector = numpy.load(y_vector_file)['arr_0']
 
-    f_reg = f_regression(X, y)
+    f_reg = f_regression(X_vector, y_vector)
     print(f_reg)
