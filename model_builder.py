@@ -74,6 +74,13 @@ MODEL_DICT = {
         ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
     ]),
 
+    'lsvr_nystrom_g.05_1000': Pipeline([
+        ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
+        ('StandardScaler', StandardScaler()),
+        ('Nystroem', Nystroem(gamma=10, C=100, n_components=1000)),
+        ('lsvr', LinearSVR(verbose=1, max_iter=1000000)),
+    ]),
+
     # 'lsvr_nystrom_g.05_1000': Pipeline([
     #     ('poly_trans', PolynomialFeatures(POLY_ORDER, interaction_only=False)),
     #     ('StandardScaler', StandardScaler()),
@@ -441,6 +448,161 @@ def generate_sample_points_for_carbon_model(
     numpy.savez_compressed(target_lng_lat_array_path, lng_lat_vector)
 
 
+def generate_sample_points_probably_forest_for_carbon_model(
+        n_points,
+        baccini_raster_path_nodata,
+        soft_forest_biomass_threshold_min_max,
+        independent_raster_path_nodata_list, max_min_lat,
+        target_X_array_path,
+        target_y_array_path,
+        target_lng_lat_array_path,
+        seed=None):
+    """Generate a set of lat/lng points that are evenly distributed.
+
+    Args:
+        n_points (int): number of points to sample
+        baccini_raster_path_nodata (tuple): tuple of path to dependent
+            variable raster with expected nodata value.
+        soft_forest_biomass_threshold_min_max (tuple): a (min, max) threshold
+            of baccini forest biomass that counts as forest. Anything below
+            `min` should be not sampled, anything above `max` should be
+            and anything inbetween should be randomly selected biasing
+            towards (val-min)/(max-min)
+        independent_raster_path_nodata_list (list): list of
+            (path, nodata, nodata_replace) tuples.
+        max_min_lat (float): absolute maximum latitude allowed in a sampled
+            point.
+        target_X_array_path (str): path to X vector on disk,
+        target_y_array_path (str): path to y vector on disk
+        target_lng_lat_array_path (str): path to store lng/lat samples
+        seed (int): seed for randomization
+
+    Returns:
+        None
+
+    """
+    if seed is not None:
+        numpy.random.seed(seed)
+    band_inv_gt_list = []
+    raster_list = []
+    LOGGER.debug("build band list")
+    for raster_path, nodata, nodata_replace in [
+            baccini_raster_path_nodata + (None,)] + \
+            independent_raster_path_nodata_list:
+        LOGGER.debug(raster_path)
+        raster = gdal.OpenEx(raster_path, gdal.OF_RASTER)
+        raster_list.append(raster)
+        band = raster.GetRasterBand(1)
+        gt = raster.GetGeoTransform()
+        inv_gt = gdal.InvGeoTransform(gt)
+        band_inv_gt_list.append(
+            (raster_path, band, nodata, nodata_replace, gt, inv_gt))
+        raster = None
+        band = None
+    LOGGER.debug(len(band_inv_gt_list))
+    # build a spatial index for efficient fetching of points later
+    LOGGER.info('build baccini iterblocks spatial index')
+    offset_list = list(pygeoprocessing.iterblocks(
+        (baccini_raster_path_nodata[0], 1), offset_only=True, largest_block=0))
+    gt_baccini = band_inv_gt_list[0][-2]
+    baccini_lng_lat_bb_list = []
+    LOGGER.debug(f'creating {len(offset_list)} index boxes')
+    for index, offset_dict in enumerate(offset_list):
+        bb_lng_lat = [
+            coord for coord in (
+                gdal.ApplyGeoTransform(
+                    gt_baccini,
+                    offset_dict['xoff'],
+                    offset_dict['yoff']+offset_dict['win_ysize']) +
+                gdal.ApplyGeoTransform(
+                    gt_baccini,
+                    offset_dict['xoff']+offset_dict['win_xsize'],
+                    offset_dict['yoff']))]
+        baccini_lng_lat_bb_list.append((index, bb_lng_lat, None))
+    LOGGER.debug('creating the index all at once')
+    baccini_memory_block_index = rtree.index.Index(baccini_lng_lat_bb_list)
+
+    points_remaining = n_points
+    lng_lat_vector = []
+    X_vector = []
+    y_vector = []
+    LOGGER.debug(f'build {n_points}')
+    last_time = time.time()
+    bm_thresh_min, bm_thresh_max = soft_forest_biomass_threshold_min_max
+    while points_remaining > 0:
+        # from https://mathworld.wolfram.com/SpherePointPicking.html
+        u = numpy.random.random((points_remaining,))
+        v = numpy.random.random((points_remaining,))
+        # pick between -180 and 180
+        lng_arr = (2.0 * numpy.pi * u) * 180/numpy.pi - 180
+        lat_arr = numpy.arccos(2*v-1) * 180/numpy.pi - 90
+        valid_mask = numpy.abs(lat_arr) <= max_min_lat
+
+        window_index_to_point_list_map = collections.defaultdict(list)
+        for lng, lat in zip(lng_arr[valid_mask], lat_arr[valid_mask]):
+            if time.time() - last_time > 5.0:
+                LOGGER.debug(f'working ... {points_remaining} left')
+                last_time = time.time()
+
+            window_index = list(baccini_memory_block_index.intersection(
+                (lng, lat, lng, lat)))[0]
+            window_index_to_point_list_map[window_index].append((lng, lat))
+
+        for window_index, point_list in window_index_to_point_list_map.items():
+            if not point_list:
+                continue
+
+            # raster_index_to_array_list is an xoff, yoff, array list
+            # TODO: loop through each point in point list
+            for lng, lat in point_list:
+                # check each array/raster and ensure it's not nodata or if it
+                # is, set to the valid value
+                working_sample_list = []
+                valid_working_list = True
+                for index, (raster_path, band, nodata, nodata_replace,
+                            gt, inv_gt) in enumerate(band_inv_gt_list):
+                    x, y = [int(v) for v in (
+                        gdal.ApplyGeoTransform(inv_gt, lng, lat))]
+
+                    val = band.ReadAsArray(x, y, 1, 1)[0, 0]
+
+                    if index == 0:
+                        # this is the baccini sample
+                        if val < bm_thresh_min:
+                            # too small, skip
+                            valid_working_list = False
+                            break
+
+                        prob = (val-bm_thresh_min)/(
+                            bm_thresh_max-bm_thresh_min)
+                        # if prob > bm_thresh_max this will be 1 and the
+                        # if statement won't matter
+                        if prob < numpy.random.random():
+                            # random sample wasn't big enough
+                            valid_working_list = False
+                            break
+
+                    if nodata is None or not numpy.isclose(val, nodata):
+                        working_sample_list.append(val)
+                    elif nodata_replace is not None:
+                        working_sample_list.append(nodata_replace)
+                    else:
+                        # nodata value, skip
+                        valid_working_list = False
+                        break
+
+                if valid_working_list:
+                    points_remaining -= 1
+                    lng_lat_vector.append((lng, lat))
+                    y_vector.append(working_sample_list[0])
+                    # first element is dep -- don't include it
+                    X_vector.append(working_sample_list[1:])
+
+    numpy.savez_compressed(target_X_array_path, X_vector)
+    numpy.savez_compressed(target_y_array_path, y_vector)
+    numpy.savez_compressed(target_lng_lat_array_path, lng_lat_vector)
+
+
 def build_model(
         X_vector_path_list, y_vector_path, n_arrays, model_name,
         target_model_path):
@@ -486,8 +648,11 @@ def build_model(
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Model maker')
     parser.add_argument(
-        '--max_min_lat', type=float, default=40.0,
+        '--max_min_lat', type=float, default=50.0,
         help='Min/max lat to cutoff')
+    parser.add_argument(
+        '--min_max_biomass_threshold', type=float, nargs=2,
+        default=(50.0, 100.0), help='min max biothreshold to generate samples')
     parser.add_argument(
         '--n_workers', type=int, default=1, help='number of taskgraph workers')
     args = parser.parse_args()
@@ -551,11 +716,11 @@ if __name__ == '__main__':
         target_y_array_path = os.path.join(
             array_cache_dir, f'y_array_{point_stride}.npz')
         generate_point_task = task_graph.add_task(
-            func=generate_sample_points_for_carbon_model,
+            func=generate_sample_points_probably_forest_for_carbon_model,
             args=(
                 POINTS_PER_STRIDE,
                 (baccini_10s_2014_biomass_path, baccini_nodata),
-                forest_mask_raster_path,
+                args.min_max_biomass_threshold,
                 raster_path_nodata_replacement_list + convolution_raster_list,
                 args.max_min_lat, target_X_array_path, target_y_array_path,
                 lat_lng_array_path),
