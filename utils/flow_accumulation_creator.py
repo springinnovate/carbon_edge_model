@@ -42,10 +42,13 @@ if __name__ == '__main__':
         args=(DEM_URL, dem_dir),
         task_name=f'download model {DEM_URL} to {dem_dir}')
 
+    download_task.join()
     vrt_raster_path = os.path.join(dem_dir, 'dem.vrt')
+    dem_tile_list = list(
+        glob.glob(os.path.join(dem_dir, 'global_dem_3s', '*.tif')))
     vrt_build_task = task_graph.add_task(
         func=gdal.BuildVRT,
-        args=(vrt_raster_path, dem_dir),
+        args=(vrt_raster_path, dem_tile_list),
         dependent_task_list=[download_task],
         target_path_list=[vrt_raster_path],
         task_name='build vrt')
@@ -53,7 +56,7 @@ if __name__ == '__main__':
     pitfill_dem_raster_path = './pitfilled_dem.tif'
     pitfill_task = task_graph.add_task(
         func=pygeoprocessing.routing.fill_pits,
-        args=(dem_dir, list(glob.glob(os.path.join(dem_dir, 'global_dem_3s', '*.tif')))),
+        args=(vrt_raster_path, pitfill_dem_raster_path),
         dependent_task_list=[vrt_build_task],
         target_path_list=[pitfill_dem_raster_path],
         task_name='fill dem pits')
