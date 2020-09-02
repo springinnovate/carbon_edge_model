@@ -56,7 +56,7 @@ if __name__ == '__main__':
     pitfill_dem_raster_path = './pitfilled_dem.tif'
     pitfill_task = task_graph.add_task(
         func=pygeoprocessing.routing.fill_pits,
-        args=(vrt_raster_path, pitfill_dem_raster_path),
+        args=((vrt_raster_path, 1), pitfill_dem_raster_path),
         dependent_task_list=[vrt_build_task],
         target_path_list=[pitfill_dem_raster_path],
         task_name='fill dem pits')
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     flow_dir_mfd_raster_path = './mfd.tif'
     flow_dir_task = task_graph.add_task(
         func=pygeoprocessing.routing.flow_dir_mfd,
-        args=(pitfill_dem_raster_path, flow_dir_mfd_raster_path),
+        args=((pitfill_dem_raster_path, 1), flow_dir_mfd_raster_path),
         dependent_task_list=[pitfill_task],
         target_path_list=[flow_dir_mfd_raster_path],
         task_name='flow dir mfd')
