@@ -33,7 +33,10 @@ if __name__ == '__main__':
     task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1)
 
     dem_dir = os.path.join(WORKSPACE_DIR, 'dem')
-
+    try:
+        os.makedirs(dem_dir)
+    except OSError:
+        pass
     download_task = task_graph.add_task(
         func=ecoshard.download_and_unzip,
         args=(DEM_URL, dem_dir),
