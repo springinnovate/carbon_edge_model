@@ -53,7 +53,7 @@ if __name__ == '__main__':
     pitfill_dem_raster_path = './pitfilled_dem.tif'
     pitfill_task = task_graph.add_task(
         func=pygeoprocessing.routing.fill_pits,
-        args=(dem_dir, list(glob.glob(os.path.join(dem_dir, os.path.basename(os.path.splitext(DEM_URL)[0]), '*.tif')))),
+        args=(dem_dir, list(glob.glob(os.path.join(dem_dir, 'global_dem_3s', '*.tif')))),
         dependent_task_list=[vrt_build_task],
         target_path_list=[pitfill_dem_raster_path],
         task_name='fill dem pits')
