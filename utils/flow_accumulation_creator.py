@@ -42,7 +42,7 @@ if __name__ == '__main__':
         args=(DEM_URL, dem_dir),
         task_name=f'download model {DEM_URL} to {dem_dir}')
 
-    vrt_raster_path = './dem.vrt'
+    vrt_raster_path = os.path.join(dem_dir, 'dem.vrt')
     vrt_build_task = task_graph.add_task(
         func=gdal.BuildVRT,
         args=(vrt_raster_path, dem_dir),
