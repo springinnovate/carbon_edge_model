@@ -20,8 +20,8 @@ logging.basicConfig(
 
 LOGGER = logging.getLogger(__name__)
 
-DEM_URI = (
-    'gs://ipbes-ndr-ecoshard-data/'
+DEM_URL = (
+    'https://storage.googleapis.com/ipbes-ndr-ecoshard-data/'
     'global_dem_3s_blake2b_0532bf0a1bedbe5a98d1dc449a33ef0c.zip')
 
 if __name__ == '__main__':
@@ -36,8 +36,8 @@ if __name__ == '__main__':
 
     download_task = task_graph.add_task(
         func=ecoshard.download_and_unzip,
-        args=(DEM_URI, dem_dir),
-        task_name=f'download model {DEM_URI} to {dem_dir}')
+        args=(DEM_URL, dem_dir),
+        task_name=f'download model {DEM_URL} to {dem_dir}')
 
     vrt_raster_path = './dem.vrt'
     vrt_build_task = task_graph.add_task(
