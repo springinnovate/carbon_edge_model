@@ -30,7 +30,7 @@ if __name__ == '__main__':
         os.makedirs(WORKSPACE_DIR)
     except OSError:
         pass
-    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR)
+    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1)
 
     dem_dir = os.path.join(WORKSPACE_DIR, 'dem')
 
