@@ -59,7 +59,7 @@ BASE_LULC_RASTER_PATH = os.path.join(
     'ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif')
 ESA_RESTORATION_SCENARIO_RASTER_PATH = os.path.join(
     MODEL_BASE_DIR,
-    'scenario_data/ESA_restoration_scenario.tif')
+    'restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif')
 
 # These are used in combination with an ESA landcover map to calculate carbon
 CARBON_ZONES_VECTOR_PATH = os.path.join(
