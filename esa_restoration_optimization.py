@@ -78,8 +78,10 @@ MODELED_MODE = f'modeled_mode_{CARBON_MODEL_ID}'
 BASE_SCENARIO = 'base'
 RESTORATION_SCENARIO = 'scenario'
 FOREST_CODE = 50
-TARGET_AREA_HA = 350000000
-AREA_REPORT_STEP_AMOUNT_HA = TARGET_AREA_HA/20
+TARGET_AREA_HA = 350000000*2
+AREA_N_STEPS = 20
+AREA_REPORT_STEP_LIST = numpy.linspace(
+    TARGET_AREA_HA / AREA_N_STEPS, TARGET_AREA_HA, AREA_N_STEPS)
 
 
 def _raw_basename(file_path):
@@ -136,8 +138,7 @@ def _replace_value_by_mask(
 
 
 def _greedy_select_pixels_to_area(
-        base_value_raster_path, workspace_dir, area_ha_to_step_report,
-        target_area_ha):
+        base_value_raster_path, workspace_dir, area_ha_to_step_report_list):
     """Greedy select pixels in base with a report every area steps.
 
     workspace_dir will contain a set of mask rasters with filenames of the form
@@ -149,11 +150,7 @@ def _greedy_select_pixels_to_area(
         base_value_raster_path (str): path to raster with value pixels,
             preferably positive.
         workspace_dir (str): path to directory to write output files into.
-        area_ha_to_step_report (float): amount of area selected in hectares
-            to write to the .csv table and save a raster mask for.
-        target_area_ha (float): maximum amount of area to select before
-            terminating. If target_area_ha > maximum area possible to select
-            it will terminate at maxium possible area to select.
+        area_ha_to_step_report (list): list of areas in Ha to record.
 
     Returns:
         A tuple containing (path_to_taret_area_mask_raster,
@@ -161,7 +158,23 @@ def _greedy_select_pixels_to_area(
             selected and the value is the area that is selected, will either
             be very close to target_area_ha or the maximum available area.
     """
-    pass
+    raster_id = _raw_basename(base_value_raster_path)
+    all_ones_raster_path = os.path.join(
+        workspace_dir, f'all_ones_{raster_id}.tif')
+    pixel_area_in_ha_raster_path = os.path.join(
+        workspace_dir, f'pixel_area_in_ha_{raster_id}.tif')
+
+    pygeoprocessing.new_raster_from_base(
+        base_value_raster_path, pixel_area_in_ha_raster_path, gdal.GDT_Byte,
+        [None], fill_value_list=[1])
+
+    density_per_ha_to_total_per_pixel(
+        all_ones_raster_path, 1.0,
+        pixel_area_in_ha_raster_path)
+
+    pygeoprocessing.greedy_pixel_pick_by_area(
+        (base_value_raster_path, 1), (pixel_area_in_ha_raster_path, 1),
+        workspace_dir, area_ha_to_step_report_list)
 
 
 def _diff_rasters(
@@ -389,7 +402,7 @@ def main():
         optimal_mask_raster_path, area_selected = \
             _greedy_select_pixels_to_area(
                 marginal_value_biomass_raster, optimization_dir,
-                AREA_REPORT_STEP_AMOUNT_HA, TARGET_AREA_HA)
+                AREA_REPORT_STEP_LIST)
 
         # Evaluate the optimal result for biomass, first convert optimal
         # scenario to LULC map
