@@ -68,6 +68,11 @@ TARGET_AREA_HA = 350000000
 AREA_REPORT_STEP_AMOUNT_HA = TARGET_AREA_HA/20
 
 
+def _raw_basename(file_path):
+    """Return just the filename without extension."""
+    return os.path.basename(os.path.spliext(file_path)[0])
+
+
 def _mkdir(dir_path):
     """Safely make directory."""
     try:
@@ -182,12 +187,12 @@ def _diff_rasters(
 
 
 def _calculate_modeled_biomass(
-        landcover_raster_path, churn_dir,
+        esa_landcover_raster_path, churn_dir,
         target_biomass_raster_path):
     """Calculate modeled biomass for given landcover.
 
     Args:
-        landcover_raster_path (str): path to ESA landcover raster.
+        esa_landcover_raster_path (str): path to ESA landcover raster.
         churn_dir (str): path to use for temporary files.
         target_biomass_raster_path (str): path to raster to create target
             biomass (not biomass per ha).
@@ -195,19 +200,52 @@ def _calculate_modeled_biomass(
     Return:
         None
     """
-    landtype_mask_raster_path = os.path.join(
-        churn_dir, f'''carbon_model_landtype_mask_{
-            os.path.basename(os.path.splitext(
-                landcover_raster_path)[0])}.tif''')
+    CROPLAND_LULC_CODES = range(10, 41)
+    URBAN_LULC_CODES = (190,)
+    FOREST_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
 
-    BIOMASS_MODEL
-    LOGGER.info(f'evaluate carbon model for {scenario_id}')
+    MASK_TYPES = [
+        (1, CROPLAND_LULC_CODES),
+        (2, URBAN_LULC_CODES),
+        (3, FOREST_CODES)]
+    OTHER_TYPE = 4
+    # 1: cropland
+    # 2: urban
+    # 3: forest
+    # 4: other
+
+    def _reclassify_esa_vals_op(array):
+        """Remap values from ESA codes to basic MASK_TYPES."""
+        result = numpy.empty(array.shape, dtype=numpy.uint8)
+        result[:] = OTHER_TYPE  # default is '4 -- other'
+        for mask_id, code_list in MASK_TYPES:
+            mask_array = numpy.in1d(array, code_list).reshape(result.shape)
+            result[mask_array] = mask_id
+        return result
+
+    LOGGER.info(
+        f'create landcover type mask from ESA {esa_landcover_raster_path}')
+    landcover_type_mask_raster_path = os.path.join(
+        churn_dir, f'''landcover_type_mask_{
+            _raw_basename(esa_landcover_raster_path)}.tif''')
+    pygeoprocessing.raster_calculator(
+        [(esa_landcover_raster_path, 1)], _reclassify_esa_vals_op,
+        landcover_type_mask_raster_path, gdal.GDT_Byte, None)
+
+    LOGGER.info(f"prep data for modeled biomass {esa_landcover_raster_path}")
+    task_graph = taskgraph.TaskGraph(churn_dir, -1, 15.0)
+    convolution_file_paths = carbon_edge_model.warp_and_gaussian_filter_data(
+        landcover_type_mask_raster_path, MODEL_BASE_DIR, churn_dir,
+        task_graph)
+    task_graph.join()
+
+    LOGGER.info('evaluate carbon model')
     carbon_edge_model.evaluate_model_with_landcover(
-        carbon_model, scenario_mask_path,
-        convolution_file_paths, workspace_dir, churn_dir, args.n_workers,
-        args.file_suffix, task_graph)
-    modeled_biomass_raster_dict[REGRESSION_MODE][scenario_id] = \
-        target_regression_biomass_paths
+        BIOMASS_MODEL, landcover_type_mask_raster_path,
+        convolution_file_paths,
+        churn_dir, MODEL_BASE_DIR, -1, '', task_graph)
+    task_graph.join()
+
     # TODO: convert biomass density into biomass stocks
 
 

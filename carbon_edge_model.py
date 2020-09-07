@@ -285,7 +285,7 @@ def warp_and_gaussian_filter_data(
 def evaluate_model_with_landcover(
         carbon_model, landcover_type_raster_path, convolution_file_paths,
         workspace_dir, data_dir,
-        n_workers, file_suffix, task_graph, max_biomass=360.0):
+        n_workers, file_suffix, task_graph, max_biomass=368.0):
     """Evaluate the model over a landcover raster.
 
     Args:
