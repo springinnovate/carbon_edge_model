@@ -58,9 +58,9 @@ def mult_op(array, conversion, nodata):
     result = numpy.copy(array)
     if nodata is not None:
         valid_mask = ~numpy.isclose(array, nodata)
-        result[valid_mask] *= conversion[valid_mask]
+        result[valid_mask] = result[valid_mask] * conversion[valid_mask]
     else:
-        result *= conversion
+        result = result * conversion
     return result
 
 
