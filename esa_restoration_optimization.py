@@ -5,6 +5,9 @@ import logging
 import pickle
 import sys
 
+from osgeo import gdal
+import numpy
+import pygeoprocessing
 import taskgraph
 import carbon_edge_model
 
@@ -18,9 +21,23 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
+# Working directories for substeps
 WORKSPACE_DIR = './esa_restoration_optimization'
+CHURN_DIR = os.path.join(WORKSPACE_DIR, 'churn')
+BIOMASS_RASTER_DIR = os.path.join(WORKSPACE_DIR, 'biomass_rasters')
+MARGINAL_VALUE_WORKSPACE = os.path.join(
+    WORKSPACE_DIR, 'marginal_value_rasters')
+OPTIMIZATION_WORKSPACE = os.path.join(
+    WORKSPACE_DIR, 'optimization_workspaces')
+OPTIMIAZATION_SCENARIOS_DIR = os.path.join(
+    WORKSPACE_DIR, 'optimization_scenarios')
+
 MODEL_PATH = './models/carbon_model_lsvr_poly_2_90000_pts.mod'
 MODEL_BASE_DIR = './model_base_data'
+LOGGER.info(f'load the biomass model at {MODEL_PATH}')
+with open(MODEL_PATH, 'rb') as MODEL_FILE:
+    BIOMASS_MODEL = pickle.load(MODEL_FILE)
+
 
 # *** DATA SECTION ***
 # There are two landcover configurations, ESA and restoration of ESA
@@ -47,13 +64,27 @@ MODELED_MODE = f'modeled_mode_{CARBON_MODEL_ID}'
 BASE_SCENARIO = 'base'
 RESTORATION_SCENARIO = 'scenario'
 FOREST_CODE = 50
-AREA_REPORT_STEP_AMOUNT_HA = 30000
-TARGET_AREA_HA = 350000
+TARGET_AREA_HA = 350000000
+AREA_REPORT_STEP_AMOUNT_HA = TARGET_AREA_HA/20
+
+
+def _mkdir(dir_path):
+    """Safely make directory."""
+    try:
+        os.makedirs(dir_path)
+    except OSError:
+        pass
+    return dir_path
 
 
 def _sum_raster(raster_path):
     """Return sum of non-nodata values in ``raster_path``."""
-    pass
+    nodata = pygeoprocessing.get_raster_info(raster_path)['nodata'][0]
+    running_sum = 0.0
+    for _, raster_block in pygeoprocessing.iterblocks((raster_path, 1)):
+        running_sum += numpy.sum(
+            raster_block[~numpy.isclose(raster_block, nodata)])
+    return running_sum
 
 
 def _replace_value_by_mask(
@@ -73,7 +104,25 @@ def _replace_value_by_mask(
     Returns:
         None
     """
-    pass
+    base_info = pygeoprocessing.get_raster_info(base_raster_path)
+    pygeoprocessing.new_raster_from_base(
+        base_raster_path, target_replacement_raster_path,
+        base_info['datatype'], base_info['nodata'])
+    target_raster = gdal.OpenEx(
+        target_replacement_raster_path, gdal.OF_RASTER | gdal.GA_Update)
+    target_band = target_raster.GetRasterBand(1)
+    mask_raster = gdal.OpenEx(
+        replacement_mask_raster_path, gdal.OF_RASTER | gdal.GA_Update)
+    mask_band = mask_raster.GetRasterBand(1)
+
+    for offset_dict, base_block in pygeoprocessing.iterblocks(
+            (base_raster_path, 1)):
+        mask_block = mask_band.ReadAsArray(**offset_dict)
+        target_band.WriteArray(
+            numpy.where(mask_block == 1), replacement_value, base_block)
+
+    target_band = None
+    target_raster = None
 
 
 def _greedy_select_pixels_to_area(
@@ -121,13 +170,12 @@ def _diff_rasters(
 
 
 def _calculate_modeled_biomass(
-        landcover_raster_path, carbon_model, churn_dir,
+        landcover_raster_path, churn_dir,
         target_biomass_raster_path):
     """Calculate modeled biomass for given landcover.
 
     Args:
         landcover_raster_path (str): path to ESA landcover raster.
-        carbon_model (scikit.learn.Model): a trained model.
         churn_dir (str): path to use for temporary files.
         target_biomass_raster_path (str): path to raster to create target
             biomass (not biomass per ha).
@@ -140,6 +188,7 @@ def _calculate_modeled_biomass(
             os.path.basename(os.path.splitext(
                 landcover_raster_path)[0])}.tif''')
 
+    BIOMASS_MODEL
     LOGGER.info(f'evaluate carbon model for {scenario_id}')
     carbon_edge_model.evaluate_model_with_landcover(
         carbon_model, scenario_mask_path,
@@ -170,29 +219,16 @@ def _calculate_ipcc_biomass(
 
 def main():
     """Entry point."""
-    try:
-        os.makedirs(WORKSPACE_DIR)
-    except OSError:
-        pass
-
-    CHURN_DIR = os.path.join(WORKSPACE_DIR, 'churn')
-    BIOMASS_RASTER_DIR = os.path.join(WORKSPACE_DIR, 'biomass_rasters')
-    MARGINAL_VALUE_WORKSPACE = os.path.join(
-        WORKSPACE_DIR, 'marginal_value_rasters')
-    OPTIMIZATION_WORKSPACE = os.path.join(
-        WORKSPACE_DIR, 'optimization_workspaces')
-    OPTIMIAZATION_SCENARIOS_DIR = os.path.join(
-        WORKSPACE_DIR, 'optimization_scenarios')
+    for dir_path in [
+            WORKSPACE_DIR, CHURN_DIR, BIOMASS_RASTER_DIR,
+            MARGINAL_VALUE_WORKSPACE, OPTIMIZATION_WORKSPACE,
+            OPTIMIAZATION_SCENARIOS_DIR]:
+        _mkdir(dir_path)
 
     # TODO: task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, 2, 15.0)
 
-    LOGGER.info(f'load the biomass model at {MODEL_PATH}')
-    with open(MODEL_PATH, 'rb') as model_file:
-        biomass_model = pickle.load(model_file)
-
     # modeled_biomass_raster_dict indexed by
-    #   [MODELED_MODE/IPCC_MODE]
-    #       [BASE_SCENARIO/RESTORATION_SCENARIO]
+    #   [MODELED_MODE/IPCC_MODE] -> [BASE_SCENARIO/RESTORATION_SCENARIO]
     modeled_biomass_raster_dict = collections.defaultdict(dict)
     for scenario_id, landcover_raster_path in [
             (BASE_SCENARIO, BASE_LULC_RASTER_PATH),
@@ -200,22 +236,26 @@ def main():
         # create churn directory and id for modeled biomass.
         base_landcover_id = os.path.basename(
             os.path.splitext(landcover_raster_path)[0])
-        biomass_churn_dir = os.path.join(
-            CHURN_DIR, f'churn_{base_landcover_id}_{MODELED_MODE}')
-        LOGGER.info(f'model biomass {MODELED_MODE} for {base_landcover_id}')
+        biomass_churn_dir = _mkdir(os.path.join(
+            CHURN_DIR, f'churn_{base_landcover_id}_{MODELED_MODE}'))
 
-        # calcualted modeled biomass
+        # calculated modeled biomass
+        LOGGER.info(
+            f'model biomass {MODELED_MODE} for {base_landcover_id}/'
+            f'{scenario_id}')
         modeled_biomass_raster_path = os.path.join(
             BIOMASS_RASTER_DIR,
             f'biomass_{MODELED_MODE}_{scenario_id}.tif')
         _calculate_modeled_biomass(
-            landcover_raster_path, biomass_model, biomass_churn_dir,
+            landcover_raster_path, biomass_churn_dir,
             modeled_biomass_raster_path)
         modeled_biomass_raster_dict[MODELED_MODE][scenario_id] = \
             modeled_biomass_raster_path
 
         # calculate IPCC biomass
-        LOGGER.info(f'calculate IPCC method for {scenario_id}')
+        LOGGER.info(
+            f'calculate IPCC method for {base_landcover_id}/'
+            f'{scenario_id}')
         target_ipcc_biomass_path = os.path.join(
             BIOMASS_RASTER_DIR,
             f'biomass_per_ha_{IPCC_MODE}_{scenario_id}.tif')
@@ -230,20 +270,20 @@ def main():
     # optimal_lulc_scenario_raster_dict indexed by
     #   [MODELED_MODE/IPCC_MODE]
     optimal_lulc_scenario_raster_dict = {}
-    for model_mode in (MODELED_MODE, IPCC_MODE):
+    for model_mode in [MODELED_MODE, IPCC_MODE]:
         marginal_value_biomass_raster = os.path.join(
             MARGINAL_VALUE_WORKSPACE,
             f'marginal_value_biomass_{model_mode}.tif')
         _diff_rasters(
-            modeled_biomass_raster_dict[model_mode][BASE_SCENARIO],
             modeled_biomass_raster_dict[model_mode][RESTORATION_SCENARIO],
+            modeled_biomass_raster_dict[model_mode][BASE_SCENARIO],
             marginal_value_biomass_raster)
 
         LOGGER.info(
             f'create optimal land selection mask to target '
             f'{TARGET_AREA_HA} ha')
-        optimization_dir = os.path.join(
-            OPTIMIZATION_WORKSPACE, f'optimization_{model_mode}')
+        optimization_dir = _mkdir(os.path.join(
+            OPTIMIZATION_WORKSPACE, f'optimization_{model_mode}'))
         # returns a (optimal mask, area selected) tuple
         optimal_mask_raster_path, area_selected = \
             _greedy_select_pixels_to_area(
@@ -269,7 +309,7 @@ def main():
         WORKSPACE_DIR,
         f'optimal_scenario_biomass_{MODELED_MODE}_{TARGET_AREA_HA}_ha.tif')
     _calculate_modeled_biomass(
-        optimal_lulc_scenario_raster_dict[MODELED_MODE], biomass_model,
+        optimal_lulc_scenario_raster_dict[MODELED_MODE],
         optimal_modeled_churn_dir, optimal_biomass_modeled_raster_path)
 
     # evaluate the IPCC driven optimal scenario with the biomass model
@@ -280,7 +320,7 @@ def main():
         WORKSPACE_DIR,
         f'optimal_scenario_biomass_{IPCC_MODE}_{TARGET_AREA_HA}.tif')
     _calculate_modeled_biomass(
-        optimal_lulc_scenario_raster_dict[IPCC_MODE], biomass_model,
+        optimal_lulc_scenario_raster_dict[IPCC_MODE],
         optimal_ipcc_churn_dir, optimal_biomass_ipcc_raster_path)
 
     LOGGER.info(
