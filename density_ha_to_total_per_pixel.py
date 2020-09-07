@@ -100,7 +100,8 @@ def density_per_ha_to_total_per_pixel(
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Convert to carbon stocks')
+    parser = argparse.ArgumentParser(
+        description='Convert a raster in units X/Ha to (total X)/pixel.')
     parser.add_argument(
         'base_value_per_ha_raster_path',
         help='Path to base raster whose units are X/ha')
