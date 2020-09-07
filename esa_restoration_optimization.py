@@ -52,10 +52,10 @@ ESA_RESTORATION_SCENARIO_RASTER_PATH = os.path.join(
     'scenario_data/ESA_restoration_scenario.tif')
 
 # These are used in combination with an ESA landcover map to calculate carbon
-CARBON_ZONES_VECTOR_URI = os.path.join(
+CARBON_ZONES_VECTOR_PATH = os.path.join(
     MODEL_BASE_DIR,
     'carbon_zones_md5_aa16830f64d1ef66ebdf2552fb8a9c0d.gpkg')
-IPCC_CARBON_TABLE_URI = os.path.join(
+IPCC_CARBON_TABLE_PATH = os.path.join(
     MODEL_BASE_DIR,
     'IPCC_carbon_table_md5_a91f7ade46871575861005764d85cfa7.csv')
 
@@ -268,9 +268,57 @@ def _calculate_ipcc_biomass(
     Return:
         None
     """
-    basename = os.path.basename(os.path.splitext(landcover_raster_path)[0])
-    LOGGER.info(f'calculate IPCC biomass for {basename}')
-    # TODO: convert to biomass not just /ha
+    def _ipcc_carbon_op(
+            lulc_array, zones_array, zone_lulc_to_carbon_map):
+        """Map carbon to LULC/zone values and multiply by conversion map."""
+        result = numpy.zeros(lulc_array.shape)
+        for zone_id in numpy.unique(zones_array):
+            if zone_id in zone_lulc_to_carbon_map:
+                zone_mask = zones_array == zone_id
+                result[zone_mask] = (
+                    zone_lulc_to_carbon_map[zone_id][lulc_array[zone_mask]])
+        return result
+
+    def _parse_carbon_lulc_table(ipcc_carbon_table_path):
+        """Custom func to parse out the IPCC carbon table by zone and lulc."""
+        with open(IPCC_CARBON_TABLE_PATH, 'r') as carbon_table_file:
+            header_line = carbon_table_file.readline()
+            lulc_code_list = [
+                int(lucode) for lucode in header_line.split(',')[1:]]
+            max_code = max(lulc_code_list)
+
+            zone_lucode_to_carbon_map = {}
+            for line in carbon_table_file:
+                split_line = line.split(',')
+                if split_line[0] == '':
+                    continue
+                zone_id = int(split_line[0])
+                zone_lucode_to_carbon_map[zone_id] = numpy.zeros(max_code+1)
+                for lucode, carbon_value in zip(
+                        lulc_code_list, split_line[1:]):
+                    zone_lucode_to_carbon_map[zone_id][lucode] = float(
+                        carbon_value)
+        return zone_lucode_to_carbon_map
+
+    rasterized_zones_raster_path = os.path.join(churn_dir, 'carbon_zones.tif')
+    LOGGER.info(
+        f'rasterize carbon zones of {landcover_raster_path} to '
+        f'{rasterized_zones_raster_path}')
+    pygeoprocessing.new_raster_from_base(
+        landcover_raster_path, rasterized_zones_raster_path, gdal.GDT_Int32,
+        [-1])
+    pygeoprocessing.rasterize(
+        CARBON_ZONES_VECTOR_PATH, rasterized_zones_raster_path,
+        option_list=['ATTRIBUTE=CODE'])
+
+    zone_lucode_to_carbon_map = _parse_carbon_lulc_table(
+        IPCC_CARBON_TABLE_PATH)
+
+    pygeoprocessing.raster_calculator(
+        [(landcover_raster_path, 1), (rasterized_zones_raster_path, 1),
+         (zone_lucode_to_carbon_map, 'raw')],
+        _ipcc_carbon_op, target_biomass_raster_path,
+        gdal.GDT_Float32, -1)
 
 
 def main():
