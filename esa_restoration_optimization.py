@@ -56,10 +56,10 @@ with open(MODEL_PATH, 'rb') as MODEL_FILE:
 # There are two landcover configurations, ESA and restoration of ESA
 BASE_LULC_RASTER_PATH = os.path.join(
     MODEL_BASE_DIR,
-    'ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif')
+    'esa_brazil_clip.tif') #'ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif')
 ESA_RESTORATION_SCENARIO_RASTER_PATH = os.path.join(
     MODEL_BASE_DIR,
-    'restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif')
+    'esa_restoration_brazil_clip.tif') # 'restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif')
 
 # These are used in combination with an ESA landcover map to calculate carbon
 CARBON_ZONES_VECTOR_PATH = os.path.join(
