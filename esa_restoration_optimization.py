@@ -25,15 +25,25 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
 # Working directories for substeps
-WORKSPACE_DIR = './esa_restoration_optimization'
-CHURN_DIR = os.path.join(WORKSPACE_DIR, 'churn')
-BIOMASS_RASTER_DIR = os.path.join(WORKSPACE_DIR, 'biomass_rasters')
-MARGINAL_VALUE_WORKSPACE = os.path.join(
-    WORKSPACE_DIR, 'marginal_value_rasters')
-OPTIMIZATION_WORKSPACE = os.path.join(
-    WORKSPACE_DIR, 'optimization_workspaces')
-OPTIMIAZATION_SCENARIOS_DIR = os.path.join(
-    WORKSPACE_DIR, 'optimization_scenarios')
+def _mkdir(dir_path):
+    """Safely make directory."""
+    try:
+        os.makedirs(dir_path)
+    except OSError:
+        pass
+    return dir_path
+
+
+WORKSPACE_DIR = _mkdir('./esa_restoration_optimization')
+CHURN_DIR = _mkdir(os.path.join(WORKSPACE_DIR, 'churn'))
+BIOMASS_RASTER_DIR = _mkdir(
+    os.path.join(WORKSPACE_DIR, 'biomass_rasters'))
+MARGINAL_VALUE_WORKSPACE = _mkdir(
+    os.path.join(WORKSPACE_DIR, 'marginal_value_rasters'))
+OPTIMIZATION_WORKSPACE = _mkdir(
+    os.path.join(WORKSPACE_DIR, 'optimization_workspaces'))
+OPTIMIAZATION_SCENARIOS_DIR = _mkdir(
+    os.path.join(WORKSPACE_DIR, 'optimization_scenarios'))
 
 MODEL_PATH = './models/carbon_model_lsvr_poly_2_90000_pts.mod'
 MODEL_BASE_DIR = './model_base_data'
@@ -74,15 +84,6 @@ AREA_REPORT_STEP_AMOUNT_HA = TARGET_AREA_HA/20
 def _raw_basename(file_path):
     """Return just the filename without extension."""
     return os.path.basename(os.path.spliext(file_path)[0])
-
-
-def _mkdir(dir_path):
-    """Safely make directory."""
-    try:
-        os.makedirs(dir_path)
-    except OSError:
-        pass
-    return dir_path
 
 
 def _sum_raster(raster_path):
@@ -323,12 +324,6 @@ def _calculate_ipcc_biomass(
 
 def main():
     """Entry point."""
-    for dir_path in [
-            WORKSPACE_DIR, CHURN_DIR, BIOMASS_RASTER_DIR,
-            MARGINAL_VALUE_WORKSPACE, OPTIMIZATION_WORKSPACE,
-            OPTIMIAZATION_SCENARIOS_DIR]:
-        _mkdir(dir_path)
-
     # TODO: task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, 2, 15.0)
 
     # modeled_biomass_raster_dict indexed by
@@ -407,8 +402,8 @@ def main():
             optimal_scenario_lulc_raster_path
 
     # evaluate the MODELED driven optimal scenario with the biomass model
-    optimal_modeled_churn_dir = os.path.join(
-        CHURN_DIR, f'churn_optimal_{MODELED_MODE}_{TARGET_AREA_HA}_ha')
+    optimal_modeled_churn_dir = _mkdir(os.path.join(
+        CHURN_DIR, f'churn_optimal_{MODELED_MODE}_{TARGET_AREA_HA}_ha'))
     optimal_biomass_modeled_raster_path = os.path.join(
         WORKSPACE_DIR,
         f'optimal_scenario_biomass_{MODELED_MODE}_{TARGET_AREA_HA}_ha.tif')
@@ -417,9 +412,9 @@ def main():
         optimal_modeled_churn_dir, optimal_biomass_modeled_raster_path)
 
     # evaluate the IPCC driven optimal scenario with the biomass model
-    optimal_ipcc_churn_dir = os.path.join(
+    optimal_ipcc_churn_dir = _mkdir(os.path.join(
         CHURN_DIR,
-        f'churn_optimal_{IPCC_MODE}_{TARGET_AREA_HA}_ha')
+        f'churn_optimal_{IPCC_MODE}_{TARGET_AREA_HA}_ha'))
     optimal_biomass_ipcc_raster_path = os.path.join(
         WORKSPACE_DIR,
         f'optimal_scenario_biomass_{IPCC_MODE}_{TARGET_AREA_HA}.tif')
