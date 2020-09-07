@@ -21,7 +21,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Clip raster')
     parser.add_argument(
         'base_raster_path', help='Path to base raster to clip.')
-    parser.add_argument('target_pixel_size', help='desired target pixel size in float')
     parser.add_argument('aoi_vector_path', help='Path to vector to clip.')
     parser.add_argument('target_clipped_path', help='Path to cliped raster.')
     args = parser.parse_args()
