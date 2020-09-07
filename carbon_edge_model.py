@@ -304,7 +304,7 @@ def evaluate_model_with_landcover(
         max_biomass (float): threshold modeled biomass to this value
 
     Returns:
-        None.
+        (str) Path to created biomass_per_ha raster.
 
     """
     landtype_basename = os.path.basename(
