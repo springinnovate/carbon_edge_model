@@ -262,7 +262,7 @@ def _calculate_modeled_biomass(
         carbon_edge_model.evaluate_model_with_landcover(
             BIOMASS_MODEL, landcover_type_mask_raster_path,
             convolution_file_paths,
-            churn_dir, MODEL_BASE_DIR, -1, '', task_graph)
+            churn_dir, churn_dir, -1, '', task_graph)
     task_graph.join()
     task_graph.close()
 
