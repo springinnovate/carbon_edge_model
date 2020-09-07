@@ -28,7 +28,7 @@ def area_of_pixel(pixel_size, center_lat):
 
     Adapted from: https://gis.stackexchange.com/a/127327/2397
 
-    Parameters:
+    Args:
         pixel_size (float): length of side of pixel in degrees.
         center_lat (float): latitude of the center of the pixel. Note this
             value +/- half the `pixel-size` must not exceed 90/-90 degrees
@@ -53,7 +53,8 @@ def area_of_pixel(pixel_size, center_lat):
     return abs(pixel_size / 360. * (area_list[0] - area_list[1]))
 
 
-def conversion_op(array, conversion, nodata):
+def mult_op(array, conversion, nodata):
+    """Mult array by conversion, skipping nodata."""
     result = numpy.copy(array)
     if nodata is not None:
         valid_mask = ~numpy.isclose(array, nodata)
@@ -63,10 +64,12 @@ def conversion_op(array, conversion, nodata):
     return result
 
 
-def convert_to_stocks(
-        base_biomass_ha_raster_path, mult_factor, target_biomass_raster_path):
-    """Convert biomass/Ha in base to biomass per pixel."""
-    base_raster_info = pygeoprocessing.get_raster_info(args.base_raster_path)
+def density_per_ha_to_total_per_pixel(
+        base_value_per_ha_raster_path, mult_factor,
+        target_total_per_pixel_raster_path):
+    """Convert X/Ha in base to (total X)/pixel."""
+    base_raster_info = pygeoprocessing.get_raster_info(
+        base_value_per_ha_raster_path)
 
     base_srs = osr.SpatialReference()
     base_srs.ImportFromWkt(base_raster_info['projection_wkt'])
@@ -87,26 +90,28 @@ def convert_to_stocks(
         pixel_conversion = 1.0 / 10000.0 * numpy.array([
             [area_of_pixel(pixel_height, lat_val)] for lat_val in lat_vals])
 
-    pixel_conversion *= args.factor
+    pixel_conversion *= mult_factor
 
     nodata = base_raster_info['nodata'][0]
     pygeoprocessing.raster_calculator(
         [(args.base_raster_path, 1), pixel_conversion, (nodata, 'raw')],
-        conversion_op, args.target_area_raster_path,
+        mult_op, target_total_per_pixel_raster_path,
         base_raster_info['datatype'], nodata)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Convert to carbon stocks')
     parser.add_argument(
-        'base_raster_path',
-        help='Path to base raster whose units are biomass/ha')
+        'base_value_per_ha_raster_path',
+        help='Path to base raster whose units are X/ha')
     parser.add_argument(
-        'target_area_raster_path',
-        help='Path to desired target raster with units biomass/pixel.')
+        'target_total_per_pixel_raster_path',
+        help='Path to desired target raster with units (total X)/pixel.')
     parser.add_argument(
-        '--factor', default=1.0, type=float,
-        help='Additional factor to multiply values by.')
+        '--mult_factor', default=1.0, type=float,
+        help='Additional factor to multiply total by, default is 1.0.')
     args = parser.parse_args()
-    convert_to_stocks(
-        args.base_raster_path, args.factor, args.target_area_raster_path)
+    density_per_ha_to_total_per_pixel(
+        args.base_value_per_ha_raster_path, args.mult_factor,
+        args.target_total_per_pixel_raster_path)
 
