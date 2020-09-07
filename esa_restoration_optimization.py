@@ -9,7 +9,10 @@ from osgeo import gdal
 import numpy
 import pygeoprocessing
 import taskgraph
+
 import carbon_edge_model
+from density_per_ha_to_total_per_pixel import \
+    density_per_ha_to_total_per_pixel
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -247,7 +250,9 @@ def _calculate_modeled_biomass(
     task_graph.join()
 
     # TODO: convert biomass density into biomass stocks
-
+    density_per_ha_to_total_per_pixel(
+        base_value_per_ha_raster_path, mult_factor,
+        target_total_per_pixel_raster_path)
 
 def _calculate_ipcc_biomass(
         landcover_raster_path, churn_dir, target_biomass_raster_path):
