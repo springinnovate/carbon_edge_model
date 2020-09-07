@@ -63,18 +63,9 @@ def conversion_op(array, conversion, nodata):
     return result
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Convert to carbon stocks')
-    parser.add_argument(
-        'base_raster_path',
-        help='Path to base raster whose units are biomass/ha')
-    parser.add_argument(
-        'target_area_raster_path', help='Path to desired target raster.')
-    parser.add_argument(
-        '--factor', default=1.0, type=float,
-        help='Additional factor to multiply values by.')
-    args = parser.parse_args()
-
+def convert_to_stocks(
+        base_biomass_ha_raster_path, mult_factor, target_biomass_raster_path):
+    """Convert biomass/Ha in base to biomass per pixel."""
     base_raster_info = pygeoprocessing.get_raster_info(args.base_raster_path)
 
     base_srs = osr.SpatialReference()
@@ -103,3 +94,19 @@ if __name__ == '__main__':
         [(args.base_raster_path, 1), pixel_conversion, (nodata, 'raw')],
         conversion_op, args.target_area_raster_path,
         base_raster_info['datatype'], nodata)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Convert to carbon stocks')
+    parser.add_argument(
+        'base_raster_path',
+        help='Path to base raster whose units are biomass/ha')
+    parser.add_argument(
+        'target_area_raster_path',
+        help='Path to desired target raster with units biomass/pixel.')
+    parser.add_argument(
+        '--factor', default=1.0, type=float,
+        help='Additional factor to multiply values by.')
+    args = parser.parse_args()
+    convert_to_stocks(
+        args.base_raster_path, args.factor, args.target_area_raster_path)
+
