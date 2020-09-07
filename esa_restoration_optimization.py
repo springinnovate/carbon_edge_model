@@ -250,6 +250,7 @@ def _calculate_modeled_biomass(
             convolution_file_paths,
             churn_dir, MODEL_BASE_DIR, -1, '', task_graph)
     task_graph.join()
+    task_graph.close()
 
     density_per_ha_to_total_per_pixel(
         total_biomass_stocks_raster_path, 1.0,
