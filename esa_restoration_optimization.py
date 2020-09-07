@@ -159,14 +159,26 @@ def _diff_rasters(
     """Calculate a-b.
 
     Args:
-        a_raster_path (str): raster A, same size as B
+        a_raster_path (str): raster A, same nodata and size as B
         b_raster_path (str): raster B
         target_diff_raster_path (str): result of A-B accounting for nodata.
 
     Returns:
         None
     """
-    pass
+    raster_info = pygeoprocessing.get_raster_info(a_raster_path)
+    nodata = raster_info['nodata'][0]
+
+    def _diff_op(a_array, b_array):
+        """Return a-b and consider nodata."""
+        result = numpy.copy(a_array)
+        valid_mask = ~numpy.isclose(a_array, nodata)
+        result[valid_mask] -= b_array[valid_mask]
+        return result
+
+    pygeoprocessing.raster_calculator(
+        [(a_raster_path, 1), (b_raster_path, 1)], _diff_op,
+        target_diff_raster_path, raster_info['datatype'], nodata)
 
 
 def _calculate_modeled_biomass(
