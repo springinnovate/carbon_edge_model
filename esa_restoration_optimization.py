@@ -165,7 +165,7 @@ def _greedy_select_pixels_to_area(
         workspace_dir, f'pixel_area_in_ha_{raster_id}.tif')
 
     pygeoprocessing.new_raster_from_base(
-        base_value_raster_path, pixel_area_in_ha_raster_path, gdal.GDT_Byte,
+        base_value_raster_path, all_ones_raster_path, gdal.GDT_Byte,
         [None], fill_value_list=[1])
 
     density_per_ha_to_total_per_pixel(
