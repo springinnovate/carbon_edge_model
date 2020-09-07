@@ -24,6 +24,7 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 
+
 # Working directories for substeps
 def _mkdir(dir_path):
     """Safely make directory."""
@@ -83,7 +84,7 @@ AREA_REPORT_STEP_AMOUNT_HA = TARGET_AREA_HA/20
 
 def _raw_basename(file_path):
     """Return just the filename without extension."""
-    return os.path.basename(os.path.spliext(file_path)[0])
+    return os.path.basename(os.path.splitext(file_path)[0])
 
 
 def _sum_raster(raster_path):
