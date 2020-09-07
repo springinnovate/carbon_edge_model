@@ -353,7 +353,7 @@ def evaluate_model_with_landcover(
 
     # combine both the non-forest and forest into one map for each
     # scenario based on their masks
-    total_carbon_stocks_raster_path = os.path.join(
+    total_biomass_stocks_raster_path = os.path.join(
         workspace_dir,
         f'biomass_per_ha_stocks_{landtype_basename}{file_suffix}.tif')
 
@@ -365,7 +365,7 @@ def evaluate_model_with_landcover(
         f'if {forest_mask_path} is 1 '
         f'else {baccini_aligned_raster_path}, upper '
         f'upper_threshold {max_biomass}\n'
-        f'result in {total_carbon_stocks_raster_path}')
+        f'result in {total_biomass_stocks_raster_path}')
 
     task_graph.add_task(
         func=raster_where,
@@ -373,14 +373,16 @@ def evaluate_model_with_landcover(
             forest_mask_path,
             forest_carbon_stocks_raster_path,
             baccini_aligned_raster_path, max_biomass,
-            total_carbon_stocks_raster_path),
+            total_biomass_stocks_raster_path),
         target_path_list=[
-            total_carbon_stocks_raster_path],
+            total_biomass_stocks_raster_path],
         hash_algorithm='md5',
         copy_duplicate_artifact=True,
         hardlink_allowed=True,
         dependent_task_list=[regression_model_task],
         task_name=f'combine forest/nonforest')
+
+    return total_biomass_stocks_raster_path
 
 
 def main():

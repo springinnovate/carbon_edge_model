@@ -243,16 +243,17 @@ def _calculate_modeled_biomass(
     task_graph.join()
 
     LOGGER.info('evaluate carbon model')
-    carbon_edge_model.evaluate_model_with_landcover(
-        BIOMASS_MODEL, landcover_type_mask_raster_path,
-        convolution_file_paths,
-        churn_dir, MODEL_BASE_DIR, -1, '', task_graph)
+    total_biomass_stocks_raster_path = \
+        carbon_edge_model.evaluate_model_with_landcover(
+            BIOMASS_MODEL, landcover_type_mask_raster_path,
+            convolution_file_paths,
+            churn_dir, MODEL_BASE_DIR, -1, '', task_graph)
     task_graph.join()
 
-    # TODO: convert biomass density into biomass stocks
     density_per_ha_to_total_per_pixel(
-        base_value_per_ha_raster_path, mult_factor,
-        target_total_per_pixel_raster_path)
+        total_biomass_stocks_raster_path, 1.0,
+        target_biomass_raster_path)
+
 
 def _calculate_ipcc_biomass(
         landcover_raster_path, churn_dir, target_biomass_raster_path):
