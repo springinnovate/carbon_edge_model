@@ -94,8 +94,8 @@ def density_per_ha_to_total_per_pixel(
 
     nodata = base_raster_info['nodata'][0]
     pygeoprocessing.raster_calculator(
-        [(args.base_raster_path, 1), pixel_conversion, (nodata, 'raw')],
-        mult_op, target_total_per_pixel_raster_path,
+        [(base_value_per_ha_raster_path, 1), pixel_conversion,
+         (nodata, 'raw')], mult_op, target_total_per_pixel_raster_path,
         gdal.GDT_Float32, nodata)
 
 
