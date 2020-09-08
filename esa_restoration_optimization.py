@@ -258,7 +258,7 @@ def _calculate_modeled_biomass(
     task_graph.join()
 
     LOGGER.info('evaluate carbon model')
-    total_biomass_stocks_raster_path = \
+    total_biomass_per_ha_raster_path = \
         carbon_edge_model.evaluate_model_with_landcover(
             BIOMASS_MODEL, landcover_type_mask_raster_path,
             convolution_file_paths,
@@ -267,7 +267,7 @@ def _calculate_modeled_biomass(
     task_graph.close()
 
     density_per_ha_to_total_per_pixel(
-        total_biomass_stocks_raster_path, 1.0,
+        total_biomass_per_ha_raster_path, 1.0,
         target_biomass_raster_path)
 
 
@@ -330,11 +330,16 @@ def _calculate_ipcc_biomass(
     zone_lucode_to_carbon_map = _parse_carbon_lulc_table(
         IPCC_CARBON_TABLE_PATH)
 
+    biomass_per_ha_raster_path = os.path.join(churn_dir, 'biomass_per_ha.tif')
     pygeoprocessing.raster_calculator(
         [(landcover_raster_path, 1), (rasterized_zones_raster_path, 1),
          (zone_lucode_to_carbon_map, 'raw')],
-        _ipcc_carbon_op, target_biomass_raster_path,
+        _ipcc_carbon_op, biomass_per_ha_raster_path,
         gdal.GDT_Float32, -1)
+
+    density_per_ha_to_total_per_pixel(
+        biomass_per_ha_raster_path, 1.0,
+        target_biomass_raster_path)
 
 
 def main():
