@@ -4,6 +4,7 @@ import glob
 import os
 import logging
 import pickle
+import re
 import shutil
 import sys
 
@@ -51,6 +52,8 @@ OPTIMIAZATION_SCENARIOS_DIR = _mkdir(
     os.path.join(WORKSPACE_DIR, 'optimization_scenarios'))
 NEW_FOREST_MASK_DIR = _mkdir(
     os.path.join(WORKSPACE_DIR, 'new_forest_masks'))
+MODELED_VS_IPCC_DIR = _mkdir(
+    os.path.join(WORKSPACE_DIR, 'modeled_vs_ipcc'))
 
 MODEL_PATH = './models/carbon_model_lsvr_poly_2_90000_pts.mod'
 MODEL_BASE_DIR = './model_base_data'
@@ -541,8 +544,8 @@ def main():
             (target_ipcc_biomass_path, biomass_ipcc_task)
 
     LOGGER.info('create marginal value maps')
-    # indexed by MODELED_MODE vs. IPCC_MODE to pairs of (path, task) rasters
-    optimization_biomass_dir_task_list_dict = collections.defaultdict(list)
+    # this will have (mode, task, dir) tuples for this section
+    optimization_mode_task_dir_list = []
     for model_mode in [MODELED_MODE, IPCC_MODE]:
         marginal_value_biomass_raster = os.path.join(
             MARGINAL_VALUE_WORKSPACE,
@@ -582,15 +585,24 @@ def main():
                 AREA_REPORT_STEP_LIST),
             dependent_task_list=[marginal_value_task],
             task_name=f'optimize on {marginal_value_biomass_raster}')
+        optimization_mode_task_dir_list.append(
+            (model_mode, optimization_task, optimization_dir))
+
+    # indexed by MODELED_MODE vs. IPCC_MODE then by area of the new forest
+    optimization_biomass_area_path_task_dict = \
+        collections.defaultdict(dict)
+    for (model_mode, optimization_dir, optimization_task) in \
+            optimization_mode_task_dir_list.items():
 
         optimization_biomass_dir = _mkdir(os.path.join(
             OPTIMIZATION_WORKSPACE,
             f'biomass_{unique_scenario_id}_{model_mode}'))
 
-        # TOOD: make this so we don't have to join
+        # okay to join here because it's going to trigger a whole set of
+        # other tasks and nothing can be done until this one is ready anyway
         optimization_task.join()
         for optimal_mask_raster_path in glob.glob(
-                os.path.join(optimization_dir, '*.tif')):
+                os.path.join(optimization_dir, 'optimal_mask_*.tif')):
             optimization_biomass_raster_path = os.path.join(
                 optimization_biomass_dir,
                 f'''biomass_per_pixel_{
@@ -605,13 +617,50 @@ def main():
                 task_name=f'''calculate modeled optimization biomass for {
                     optimization_biomass_raster_path}''')
 
-            optimization_biomass_dir_task_list_dict[model_mode].append(
-                (optimization_biomass_raster_path, optimization_biomass_task))
+            mask_area = float(re.match(
+                r'optimal_mask_(.*)\.tif', os.path.basename(
+                    optimal_mask_raster_path)).group(1))
+            optimization_biomass_area_path_task_dict[
+                model_mode][mask_area] = (
+                    optimization_biomass_raster_path,
+                    optimization_biomass_task)
 
-    # TODO: calculate difference between modeled biomass optimization and report
-    # LOGGER.info(
-    #     'calculate difference between modeled biomass optimization and IPCC '
-    #     'optimization')
+    # TODO: calculate difference between modeled vs IPCC
+    LOGGER.info(
+        'calculate difference between modeled biomass optimization and IPCC '
+        'optimization')
+    mask_areas = sorted([
+        float(x) for x in
+        optimization_biomass_area_path_task_dict[MODELED_MODE].keys()])
+    modeled_diff_ipcc_biomass_sum_task_list = []
+    for mask_area in mask_areas:
+        model_biomass_raster_path, modeled_task = \
+            optimization_biomass_area_path_task_dict[MODELED_MODE][mask_area]
+        ipcc_biomass_raster_path, ipcc_task = \
+            optimization_biomass_area_path_task_dict[IPCC_MODE][mask_area]
+        modeled_vs_ipcc_optimal_biomass_diff_raster_path = os.path.join(
+            MODELED_VS_IPCC_DIR,
+            f'modeled_vs_ipcc_diff_{mask_area}_ha.tif')
+        diff_task = task_graph.add_task(
+            func=_diff_rasters,
+            args=(
+                model_biomass_raster_path,
+                ipcc_biomass_raster_path,
+                modeled_vs_ipcc_optimal_biomass_diff_raster_path),
+            dependent_task_list=[modeled_task, ipcc_task],
+            target_path_list=[
+                modeled_vs_ipcc_optimal_biomass_diff_raster_path],
+            task_name=f'''modeled diff ipcc {
+                modeled_vs_ipcc_optimal_biomass_diff_raster_path}''')
+
+        sum_task = task_graph.add_task(
+            func=_sum_raster,
+            args=(modeled_vs_ipcc_optimal_biomass_diff_raster_path),
+            dependent_task_list=[diff_task],
+            task_name=f'''sum the modeled vs. ippc diff for {
+                modeled_vs_ipcc_optimal_biomass_diff_raster_path}''')
+        modeled_diff_ipcc_biomass_sum_task_list.append(sum_task)
+
     # modeled_vs_optimal_biomass_diff_raster_dict = {}
     # for model_mode, optimal_biomass_raster_path in [
     #         (IPCC_MODE, optimal_biomass_ipcc_raster_path),
