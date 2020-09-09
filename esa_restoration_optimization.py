@@ -592,7 +592,7 @@ def main():
     optimization_biomass_area_path_task_dict = \
         collections.defaultdict(dict)
     for (model_mode, optimization_task, optimization_dir) in \
-            optimization_mode_task_dir_list.items():
+            optimization_mode_task_dir_list:
         # okay to join here because it's going to trigger a whole set of
         # other tasks and nothing can be done until this one is ready anyway
         optimization_task.join()
