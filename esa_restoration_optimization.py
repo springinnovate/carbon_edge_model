@@ -142,7 +142,7 @@ def _replace_value_by_mask(
             (base_raster_path, 1)):
         mask_block = mask_band.ReadAsArray(**offset_dict)
         target_band.WriteArray(
-            numpy.where(mask_block == 1), replacement_value, base_block)
+            numpy.where(mask_block == 1, replacement_value, base_block))
 
     target_band = None
     target_raster = None
