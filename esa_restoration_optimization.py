@@ -633,6 +633,8 @@ def main():
         float(x) for x in
         optimization_biomass_area_path_task_dict[MODELED_MODE].keys()])
     modeled_diff_ipcc_biomass_sum_task_list = []
+    modeled_diff_mode_base_biomass_sum_task_list = \
+        collections.defaultdict(list)
     for mask_area in mask_areas:
         model_biomass_raster_path, modeled_task = \
             optimization_biomass_area_path_task_dict[MODELED_MODE][mask_area]
@@ -661,48 +663,58 @@ def main():
                 modeled_vs_ipcc_optimal_biomass_diff_raster_path}''')
         modeled_diff_ipcc_biomass_sum_task_list.append(sum_task)
 
-    # modeled_vs_optimal_biomass_diff_raster_dict = {}
-    # for model_mode, optimal_biomass_raster_path in [
-    #         (IPCC_MODE, optimal_biomass_ipcc_raster_path),
-    #         (MODELED_MODE, optimal_biomass_modeled_raster_path),
-    #         ]:
-    #     modeled_vs_optimal_biomass_diff_raster_path = os.path.join(
-    #         WORKSPACE_DIR,
-    #         f'optimal_{model_mode}_biomass_gain_{TARGET_AREA_HA}_ha.tif')
-    #     _diff_rasters(
-    #         optimal_biomass_raster_path,
-    #         modeled_biomass_raster_task_dict[MODELED_MODE][BASE_SCENARIO][0],
-    #         modeled_vs_optimal_biomass_diff_raster_path)
-    #     modeled_vs_optimal_biomass_diff_raster_dict[model_mode] = \
-    #         modeled_vs_optimal_biomass_diff_raster_path
+        LOGGER.info(
+            'subtract modeled and ipcc from base modeled to get the gain')
+        modeled_vs_base_biomass_diff_raster_path = os.path.join(
+            MODELED_VS_IPCC_DIR, f'modeled_vs_base_{mask_area}_ha.tif')
+        ipcc_vs_base_biomass_diff_raster_path = os.path.join(
+            MODELED_VS_IPCC_DIR, f'modeled_vs_base_{mask_area}_ha.tif')
+        modeled_base_biomass_raster_path = (
+            modeled_biomass_raster_task_dict[MODELED_MODE][BASE_SCENARIO][0])
+        for modeled_path, target_diff_path, base_modeled_task, mode in [(
+                (model_biomass_raster_path,
+                 modeled_vs_base_biomass_diff_raster_path, modeled_task,
+                 MODELED_MODE),
+                (ipcc_biomass_raster_path,
+                 ipcc_vs_base_biomass_diff_raster_path, ipcc_task,
+                 IPCC_MODE))]:
+            diff_task = task_graph.add_task(
+                func=_diff_rasters,
+                args=(
+                    modeled_path, modeled_base_biomass_raster_path,
+                    target_diff_path),
+                dependent_task_list=[base_modeled_task],
+                target_path_list=[target_diff_path],
+                task_name=f'modeled diff ipcc {target_diff_path}')
+
+            sum_task = task_graph.add_task(
+                func=_sum_raster,
+                args=(modeled_vs_ipcc_optimal_biomass_diff_raster_path),
+                dependent_task_list=[diff_task],
+                task_name=f'''sum the modeled vs. ippc diff for {
+                    modeled_vs_ipcc_optimal_biomass_diff_raster_path}''')
+            modeled_diff_mode_base_biomass_sum_task_list[mode].append(sum_task)
+
+    task_graph.join()
 
     LOGGER.info('report')
-    # report_csv_path = os.path.join(
-    #     WORKSPACE_DIR, f'report_{MODELED_MODE}_vs_{IPCC_MODE}.csv')
-    # with open(report_csv_path, 'w') as report_csv_file:
-    #     report_csv_file.write(
-    #         'description,biomass sum,raster path\n')
-    #     for description, raster_path in [
-    #         ('base scenario modeled with IPCC',
-    #          modeled_biomass_raster_task_dict[IPCC_MODE][BASE_SCENARIO][0]),
-    #         ('restoration scenario modeled with IPCC',
-    #          modeled_biomass_raster_task_dict[IPCC_MODE][RESTORATION_SCENARIO][0]),
-    #         (f'base scenario modeled with {MODELED_MODE}',
-    #          modeled_biomass_raster_task_dict[MODELED_MODE][BASE_SCENARIO][0]),
-    #         (f'restoration scenario modeled with {MODELED_MODE}',
-    #          modeled_biomass_raster_task_dict[MODELED_MODE][RESTORATION_SCENARIO][0]),
-    #         (f'optimal {TARGET_AREA_HA} ha target driven by {MODELED_MODE}',
-    #          optimal_biomass_modeled_raster_path),
-    #         (f'optimal {TARGET_AREA_HA} ha target driven by {IPCC_MODE}',
-    #          optimal_biomass_ipcc_raster_path),
-    #         (f'optimal {TARGET_AREA_HA} ha gain driven by {MODELED_MODE}',
-    #          modeled_vs_optimal_biomass_diff_raster_dict[MODELED_MODE]),
-    #         (f'optimal {TARGET_AREA_HA} ha gain driven by {IPCC_MODE}',
-    #          modeled_vs_optimal_biomass_diff_raster_dict[IPCC_MODE])]:
+    report_csv_path = os.path.join(
+        WORKSPACE_DIR, f'''report_{_raw_basename(BASE_LULC_RASTER_PATH)}_{
+        _raw_basename(ESA_RESTORATION_SCENARIO_RASTER_PATH)}.csv''')
+    with open(report_csv_path, 'w') as report_csv_file:
+        report_csv_file.write(
+            'area,biomass gain modeled driven, biomass gain IPCC driven, '
+            'modeled vs ipcc diff\n')
 
-    #         biomass_sum = _sum_raster(raster_path)
-    #         report_csv_file.write(
-    #             f'{description},{biomass_sum},{raster_path}\n')
+        for (area, biomass_modeled_gain, ipcc_modeled_gain,
+                modeled_vs_ipcc) in zip(
+                mask_areas,
+                modeled_diff_mode_base_biomass_sum_task_list[MODELED_MODE],
+                modeled_diff_mode_base_biomass_sum_task_list[IPCC_MODE],
+                modeled_diff_ipcc_biomass_sum_task_list):
+            report_csv_file.write(
+                f'{area},{biomass_modeled_gain.get()},'
+                f'{ipcc_modeled_gain.get()},{modeled_vs_ipcc.get()}\n')
     task_graph.join()
     task_graph.close()
 
