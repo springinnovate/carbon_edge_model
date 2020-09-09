@@ -591,16 +591,16 @@ def main():
     # indexed by MODELED_MODE vs. IPCC_MODE then by area of the new forest
     optimization_biomass_area_path_task_dict = \
         collections.defaultdict(dict)
-    for (model_mode, optimization_dir, optimization_task) in \
+    for (model_mode, optimization_task, optimization_dir) in \
             optimization_mode_task_dir_list.items():
+        # okay to join here because it's going to trigger a whole set of
+        # other tasks and nothing can be done until this one is ready anyway
+        optimization_task.join()
 
         optimization_biomass_dir = _mkdir(os.path.join(
             OPTIMIZATION_WORKSPACE,
             f'biomass_{unique_scenario_id}_{model_mode}'))
 
-        # okay to join here because it's going to trigger a whole set of
-        # other tasks and nothing can be done until this one is ready anyway
-        optimization_task.join()
         for optimal_mask_raster_path in glob.glob(
                 os.path.join(optimization_dir, 'optimal_mask_*.tif')):
             optimization_biomass_raster_path = os.path.join(
@@ -668,7 +668,7 @@ def main():
         modeled_vs_base_biomass_diff_raster_path = os.path.join(
             MODELED_VS_IPCC_DIR, f'modeled_vs_base_{mask_area}_ha.tif')
         ipcc_vs_base_biomass_diff_raster_path = os.path.join(
-            MODELED_VS_IPCC_DIR, f'modeled_vs_base_{mask_area}_ha.tif')
+            MODELED_VS_IPCC_DIR, f'ipcc_vs_base_{mask_area}_ha.tif')
         modeled_base_biomass_raster_path = (
             modeled_biomass_raster_task_dict[MODELED_MODE][BASE_SCENARIO][0])
         for modeled_path, target_diff_path, base_modeled_task, mode in [(
@@ -689,10 +689,10 @@ def main():
 
             sum_task = task_graph.add_task(
                 func=_sum_raster,
-                args=(modeled_vs_ipcc_optimal_biomass_diff_raster_path),
+                args=(target_diff_path),
                 dependent_task_list=[diff_task],
-                task_name=f'''sum the modeled vs. ippc diff for {
-                    modeled_vs_ipcc_optimal_biomass_diff_raster_path}''')
+                task_name=f'''sum the modeled/ipcc vs. base for {
+                    target_diff_path}''')
             modeled_diff_mode_base_biomass_sum_task_list[mode].append(sum_task)
 
     task_graph.join()
