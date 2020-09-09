@@ -1,5 +1,6 @@
 """Script to calculate ESA/restoration optimization."""
 import collections
+import glob
 import os
 import logging
 import pickle
@@ -438,15 +439,50 @@ def _calculate_ipcc_biomass(
         target_biomass_raster_path)
 
 
+def _calculate_modeled_biomass_from_mask(
+        base_lulc_raster_path, new_forest_mask_raster_path,
+        target_biomass_raster_path):
+    """Calculate new biomass raster from base layer and new forest mask.
+
+    Args:
+        base_lulc_raster_path (str): path to base ESA LULC raster.
+        new_forest_mask_raster_path (str): path to raster that indicates
+            where new forest is applied with a 1.
+        target_biomass_raster_path (str): created by this function, a
+            raster that has biomass per pixel for the scenario given by
+            new_forest_mask_raster_path from base_lulc_raster_path.
+
+    Returns:
+        None
+    """
+    churn_dir = tempfile.mkdtemp(
+        dir=os.path.dirname(target_biomass_raster_path))
+
+    # this raster is base with new forest in it
+    converted_lulc_raster_path = os.path.join(churn_dir, 'converted_lulc.tif')
+    _replace_value_by_mask(
+        base_lulc_raster_path, FOREST_CODE, new_forest_mask_raster_path,
+        converted_lulc_raster_path)
+
+    # calculate biomass for that raster
+    _calculate_modeled_biomass(
+        converted_lulc_raster_path,
+        churn_dir, target_biomass_raster_path)
+
+    shutil.rmtree(churn_dir)
+
+
 def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1, 15.0)
 
+    unique_scenario_id = f'''{
+        _raw_basename(BASE_LULC_RASTER_PATH)}_{
+        _raw_basename(ESA_RESTORATION_SCENARIO_RASTER_PATH)}'''
+
     LOGGER.info('calculate new forest mask')
     new_forest_raster_path = os.path.join(
-        NEW_FOREST_MASK_DIR,
-        f'''{_raw_basename(BASE_LULC_RASTER_PATH)}_{
-            _raw_basename(ESA_RESTORATION_SCENARIO_RASTER_PATH)}.tif''')
+        NEW_FOREST_MASK_DIR, f'{unique_scenario_id}.tif')
     new_forest_mask_task = task_graph.add_task(
         func=_calcualte_new_forest,
         args=(
@@ -505,6 +541,8 @@ def main():
             (target_ipcc_biomass_path, biomass_ipcc_task)
 
     LOGGER.info('create marginal value maps')
+    # indexed by MODELED_MODE vs. IPCC_MODE to pairs of (path, task) rasters
+    optimization_biomass_dir_task_list_dict = collections.defaultdict(list)
     for model_mode in [MODELED_MODE, IPCC_MODE]:
         marginal_value_biomass_raster = os.path.join(
             MARGINAL_VALUE_WORKSPACE,
@@ -534,7 +572,8 @@ def main():
             f'create optimal land selection mask to target '
             f'{TARGET_AREA_HA} ha')
         optimization_dir = _mkdir(os.path.join(
-            OPTIMIZATION_WORKSPACE, f'optimization_{model_mode}'))
+            OPTIMIZATION_WORKSPACE,
+            f'optimization_{unique_scenario_id}_{model_mode}'))
         # returns a (optimal mask, area selected) tuple
         optimization_task = task_graph.add_task(
             func=_greedy_select_pixels_to_area,
@@ -544,30 +583,30 @@ def main():
             dependent_task_list=[marginal_value_task],
             task_name=f'optimize on {marginal_value_biomass_raster}')
 
-        # Evaluate the optimal result for biomass, first convert optimal
-        # scenario to LULC map
-        # TODO: this should be for ALL optimization masks though
-        # optimal_scenario_lulc_raster_path = os.path.join(
-        #     OPTIMIAZATION_SCENARIOS_DIR,
-        #     f'optimal_scenario_lulc_'
-        #     f'{model_mode}_{TARGET_AREA_HA}_ha.tif')
-        # make_optimal_lulc_task = task_graph.add_task(
-        #     func=_replace_value_by_mask,
-        #     args=(
-        #         BASE_LULC_RASTER_PATH, FOREST_CODE, optimal_mask_raster_path,
-        #         optimal_scenario_lulc_raster_path),
-        #     target_path_list=[optimal_mask_raster_path],
-        #     task_name=f'create optimal lulc {optimal_mask_raster_path}')
+        optimization_biomass_dir = _mkdir(os.path.join(
+            OPTIMIZATION_WORKSPACE,
+            f'biomass_{unique_scenario_id}_{model_mode}'))
 
-        # TODO: evaluate the MODELED driven optimal scenario with the biomass model
-        # optimal_modeled_churn_dir = _mkdir(os.path.join(
-        #     CHURN_DIR, f'churn_optimal_{MODELED_MODE}_{TARGET_AREA_HA}_ha'))
-        # optimal_biomass_modeled_raster_path = os.path.join(
-        #     WORKSPACE_DIR,
-        #     f'optimal_scenario_biomass_{MODELED_MODE}_{TARGET_AREA_HA}_ha.tif')
-        # _calculate_modeled_biomass(
-        #     optimal_lulc_scenario_raster_dict[MODELED_MODE],
-        #     optimal_modeled_churn_dir, optimal_biomass_modeled_raster_path)
+        # TOOD: make this so we don't have to join
+        optimization_task.join()
+        for optimal_mask_raster_path in glob.glob(
+                os.path.join(optimization_dir, '*.tif')):
+            optimization_biomass_raster_path = os.path.join(
+                optimization_biomass_dir,
+                f'''biomass_per_pixel_{
+                    _raw_basename(optimal_mask_raster_path)}.tif''')
+            optimization_biomass_task = task_graph.add_task(
+                func=_calculate_modeled_biomass_from_mask,
+                args=(
+                    BASE_LULC_RASTER_PATH, optimal_mask_raster_path,
+                    optimization_biomass_raster_path),
+                dependent_task_list=[optimization_task],
+                target_path_list=[optimization_biomass_raster_path],
+                task_name=f'''calculate modeled optimization biomass for {
+                    optimization_biomass_raster_path}''')
+
+            optimization_biomass_dir_task_list_dict[model_mode].append(
+                (optimization_biomass_raster_path, optimization_biomass_task))
 
     # TODO: calculate difference between modeled biomass optimization and report
     # LOGGER.info(
