@@ -49,7 +49,7 @@ OPTIMIZATION_WORKSPACE = _mkdir(
 OPTIMIAZATION_SCENARIOS_DIR = _mkdir(
     os.path.join(WORKSPACE_DIR, 'optimization_scenarios'))
 NEW_FOREST_MASK_DIR = _mkdir(
-    os.path.join(WORKSPACE_DIR, 'new_forest_rasters.tif'))
+    os.path.join(WORKSPACE_DIR, 'new_forest_masks'))
 
 MODEL_PATH = './models/carbon_model_lsvr_poly_2_90000_pts.mod'
 MODEL_BASE_DIR = './model_base_data'
@@ -445,8 +445,8 @@ def main():
     LOGGER.info('calculate new forest mask')
     new_forest_raster_path = os.path.join(
         NEW_FOREST_MASK_DIR,
-        f'''{_raw_basename(BASE_SCENARIO)}_{
-            _raw_basename(RESTORATION_SCENARIO)}.tif''')
+        f'''{_raw_basename(BASE_LULC_RASTER_PATH)}_{
+            _raw_basename(ESA_RESTORATION_SCENARIO_RASTER_PATH)}.tif''')
     new_forest_mask_task = task_graph.add_task(
         func=_calcualte_new_forest,
         args=(
