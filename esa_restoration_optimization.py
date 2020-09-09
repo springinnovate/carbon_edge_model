@@ -48,6 +48,8 @@ OPTIMIZATION_WORKSPACE = _mkdir(
     os.path.join(WORKSPACE_DIR, 'optimization_workspaces'))
 OPTIMIAZATION_SCENARIOS_DIR = _mkdir(
     os.path.join(WORKSPACE_DIR, 'optimization_scenarios'))
+NEW_FOREST_MASK_DIR = _mkdir(
+    os.path.join(WORKSPACE_DIR, 'new_forest_rasters.tif'))
 
 MODEL_PATH = './models/carbon_model_lsvr_poly_2_90000_pts.mod'
 MODEL_BASE_DIR = './model_base_data'
@@ -270,6 +272,34 @@ def _diff_rasters(
         target_diff_raster_path, raster_info['datatype'], nodata)
 
 
+def _calcualte_new_forest(
+        base_lulc_raster_path, future_lulc_raster_path,
+        new_forest_mask_raster_path):
+    """Calculate where there is new forest from base to future.
+
+    Args:
+        base_lulc_raster_path (str):
+        future_lulc_raster_path (str):
+        new_forest_mask_raster_path (str):
+
+    Returns:
+        None
+    """
+    FOREST_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
+
+    def _mask_new_forest(base, future):
+        """Remap values from ESA codes to basic MASK_TYPES."""
+        result = numpy.empty(base.shape, dtype=numpy.uint8)
+        base_forest = numpy.in1d(base, FOREST_CODES).reshape(result.shape)
+        future_forest = numpy.in1d(future, FOREST_CODES).reshape(result.shape)
+        result[:] = future_forest & ~base_forest
+        return result
+
+    pygeoprocessing.raster_calculator(
+        [(base_lulc_raster_path, 1), (future_lulc_raster_path, 1)],
+        _mask_new_forest, new_forest_mask_raster_path, gdal.GDT_Byte, None)
+
+
 def _calculate_modeled_biomass(
         esa_landcover_raster_path, churn_dir,
         target_biomass_raster_path):
@@ -412,6 +442,19 @@ def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1, 15.0)
 
+    LOGGER.info('calculate new forest mask')
+    new_forest_raster_path = os.path.join(
+        NEW_FOREST_MASK_DIR,
+        f'''{_raw_basename(BASE_SCENARIO)}_{
+            _raw_basename(RESTORATION_SCENARIO)}.tif''')
+    new_forest_mask_task = task_graph.add_task(
+        func=_calcualte_new_forest,
+        args=(
+            BASE_LULC_RASTER_PATH, ESA_RESTORATION_SCENARIO_RASTER_PATH,
+            new_forest_raster_path),
+        target_path_list=[new_forest_raster_path],
+        task_name=f'create forest mask for {new_forest_raster_path}')
+
     # modeled_biomass_raster_task_dict indexed by
     #   [MODELED_MODE/IPCC_MODE] -> [BASE_SCENARIO/RESTORATION_SCENARIO]
     modeled_biomass_raster_task_dict = collections.defaultdict(dict)
@@ -481,7 +524,8 @@ def main():
                 new_forest_raster_path,
                 marginal_value_biomass_raster),
             target_path_list=[marginal_value_biomass_raster],
-            dependent_task_list=[restoration_task, base_task],
+            dependent_task_list=[
+                restoration_task, base_task, new_forest_mask_task],
             task_name=(
                 f'''calc marginal value for {restoration_biomass_raster} '''
                 f'''and {base_biomass_raster}'''))
