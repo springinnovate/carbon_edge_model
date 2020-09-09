@@ -3,14 +3,17 @@ import collections
 import os
 import logging
 import pickle
+import shutil
 import sys
 
 from osgeo import gdal
 import numpy
 import pygeoprocessing
 import taskgraph
+import tempfile
 
 import carbon_edge_model
+import carbon_model_data
 from density_per_ha_to_total_per_pixel import \
     density_per_ha_to_total_per_pixel
 
@@ -82,6 +85,8 @@ TARGET_AREA_HA = 350000000*2
 AREA_N_STEPS = 20
 AREA_REPORT_STEP_LIST = numpy.linspace(
     TARGET_AREA_HA / AREA_N_STEPS, TARGET_AREA_HA, AREA_N_STEPS)
+# number of pixels to blur to capture edge effect of marginal value
+MARGINAL_VALUE_PIXEL_BLUR = 16
 
 
 def _raw_basename(file_path):
@@ -175,6 +180,67 @@ def _greedy_select_pixels_to_area(
     pygeoprocessing.greedy_pixel_pick_by_area(
         (base_value_raster_path, 1), (pixel_area_in_ha_raster_path, 1),
         workspace_dir, area_ha_to_step_report_list)
+
+
+def _create_marginal_value_layer(
+        future_raster_path, base_raster_path,
+        gaussian_blur_pixel_radius, mask_raster_path, target_raster_path):
+    """Calculate marginal value layer.
+
+    Calculated by taking the difference of future from base, Gaussian blurring
+    that result by the given radius, and masking by the given raster mask.
+
+    Args:
+        future_raster_path (str): raster A, same nodata and size as B
+        base_raster_path (str): raster B
+        gaussian_blur_pixel_radius (int): number of pixels to blur out when
+            determining marginal value of that pixel.
+        mask_raster_path (str): path to raster where anything not 1 is masked
+            to 0/nodata.
+        target_diff_raster_path (str): result of A-B accounting for nodata.
+
+    Returns:
+        None
+    """
+    raster_info = pygeoprocessing.get_raster_info(future_raster_path)
+    nodata = raster_info['nodata'][0]
+
+    def _diff_op(a_array, b_array):
+        """Return a-b and consider nodata."""
+        result = numpy.copy(a_array)
+        valid_mask = ~numpy.isclose(a_array, nodata)
+        result[valid_mask] -= b_array[valid_mask]
+        return result
+
+    churn_dir = tempfile.mkdtemp(dir=os.path.dirname(target_raster_path))
+    diff_raster_path = os.path.join(churn_dir, 'diff.tif')
+    pygeoprocessing.raster_calculator(
+        [(future_raster_path, 1), (base_raster_path, 1)], _diff_op,
+        diff_raster_path, raster_info['datatype'], nodata)
+
+    # Gaussian filter
+    if gaussian_blur_pixel_radius is not None:
+        kernel_raster_path = os.path.join(churn_dir, 'kernel.tif')
+        mask_gf_path = os.path.join(churn_dir, 'gf.tif')
+        carbon_model_data.make_kernel_raster(
+            gaussian_blur_pixel_radius, kernel_raster_path)
+        pygeoprocessing.convolve_2d(
+            (diff_raster_path, 1), (kernel_raster_path, 1), mask_gf_path)
+    else:
+        mask_gf_path = diff_raster_path
+
+    def _mask_op(base_array, mask_array):
+        """Return base where mask is 1, otherwise 0 or nodata."""
+        result = numpy.copy(base_array)
+        zero_mask = (~numpy.isclose(base_array, nodata)) & (mask_array != 1)
+        result[zero_mask] = 0
+        return result
+
+    pygeoprocessing.raster_calculator(
+        [(mask_gf_path, 1), (mask_raster_path, 1)], _mask_op,
+        target_raster_path, raster_info['datatype'], nodata)
+
+    shutil.rmtree(churn_dir)
 
 
 def _diff_rasters(
@@ -396,9 +462,6 @@ def main():
             (target_ipcc_biomass_path, biomass_ipcc_task)
 
     LOGGER.info('create marginal value maps')
-    # optimal_lulc_scenario_raster_dict indexed by
-    #   [MODELED_MODE/IPCC_MODE]
-    optimal_lulc_scenario_raster_dict = {}
     for model_mode in [MODELED_MODE, IPCC_MODE]:
         marginal_value_biomass_raster = os.path.join(
             MARGINAL_VALUE_WORKSPACE,
@@ -409,10 +472,13 @@ def main():
             modeled_biomass_raster_task_dict[model_mode][BASE_SCENARIO]
 
         marginal_value_task = task_graph.add_task(
-            func=_diff_rasters,
+            func=_create_marginal_value_layer,
             args=(
                 restoration_biomass_raster,
                 base_biomass_raster,
+                (MARGINAL_VALUE_PIXEL_BLUR
+                 if model_mode == MODELED_MODE else None),
+                new_forest_raster_path,
                 marginal_value_biomass_raster),
             target_path_list=[marginal_value_biomass_raster],
             dependent_task_list=[restoration_task, base_task],
