@@ -585,7 +585,6 @@ def main():
                 AREA_REPORT_STEP_LIST),
             target_path_list=[os.path.join(optimization_dir, 'results.csv')],
             dependent_task_list=[marginal_value_task],
-            transient_run=True,
             task_name=f'optimize on {marginal_value_biomass_raster}')
         optimization_mode_task_dir_list.append(
             (model_mode, optimization_task, optimization_dir))
