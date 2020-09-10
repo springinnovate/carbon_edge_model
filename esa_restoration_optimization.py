@@ -105,13 +105,8 @@ def _sum_raster(raster_path):
     nodata = pygeoprocessing.get_raster_info(raster_path)['nodata'][0]
     running_sum = 0.0
     for _, raster_block in pygeoprocessing.iterblocks((raster_path, 1)):
-        try:
-            running_sum += numpy.sum(
-                raster_block[~numpy.isclose(raster_block, nodata)])
-        except Exception:
-            LOGGER.exception(
-                f'{raster_block}\n{raster_block[~numpy.isclose(raster_block, nodata)]}')
-            raise
+        running_sum += numpy.sum(
+            raster_block[~numpy.isclose(raster_block, nodata)])
     return running_sum
 
 
@@ -662,7 +657,7 @@ def main():
 
         sum_task = task_graph.add_task(
             func=_sum_raster,
-            args=(modeled_vs_ipcc_optimal_biomass_diff_raster_path),
+            args=(modeled_vs_ipcc_optimal_biomass_diff_raster_path,),
             dependent_task_list=[diff_task],
             task_name=f'''sum the modeled vs. ippc diff for {
                 modeled_vs_ipcc_optimal_biomass_diff_raster_path}''')
