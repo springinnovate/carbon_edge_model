@@ -105,8 +105,13 @@ def _sum_raster(raster_path):
     nodata = pygeoprocessing.get_raster_info(raster_path)['nodata'][0]
     running_sum = 0.0
     for _, raster_block in pygeoprocessing.iterblocks((raster_path, 1)):
-        running_sum += numpy.sum(
-            raster_block[~numpy.isclose(raster_block, nodata)])
+        try:
+            running_sum += numpy.sum(
+                raster_block[~numpy.isclose(raster_block, nodata)])
+        except Exception:
+            LOGGER.exception(
+                f'{raster_block}\n{raster_block[~numpy.isclose(raster_block, nodata)]}')
+            raise
     return running_sum
 
 
