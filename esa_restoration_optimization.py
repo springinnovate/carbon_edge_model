@@ -689,7 +689,7 @@ def main():
 
             sum_task = task_graph.add_task(
                 func=_sum_raster,
-                args=(target_diff_path),
+                args=(target_diff_path,),
                 dependent_task_list=[diff_task],
                 task_name=f'''sum the modeled/ipcc vs. base for {
                     target_diff_path}''')
