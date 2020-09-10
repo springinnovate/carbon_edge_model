@@ -671,13 +671,13 @@ def main():
             MODELED_VS_IPCC_DIR, f'ipcc_vs_base_{mask_area}_ha.tif')
         modeled_base_biomass_raster_path = (
             modeled_biomass_raster_task_dict[MODELED_MODE][BASE_SCENARIO][0])
-        for modeled_path, target_diff_path, base_modeled_task, mode in [(
+        for modeled_path, target_diff_path, base_modeled_task, mode in [
                 (model_biomass_raster_path,
                  modeled_vs_base_biomass_diff_raster_path, modeled_task,
                  MODELED_MODE),
                 (ipcc_biomass_raster_path,
                  ipcc_vs_base_biomass_diff_raster_path, ipcc_task,
-                 IPCC_MODE))]:
+                 IPCC_MODE)]:
             diff_task = task_graph.add_task(
                 func=_diff_rasters,
                 args=(
