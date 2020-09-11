@@ -247,7 +247,7 @@ def _create_marginal_value_layer(
         [(mask_gf_path, 1), (mask_raster_path, 1)], _mask_op,
         target_raster_path, raster_info['datatype'], nodata)
 
-    shutil.rmtree(churn_dir)
+    #shutil.rmtree(churn_dir)
 
 
 def _diff_rasters(
