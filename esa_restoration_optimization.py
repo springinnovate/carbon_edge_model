@@ -232,7 +232,9 @@ def _create_marginal_value_layer(
         carbon_model_data.make_kernel_raster(
             gaussian_blur_pixel_radius, kernel_raster_path)
         pygeoprocessing.convolve_2d(
-            (diff_raster_path, 1), (kernel_raster_path, 1), mask_gf_path)
+            (diff_raster_path, 1), (kernel_raster_path, 1), mask_gf_path,
+            ignore_nodata_and_edges=False, mask_nodata=True,
+            target_nodata=0.0)
     else:
         mask_gf_path = diff_raster_path
 
