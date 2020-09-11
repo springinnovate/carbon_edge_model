@@ -181,6 +181,9 @@ def _greedy_select_pixels_to_area(
         all_ones_raster_path, 1.0,
         pixel_area_in_ha_raster_path)
 
+    LOGGER.info(
+        f'calculating greedy pixels for value raster {base_value_raster_path} '
+        f'and area {pixel_area_in_ha_raster_path}')
     pygeoprocessing.greedy_pixel_pick_by_area(
         (base_value_raster_path, 1), (pixel_area_in_ha_raster_path, 1),
         workspace_dir, area_ha_to_step_report_list)
