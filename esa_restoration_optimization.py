@@ -141,8 +141,8 @@ def _replace_value_by_mask(
             (base_raster_path, 1)):
         mask_block = mask_band.ReadAsArray(**offset_dict)
         base_block[mask_block == 1] = replacement_value
-        LOGGER.debug(f'maskblock nonzero: {numpy.count_nonzero(mask_block==1)}')
-        target_band.WriteArray(base_block)
+        target_band.WriteArray(
+            base_block, xoff=offset_dict['xoff'], yoff=['yoff'])
 
     target_band = None
     target_raster = None
