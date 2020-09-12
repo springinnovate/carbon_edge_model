@@ -3,6 +3,7 @@ import collections
 import glob
 import os
 import logging
+import multiprocessing
 import pickle
 import re
 import shutil
@@ -139,8 +140,9 @@ def _replace_value_by_mask(
     for offset_dict, base_block in pygeoprocessing.iterblocks(
             (base_raster_path, 1)):
         mask_block = mask_band.ReadAsArray(**offset_dict)
-        target_band.WriteArray(
-            numpy.where(mask_block == 1, replacement_value, base_block))
+        base_block[mask_block == 1] = replacement_value
+        LOGGER.debug(f'maskblock nonzero: {numpy.count_nonzero(mask_block==1)}')
+        target_band.WriteArray(base_block)
 
     target_band = None
     target_raster = None
@@ -249,7 +251,7 @@ def _create_marginal_value_layer(
         [(mask_gf_path, 1), (mask_raster_path, 1)], _mask_op,
         target_raster_path, raster_info['datatype'], nodata)
 
-    #shutil.rmtree(churn_dir)
+    shutil.rmtree(churn_dir)
 
 
 def _diff_rasters(
@@ -354,7 +356,8 @@ def _calculate_modeled_biomass(
         landcover_type_mask_raster_path, gdal.GDT_Byte, None)
 
     LOGGER.info(f"prep data for modeled biomass {esa_landcover_raster_path}")
-    task_graph = taskgraph.TaskGraph(churn_dir, -1, 15.0)
+    task_graph = taskgraph.TaskGraph(
+        churn_dir, multiprocessing.cpu_count(), 15.0)
     convolution_file_paths = carbon_edge_model.warp_and_gaussian_filter_data(
         landcover_type_mask_raster_path, MODEL_BASE_DIR, churn_dir,
         task_graph)
@@ -462,6 +465,8 @@ def _calculate_modeled_biomass_from_mask(
         None
     """
     churn_dir = tempfile.mkdtemp(
+        prefix=os.path.basename(os.path.splitext(
+            new_forest_mask_raster_path)[0]),
         dir=os.path.dirname(target_biomass_raster_path))
 
     # this raster is base with new forest in it
@@ -475,7 +480,7 @@ def _calculate_modeled_biomass_from_mask(
         converted_lulc_raster_path,
         churn_dir, target_biomass_raster_path)
 
-    shutil.rmtree(churn_dir)
+    #shutil.rmtree(churn_dir)
 
 
 def main():
