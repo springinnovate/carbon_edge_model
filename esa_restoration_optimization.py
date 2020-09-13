@@ -142,7 +142,7 @@ def _replace_value_by_mask(
         mask_block = mask_band.ReadAsArray(**offset_dict)
         base_block[mask_block == 1] = replacement_value
         target_band.WriteArray(
-            base_block, xoff=offset_dict['xoff'], yoff=['yoff'])
+            base_block, xoff=offset_dict['xoff'], yoff=offset_dict['yoff'])
 
     target_band = None
     target_raster = None
