@@ -371,6 +371,7 @@ def _calculate_modeled_biomass(
             churn_dir, churn_dir, -1, '', task_graph)
     task_graph.join()
     task_graph.close()
+    task_graph = None
 
     density_per_ha_to_total_per_pixel(
         total_biomass_per_ha_raster_path, 1.0,
@@ -485,7 +486,8 @@ def _calculate_modeled_biomass_from_mask(
 
 def main():
     """Entry point."""
-    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1, 15.0)
+    task_graph = taskgraph.TaskGraph(
+        WORKSPACE_DIR, multiprocessing.cpu_count(), 15.0)
 
     unique_scenario_id = f'''{
         _raw_basename(BASE_LULC_RASTER_PATH)}_{
