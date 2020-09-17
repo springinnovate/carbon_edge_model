@@ -358,7 +358,7 @@ def _calculate_modeled_biomass(
 
     LOGGER.info(f"prep data for modeled biomass {esa_landcover_raster_path}")
     task_graph = taskgraph.TaskGraph(
-        churn_dir, multiprocessing.cpu_count(), 15.0)
+        churn_dir, n_workers, 15.0)
     convolution_file_paths = carbon_edge_model.warp_and_gaussian_filter_data(
         landcover_type_mask_raster_path, MODEL_BASE_DIR, churn_dir,
         task_graph)
