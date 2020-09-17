@@ -311,7 +311,7 @@ def _calcualte_new_forest(
 
 def _calculate_modeled_biomass(
         esa_landcover_raster_path, churn_dir,
-        target_biomass_raster_path):
+        target_biomass_raster_path, n_workers=-1):
     """Calculate modeled biomass for given landcover.
 
     Args:
@@ -319,6 +319,7 @@ def _calculate_modeled_biomass(
         churn_dir (str): path to use for temporary files.
         target_biomass_raster_path (str): path to raster to create target
             biomass (not biomass per ha).
+        n_workers (int): number of workers to allocate to processing.
 
     Return:
         None
