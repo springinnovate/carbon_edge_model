@@ -9,7 +9,8 @@ Input:
 Process:
     Calculate biomass for new optimization mask
     Mask new biomass against the "new" forest mask so it only shows old biomass
-    Subtract new biomass from old biomass (output this raster based on optimization mask name)
+    Subtract new biomass from old biomass (output this raster based on
+        optimization mask name)
     Report the sum based on the optimization mask name
 
 Output:
@@ -83,6 +84,7 @@ def mask_to_nodata(
         [(base_raster_path, 1), (mask_raster_path, 1)], mask_op,
         target_masked_base_raster_path, base_info['datatype'],
         base_info['nodata'][0])
+
 
 def diff_valid(a_raster_path, b_raster_path, target_diff_raster_path):
     """Calculate a-b.
