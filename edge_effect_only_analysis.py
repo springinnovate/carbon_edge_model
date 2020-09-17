@@ -189,28 +189,35 @@ if __name__ == '__main__':
     with open(CSV_REPORT, 'a') as csv_report_file:
         csv_report_file.write(
             'mask file,ipcc biomass increase,regression biomass increase\n')
+    task_result_list = []
+    column_filename_list = []
     for ipcc_mask_raster_path, modeled_mask_raster_path in zip(
             glob.glob(IPCC_MASK_DIR_PATTERN),
             glob.glob(MODELED_MASK_DIR_PATTERN)):
-        with open(CSV_REPORT, 'a') as csv_report_file:
-            csv_report_file.write(f'''{os.path.basename(
-                os.path.splitext(ipcc_mask_raster_path)[0])},''')
+        column_filename_list.append(os.path.basename(
+                os.path.splitext(ipcc_mask_raster_path)[0]))
         for mask_raster_path, model_type in [
                 (ipcc_mask_raster_path, 'ipcc'),
                 (modeled_mask_raster_path, 'regression')]:
-            LOGGER.debug(f'{model_type}: {mask_raster_path}')
-
             biomass_diff_sum_task = task_graph.add_task(
                 func=calculate_old_forest_biomass_increase,
                 args=(mask_raster_path,),
                 store_result=True,
-                task_name=f'calculate old forest biomass for {mask_raster_path}')
+                task_name=(
+                    f'calculate old forest biomass for '
+                    f'{model_type} {mask_raster_path}'))
+            task_result_list.append(biomass_diff_sum_task)
 
-            with open(CSV_REPORT, 'a') as csv_report_file:
-                csv_report_file.write(f',{biomass_diff_sum_task.get()}')
-
+    task_list_iter = iter(task_result_list)
+    for column_name, ipcc_task, regression_task in zip(
+            column_filename_list, task_list_iter, task_list_iter):
+        LOGGER.info(f'writing report for {column_name}')
         with open(CSV_REPORT, 'a') as csv_report_file:
-            csv_report_file.write('\n')
+            csv_report_file.write(f'{column_filename_list},')
+        with open(CSV_REPORT, 'a') as csv_report_file:
+            csv_report_file.write(f'{ipcc_task.get()},')
+        with open(CSV_REPORT, 'a') as csv_report_file:
+            csv_report_file.write(f'{regression_task.get()}\n')
 
     task_graph.join()
     task_graph.close()
