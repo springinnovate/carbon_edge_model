@@ -17,7 +17,7 @@ import tempfile
 
 import carbon_edge_model
 import carbon_model_data
-from density_per_ha_to_total_per_pixel import \
+from utils.density_per_ha_to_total_per_pixel import \
     density_per_ha_to_total_per_pixel
 
 logging.basicConfig(
