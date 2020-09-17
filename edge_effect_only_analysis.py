@@ -140,12 +140,16 @@ def calculate_old_forest_biomass_increase(mask_raster_path):
     from base, then sum the difference. This is the amount of new biomass
     in "old forest" due to the new forest.
 
+    Also return the total biomass diff.
+
     Args:
         mask_raster_path (str): 1 where there's new forest, same size as
             BASE_BIOMASS_RASTER_PATH.
 
     Returns:
-        sum of total biomass increase due to the new mask.
+        (sum of edge biomass increase due to the new mask,
+         sum of total biomass increase)
+
     """
     LOGGER.info(f'calculate biomass for {mask_raster_path}')
     biomass_raster_path = os.path.join(WORKSPACE_DIR, f'''{
@@ -172,10 +176,22 @@ def calculate_old_forest_biomass_increase(mask_raster_path):
         old_forest_biomass_masked_raster, BASE_BIOMASS_RASTER_PATH,
         old_forest_biomass_diff_raster)
 
-    # TODO: sum it
     LOGGER.info(f'sum {old_forest_biomass_diff_raster}')
-    biomass_diff_sum = sum_valid(old_forest_biomass_diff_raster)
-    return biomass_diff_sum
+    old_edge_biomass_diff_sum = sum_valid(old_forest_biomass_diff_raster)
+
+    total_forest_biomass_diff_raster = os.path.join(
+        WORKSPACE_DIR, f'''total_forest_diff_{os.path.basename(
+            os.path.splitext(biomass_raster_path)[0])}''')
+    LOGGER.info(
+        f'diff {total_forest_biomass_diff_raster} against base biomass')
+    diff_valid(
+        biomass_raster_path, BASE_BIOMASS_RASTER_PATH,
+        total_forest_biomass_diff_raster)
+
+    LOGGER.info(f'sum {total_forest_biomass_diff_raster}')
+    total_edge_biomass_diff_sum = sum_valid(total_forest_biomass_diff_raster)
+
+    return (old_edge_biomass_diff_sum, total_edge_biomass_diff_sum)
 
 
 if __name__ == '__main__':
@@ -188,7 +204,11 @@ if __name__ == '__main__':
 
     with open(CSV_REPORT, 'a') as csv_report_file:
         csv_report_file.write(
-            'mask file,ipcc biomass increase,regression biomass increase\n')
+            'mask file,'
+            'ipcc edge biomass increase,'
+            'regression edge biomass increase,'
+            'ipcc total biomass increase,'
+            'regression total biomass increase\n')
     task_result_list = []
     column_filename_list = []
     for ipcc_mask_raster_path, modeled_mask_raster_path in zip(
@@ -214,10 +234,13 @@ if __name__ == '__main__':
         LOGGER.info(f'writing report for {column_name}')
         with open(CSV_REPORT, 'a') as csv_report_file:
             csv_report_file.write(f'{column_filename_list},')
+        ipcc_edge, ipcc_total = ipcc_task.get()
+        regression_edge, regression_total = regression_task.get()
+
         with open(CSV_REPORT, 'a') as csv_report_file:
-            csv_report_file.write(f'{ipcc_task.get()},')
-        with open(CSV_REPORT, 'a') as csv_report_file:
-            csv_report_file.write(f'{regression_task.get()}\n')
+            csv_report_file.write(
+                f'{ipcc_edge},{regression_edge},'
+                f'{ipcc_total},{regression_total}\n')
 
     task_graph.join()
     task_graph.close()
