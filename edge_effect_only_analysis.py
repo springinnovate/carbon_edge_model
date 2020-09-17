@@ -203,6 +203,7 @@ if __name__ == '__main__':
             biomass_diff_sum_task = task_graph.add_task(
                 func=calculate_old_forest_biomass_increase,
                 args=(mask_raster_path,),
+                store_result=True,
                 task_name=f'calculate old forest biomass for {mask_raster_path}')
 
             with open(CSV_REPORT, 'a') as csv_report_file:
