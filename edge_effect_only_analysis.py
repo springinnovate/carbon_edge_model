@@ -193,8 +193,8 @@ if __name__ == '__main__':
             glob.glob(IPCC_MASK_DIR_PATTERN),
             glob.glob(MODELED_MASK_DIR_PATTERN)):
         with open(CSV_REPORT, 'a') as csv_report_file:
-            csv_report_file.write(f'''{
-                os.path.basename(os.path.splitext(ipcc_mask_raster_path))},''')
+            csv_report_file.write(f'''{os.path.basename(
+                os.path.splitext(ipcc_mask_raster_path)[0])},''')
         for mask_raster_path, model_type in [
                 (ipcc_mask_raster_path, 'ipcc'),
                 (modeled_mask_raster_path, 'regression')]:
