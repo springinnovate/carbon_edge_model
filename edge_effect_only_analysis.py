@@ -149,7 +149,7 @@ def calculate_old_forest_biomass_increase(mask_raster_path):
     """
     LOGGER.info(f'calculate biomass for {mask_raster_path}')
     biomass_raster_path = os.path.join(WORKSPACE_DIR, f'''{
-        os.path.basename(os.path.splitext(mask_raster_path))}''')
+        os.path.basename(os.path.splitext(mask_raster_path)[0])}''')
     esa_restoration_optimization._calculate_modeled_biomass_from_mask(
         BASE_BIOMASS_RASTER_PATH, mask_raster_path,
         biomass_raster_path)
