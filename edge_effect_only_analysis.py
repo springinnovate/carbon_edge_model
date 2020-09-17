@@ -233,9 +233,13 @@ if __name__ == '__main__':
             column_filename_list, task_list_iter, task_list_iter):
         LOGGER.info(f'writing report for {column_name}')
         with open(CSV_REPORT, 'a') as csv_report_file:
-            csv_report_file.write(f'{column_filename_list},')
+            csv_report_file.write(f'{column_name},')
         ipcc_edge, ipcc_total = ipcc_task.get()
         regression_edge, regression_total = regression_task.get()
+        LOGGER.debug(
+            f'task got: '
+            f'{ipcc_edge},{regression_edge},'
+            f'{ipcc_total},{regression_total}\n')
 
         with open(CSV_REPORT, 'a') as csv_report_file:
             csv_report_file.write(
