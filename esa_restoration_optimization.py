@@ -363,16 +363,15 @@ def _calculate_modeled_biomass(
         landcover_type_mask_raster_path, MODEL_BASE_DIR, churn_dir,
         task_graph)
     task_graph.join()
+    task_graph.close()
+    task_graph = None
 
     LOGGER.info('evaluate carbon model')
     total_biomass_per_ha_raster_path = \
         carbon_edge_model.evaluate_model_with_landcover(
             BIOMASS_MODEL, landcover_type_mask_raster_path,
             convolution_file_paths,
-            churn_dir, churn_dir, -1, '', task_graph)
-    task_graph.join()
-    task_graph.close()
-    task_graph = None
+            churn_dir, churn_dir, -1, '')
 
     density_per_ha_to_total_per_pixel(
         total_biomass_per_ha_raster_path, 1.0,
@@ -452,7 +451,7 @@ def _calculate_ipcc_biomass(
 
 def _calculate_modeled_biomass_from_mask(
         base_lulc_raster_path, new_forest_mask_raster_path,
-        target_biomass_raster_path):
+        target_biomass_raster_path, n_workers=-1):
     """Calculate new biomass raster from base layer and new forest mask.
 
     Args:
@@ -462,6 +461,7 @@ def _calculate_modeled_biomass_from_mask(
         target_biomass_raster_path (str): created by this function, a
             raster that has biomass per pixel for the scenario given by
             new_forest_mask_raster_path from base_lulc_raster_path.
+        n_workers (int): number of workers to allow for reprojection.
 
     Returns:
         None
@@ -480,7 +480,7 @@ def _calculate_modeled_biomass_from_mask(
     # calculate biomass for that raster
     _calculate_modeled_biomass(
         converted_lulc_raster_path,
-        churn_dir, target_biomass_raster_path)
+        churn_dir, target_biomass_raster_path, n_workers=n_workers)
 
     #shutil.rmtree(churn_dir)
 

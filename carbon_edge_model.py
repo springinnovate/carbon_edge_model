@@ -285,7 +285,7 @@ def warp_and_gaussian_filter_data(
 def evaluate_model_with_landcover(
         carbon_model, landcover_type_raster_path, convolution_file_paths,
         workspace_dir, data_dir,
-        n_workers, file_suffix, task_graph, max_biomass=368.0):
+        n_workers, file_suffix, max_biomass=368.0):
     """Evaluate the model over a landcover raster.
 
     Args:
@@ -299,8 +299,6 @@ def evaluate_model_with_landcover(
             by CARBON_EDGE_MODEL_DATA_NODATA.
         n_workers (int): number of workers to allocate to raster calculator
         file_suffix (str): append this to target rasters
-        task_graph (TaskGraph): TaskGraph object that can be used for
-            scheduling
         max_biomass (float): threshold modeled biomass to this value
 
     Returns:
@@ -338,14 +336,10 @@ def evaluate_model_with_landcover(
         churn_dir,
         f'{landtype_basename}_forest_biomass_per_ha{file_suffix}.tif')
     LOGGER.info('scheduling the regression model')
-    regression_model_task = task_graph.add_task(
-        func=pygeoprocessing.multiprocessing.raster_calculator,
-        args=(
-            raster_path_band_list, _carbon_op,
-            forest_carbon_stocks_raster_path, gdal.GDT_Float32, target_nodata),
-        kwargs={'n_workers': n_workers},
-        target_path_list=[forest_carbon_stocks_raster_path],
-        task_name='predict carbon stocks')
+    pygeoprocessing.multiprocessing.raster_calculator(
+        raster_path_band_list, _carbon_op,
+        forest_carbon_stocks_raster_path, gdal.GDT_Float32, target_nodata,
+        n_workers=n_workers)
 
     # NON-FOREST BIOMASS
     LOGGER.info(f'convert baccini non forest into biomass_per_ha')
@@ -368,20 +362,11 @@ def evaluate_model_with_landcover(
         f'upper_threshold {max_biomass}\n'
         f'result in {total_biomass_stocks_raster_path}')
 
-    task_graph.add_task(
-        func=raster_where,
-        args=(
-            forest_mask_path,
-            forest_carbon_stocks_raster_path,
-            baccini_aligned_raster_path, max_biomass,
-            total_biomass_stocks_raster_path),
-        target_path_list=[
-            total_biomass_stocks_raster_path],
-        hash_algorithm='md5',
-        copy_duplicate_artifact=True,
-        hardlink_allowed=True,
-        dependent_task_list=[regression_model_task],
-        task_name=f'combine forest/nonforest')
+    raster_where(
+        forest_mask_path,
+        forest_carbon_stocks_raster_path,
+        baccini_aligned_raster_path, max_biomass,
+        total_biomass_stocks_raster_path)
 
     return total_biomass_stocks_raster_path
 
@@ -450,7 +435,7 @@ def main():
         carbon_model = pickle.load(model_file)
     evaluate_model_with_landcover(
         carbon_model, args.landcover_type_raster_path, convolution_file_paths,
-        workspace_dir, churn_dir, args.n_workers, args.file_suffix, task_graph)
+        workspace_dir, churn_dir, args.n_workers, args.file_suffix)
 
     task_graph.close()
     task_graph.join()

@@ -20,6 +20,7 @@ Output:
 import glob
 import logging
 import os
+import multiprocessing
 
 import numpy
 import pygeoprocessing
@@ -154,9 +155,10 @@ def calculate_old_forest_biomass_increase(mask_raster_path):
     LOGGER.info(f'calculate biomass for {mask_raster_path}')
     biomass_raster_path = os.path.join(WORKSPACE_DIR, f'''{
         os.path.basename(os.path.splitext(mask_raster_path)[0])}''')
+    n_local_workers = -1  # change this after watching disk IO
     esa_restoration_optimization._calculate_modeled_biomass_from_mask(
         BASE_BIOMASS_RASTER_PATH, mask_raster_path,
-        biomass_raster_path)
+        biomass_raster_path, n_workers=n_local_workers)
     old_forest_biomass_masked_raster = os.path.join(
         WORKSPACE_DIR, f'''old_forest_only_{os.path.basename(
             os.path.splitext(biomass_raster_path)[0])}''')
@@ -200,7 +202,8 @@ if __name__ == '__main__':
     except OSError:
         pass
 
-    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, 8, 15)
+    task_graph = taskgraph.TaskGraph(
+        WORKSPACE_DIR, multiprocessing.cpu_count(), 15)
 
     with open(CSV_REPORT, 'a') as csv_report_file:
         csv_report_file.write(
