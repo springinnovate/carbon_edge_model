@@ -200,13 +200,16 @@ if __name__ == '__main__':
                 (modeled_mask_raster_path, 'regression')]:
             LOGGER.debug(f'{model_type}: {mask_raster_path}')
 
-        biomass_diff_sum_task = task_graph.add_task(
-            func=calculate_old_forest_biomass_increase,
-            args=(mask_raster_path,),
-            task_name=f'calculate old forest biomass for {mask_raster_path}')
+            biomass_diff_sum_task = task_graph.add_task(
+                func=calculate_old_forest_biomass_increase,
+                args=(mask_raster_path,),
+                task_name=f'calculate old forest biomass for {mask_raster_path}')
+
+            with open(CSV_REPORT, 'a') as csv_report_file:
+                csv_report_file.write(f',{biomass_diff_sum_task.get()}')
 
         with open(CSV_REPORT, 'a') as csv_report_file:
-            csv_report_file.write(f',{biomass_diff_sum_task.get()}')
+            csv_report_file.write('\n')
 
-    with open(CSV_REPORT, 'a') as csv_report_file:
-        csv_report_file.write('\n')
+    task_graph.join()
+    task_graph.close()
