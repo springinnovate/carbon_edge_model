@@ -184,7 +184,7 @@ if __name__ == '__main__':
     except OSError:
         pass
 
-    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1)
+    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, 0, 15)
 
     with open(CSV_REPORT, 'a') as csv_report_file:
         csv_report_file.write(

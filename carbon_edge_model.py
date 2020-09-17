@@ -343,6 +343,7 @@ def evaluate_model_with_landcover(
         args=(
             raster_path_band_list, _carbon_op,
             forest_carbon_stocks_raster_path, gdal.GDT_Float32, target_nodata),
+        kwargs={'n_workers': n_workers},
         target_path_list=[forest_carbon_stocks_raster_path],
         task_name='predict carbon stocks')
 
