@@ -238,19 +238,28 @@ def warp_and_gaussian_filter_data(
         os.path.join(target_data_dir, os.path.basename(path))
         for path in base_raster_data_path_list]
     # TODO: if 'warp' bounding box is the same as target, then hardlink
-    for base_raster_path, aligned_raster_path in zip(
+    for base_raster_path, target_aligned_raster_path in zip(
             base_raster_data_path_list, aligned_raster_path_list):
+        if carbon_model_data.same_coverage(
+                base_raster_path, landcover_type_raster_path):
+            LOGGER.info(
+                f'{base_raster_path} and {landcover_type_raster_path} are '
+                f'aligned already, hardlinking to '
+                f'{target_aligned_raster_path}')
+            os.link(base_raster_path, target_aligned_raster_path)
+            continue
+
         _ = task_graph.add_task(
             func=pygeoprocessing.warp_raster,
             args=(
                 base_raster_path, base_raster_info['pixel_size'],
-                aligned_raster_path, 'near'),
+                target_aligned_raster_path, 'near'),
             kwargs={
                 'target_bb': base_raster_info['bounding_box'],
                 'target_projection_wkt': base_raster_info['projection_wkt'],
                 'working_dir': target_data_dir,
                 },
-            target_path_list=[aligned_raster_path],
+            target_path_list=[target_aligned_raster_path],
             task_name=f'align {base_raster_path} data')
     LOGGER.info('wait for data to align')
     task_graph.join()

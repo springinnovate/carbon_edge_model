@@ -1,6 +1,7 @@
 """One-time script used to generate base global data for the model."""
 import os
 import logging
+import multiprocessing
 import subprocess
 
 import numpy
@@ -8,6 +9,7 @@ import pygeoprocessing
 import pygeoprocessing.multiprocessing
 import retrying
 import scipy
+import taskgraph
 
 from osgeo import gdal
 
@@ -100,6 +102,85 @@ EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0, 30.0]
 MASK_NODATA = 127
 
 LOGGER = logging.getLogger(__name__)
+
+
+def same_coverage(raster_a_path, raster_b_path):
+    """Return true if raster a and b have same pixels and bounding box."""
+    raster_a_info = pygeoprocessing.get_raster_info(raster_a_path)
+    raster_b_info = pygeoprocessing.get_raster_info(raster_b_path)
+    if raster_a_info['raster_size'] != raster_b_info['raster_size']:
+        return False
+    if not numpy.isclose(
+            raster_a_info['bounding_box'],
+            raster_b_info['bounding_box']).all():
+        return False
+    return True
+
+
+def create_aligned_base_data(
+        alignment_raster_path, target_data_dir,
+        n_workers=multiprocessing.cpu_count()):
+    """Create aligned base data.
+
+    Create the base data that are aligned to the given raster path.
+
+    Args:
+        alignment_raster_path (str): base raster to align inputs to.
+        target_data_dir (str): path to directory to dump aligned rasters.
+        n_workers (str): how many warps to allow to run in parallel.
+
+    Returns:
+        None
+    """
+    LOGGER.info(
+        f"align data to {alignment_raster_path}, place in {target_data_dir}")
+    task_graph = taskgraph.TaskGraph(
+        target_data_dir, n_workers, 15.0)
+    # Expected data is given by `carbon_model_data`.
+    base_raster_data_path_list = [
+        os.path.join(target_data_dir, filename)
+        for filename, _, _ in CARBON_EDGE_MODEL_DATA_NODATA]
+
+    # sanity check:
+    missing_raster_list = []
+    for path in base_raster_data_path_list:
+        if not os.path.exists(path):
+            missing_raster_list.append(path)
+    if missing_raster_list:
+        raise ValueError(
+            f'Expected the following files that did not exist: '
+            f'{missing_raster_list}')
+
+    alignment_raster_info = pygeoprocessing.get_raster_info(alignment_raster_path)
+    aligned_raster_path_list = [
+        os.path.join(target_data_dir, os.path.basename(path))
+        for path in base_raster_data_path_list]
+    for base_raster_path, target_aligned_raster_path in zip(
+            base_raster_data_path_list, aligned_raster_path_list):
+        if same_coverage(base_raster_path, alignment_raster_path):
+            LOGGER.info(
+                f'{base_raster_path} and {alignment_raster_path} are aligned '
+                f'already, hardlinking to {target_aligned_raster_path}')
+            os.link(base_raster_path, target_aligned_raster_path)
+            continue
+
+        _ = task_graph.add_task(
+            func=pygeoprocessing.warp_raster,
+            args=(
+                base_raster_path, alignment_raster_info['pixel_size'],
+                target_aligned_raster_path, 'near'),
+            kwargs={
+                'target_bb': alignment_raster_info['bounding_box'],
+                'target_projection_wkt': (
+                    alignment_raster_info['projection_wkt']),
+                'working_dir': target_data_dir,
+                },
+            target_path_list=[target_aligned_raster_path],
+            task_name=f'align {base_raster_path} data')
+    LOGGER.info('wait for data to align')
+    task_graph.join()
+    task_graph.close()
+    task_graph = None
 
 
 def _reclassify_vals_op(array, array_nodata, mask_values):

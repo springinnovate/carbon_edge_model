@@ -55,27 +55,25 @@ MODELED_VS_IPCC_DIR = _mkdir(
     os.path.join(WORKSPACE_DIR, 'modeled_vs_ipcc'))
 
 MODEL_PATH = './models/carbon_model_lsvr_poly_2_90000_pts.mod'
-MODEL_BASE_DIR = './model_base_data'
 LOGGER.info(f'load the biomass model at {MODEL_PATH}')
 with open(MODEL_PATH, 'rb') as MODEL_FILE:
     BIOMASS_MODEL = pickle.load(MODEL_FILE)
 
-
 # *** DATA SECTION ***
 # There are two landcover configurations, ESA and restoration of ESA
 BASE_LULC_RASTER_PATH = os.path.join(
-    MODEL_BASE_DIR,
+    carbon_model_data.BASE_DATA_DIR,
     'ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif') #'esa_brazil_clip.tif') #
 ESA_RESTORATION_SCENARIO_RASTER_PATH = os.path.join(
-    MODEL_BASE_DIR,
+    carbon_model_data.BASE_DATA_DIR,
     'restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif') # 'esa_restoration_brazil_clip.tif')
 
 # These are used in combination with an ESA landcover map to calculate carbon
 CARBON_ZONES_VECTOR_PATH = os.path.join(
-    MODEL_BASE_DIR,
+    carbon_model_data.BASE_DATA_DIR,
     'carbon_zones_md5_aa16830f64d1ef66ebdf2552fb8a9c0d.gpkg')
 IPCC_CARBON_TABLE_PATH = os.path.join(
-    MODEL_BASE_DIR,
+    carbon_model_data.BASE_DATA_DIR,
     'IPCC_carbon_table_md5_a91f7ade46871575861005764d85cfa7.csv')
 
 # Constants useful for code readability
@@ -311,7 +309,8 @@ def _calcualte_new_forest(
 
 def _calculate_modeled_biomass(
         esa_landcover_raster_path, churn_dir,
-        target_biomass_raster_path, n_workers=-1):
+        target_biomass_raster_path, n_workers=-1,
+        base_data_dir=carbon_model_data.BASE_DATA_DIR):
     """Calculate modeled biomass for given landcover.
 
     Args:
@@ -360,7 +359,7 @@ def _calculate_modeled_biomass(
     task_graph = taskgraph.TaskGraph(
         churn_dir, n_workers, 15.0)
     convolution_file_paths = carbon_edge_model.warp_and_gaussian_filter_data(
-        landcover_type_mask_raster_path, MODEL_BASE_DIR, churn_dir,
+        landcover_type_mask_raster_path, base_data_dir, churn_dir,
         task_graph)
     task_graph.join()
     task_graph.close()
@@ -451,7 +450,8 @@ def _calculate_ipcc_biomass(
 
 def _calculate_modeled_biomass_from_mask(
         base_lulc_raster_path, new_forest_mask_raster_path,
-        target_biomass_raster_path, n_workers=-1):
+        target_biomass_raster_path, n_workers=-1,
+        base_data_dir=carbon_model_data.BASE_DATA_DIR):
     """Calculate new biomass raster from base layer and new forest mask.
 
     Args:
@@ -480,9 +480,10 @@ def _calculate_modeled_biomass_from_mask(
     # calculate biomass for that raster
     _calculate_modeled_biomass(
         converted_lulc_raster_path,
-        churn_dir, target_biomass_raster_path, n_workers=n_workers)
+        churn_dir, target_biomass_raster_path, n_workers=n_workers,
+        base_data_dir=base_data_dir)
 
-    #shutil.rmtree(churn_dir)
+    # shutil.rmtree(churn_dir)
 
 
 def main():

@@ -26,6 +26,7 @@ import numpy
 import pygeoprocessing
 import taskgraph
 
+import carbon_model_data
 import esa_restoration_optimization
 
 logging.basicConfig(
@@ -57,6 +58,7 @@ MODELED_MASK_DIR_PATTERN = (
     '_ipcc_mode/optimal_mask_*.tif')
 
 WORKSPACE_DIR = 'edge_effect_only_workspace'
+ALIGNED_DATA_DIR = os.path.join(WORKSPACE_DIR, 'aligned_data')
 CSV_REPORT = os.path.join(WORKSPACE_DIR, 'edge_effect_only.csv')
 
 
@@ -158,7 +160,8 @@ def calculate_old_forest_biomass_increase(mask_raster_path):
     n_local_workers = 3  # change this after watching disk IO
     esa_restoration_optimization._calculate_modeled_biomass_from_mask(
         BASE_BIOMASS_RASTER_PATH, mask_raster_path,
-        biomass_raster_path, n_workers=n_local_workers)
+        biomass_raster_path, n_workers=n_local_workers,
+        base_data_dir=ALIGNED_DATA_DIR)
     old_forest_biomass_masked_raster = os.path.join(
         WORKSPACE_DIR, f'''old_forest_only_{os.path.basename(
             os.path.splitext(biomass_raster_path)[0])}''')
@@ -214,6 +217,20 @@ if __name__ == '__main__':
             'regression total biomass increase\n')
     task_result_list = []
     column_filename_list = []
+
+    ipcc_mask_file_list = glob.glob(IPCC_MASK_DIR_PATTERN)
+    modeled_mask_file_list = glob.glob(MODELED_MASK_DIR_PATTERN)
+
+    LOGGER.info('align all base data to the mask file')
+    # TODO: do this.
+    try:
+        os.makedirs(ALIGNED_DATA_DIR)
+    except OSError:
+        pass
+
+    carbon_model_data.create_aligned_base_data(
+        ipcc_mask_file_list[0], ALIGNED_DATA_DIR)
+
     for ipcc_mask_raster_path, modeled_mask_raster_path in zip(
             glob.glob(IPCC_MASK_DIR_PATTERN),
             glob.glob(MODELED_MASK_DIR_PATTERN)):
