@@ -205,9 +205,6 @@ if __name__ == '__main__':
     except OSError:
         pass
 
-    task_graph = taskgraph.TaskGraph(
-        WORKSPACE_DIR, multiprocessing.cpu_count(), 15)
-
     with open(CSV_REPORT, 'a') as csv_report_file:
         csv_report_file.write(
             'mask file,'
@@ -227,10 +224,12 @@ if __name__ == '__main__':
         os.makedirs(ALIGNED_DATA_DIR)
     except OSError:
         pass
-
     carbon_model_data.create_aligned_base_data(
         ipcc_mask_file_list[0], ALIGNED_DATA_DIR)
 
+    LOGGER.info('starting biomass calculations')
+    task_graph = taskgraph.TaskGraph(
+        WORKSPACE_DIR, multiprocessing.cpu_count(), 15)
     for ipcc_mask_raster_path, modeled_mask_raster_path in zip(
             glob.glob(IPCC_MASK_DIR_PATTERN),
             glob.glob(MODELED_MASK_DIR_PATTERN)):
