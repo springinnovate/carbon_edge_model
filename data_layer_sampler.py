@@ -16,7 +16,7 @@ def sample_rasters(lng, lat, sample_raster_path_list):
     sample_list = []
     for path in sample_raster_path_list:
         raster_info = pygeoprocessing.get_raster_info(path)
-        inv_gt = gdal.InvGeotransform(raster_info['geotransform'])
+        inv_gt = gdal.InvGeoTransform(raster_info['geotransform'])
         x, y = gdal.ApplyGeoTransform(inv_gt, lng, lat)
         raster = gdal.OpenEx(path, gdal.OF_RASTER)
         val = raster.ReadAsArray(int(x), int(y), 1, 1)[0, 0]
