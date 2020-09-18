@@ -138,7 +138,7 @@ def create_aligned_base_data(
         target_data_dir, n_workers, 15.0)
     # Expected data is given by `carbon_model_data`.
     base_raster_data_path_list = [
-        os.path.join(target_data_dir, filename)
+        os.path.join(BASE_DATA_DIR, filename)
         for filename, _, _ in CARBON_EDGE_MODEL_DATA_NODATA]
 
     # sanity check:
@@ -151,7 +151,8 @@ def create_aligned_base_data(
             f'Expected the following files that did not exist: '
             f'{missing_raster_list}')
 
-    alignment_raster_info = pygeoprocessing.get_raster_info(alignment_raster_path)
+    alignment_raster_info = pygeoprocessing.get_raster_info(
+        alignment_raster_path)
     aligned_raster_path_list = [
         os.path.join(target_data_dir, os.path.basename(path))
         for path in base_raster_data_path_list]
