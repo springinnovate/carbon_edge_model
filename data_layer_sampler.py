@@ -20,7 +20,9 @@ def sample_rasters(lng, lat, sample_raster_path_list):
         x, y = gdal.ApplyGeoTransform(inv_gt, lng, lat)
         raster = gdal.OpenEx(path, gdal.OF_RASTER)
         val = raster.ReadAsArray(int(x), int(y), 1, 1)[0, 0]
-        if numpy.isclose(val, raster_info['nodata'][0]):
+        print(val)
+        nodata = raster_info['nodata'][0]
+        if nodata is not None and numpy.isclose(val, nodata):
             val = 'nodata'
         sample_list.append(val)
     return sample_list
