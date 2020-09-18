@@ -43,7 +43,7 @@ def main():
         for point_feature in point_layer:
             point_geom = point_feature.GetGeometryRef()
             sample_point_list = sample_rasters(
-                point_geom.GetX(), point_geom.GetY())
+                point_geom.GetX(), point_geom.GetY(), raster_path_list)
             csv_file.write(f'{point_geom.GetX()}, {point_geom.GetY()},')
             csv_file.write(
                 f'''{','.join([str(v) for v in sample_point_list])}''')
