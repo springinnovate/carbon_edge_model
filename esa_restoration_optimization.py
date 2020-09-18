@@ -229,6 +229,8 @@ def _create_marginal_value_layer(
     if gaussian_blur_pixel_radius is not None:
         kernel_raster_path = os.path.join(churn_dir, 'kernel.tif')
         mask_gf_path = os.path.join(churn_dir, 'gf.tif')
+        if os.path.exists(mask_gf_path):
+            os.remove(mask_gf_path)
         carbon_model_data.make_kernel_raster(
             gaussian_blur_pixel_radius, kernel_raster_path)
         pygeoprocessing.convolve_2d(

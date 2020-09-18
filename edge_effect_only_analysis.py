@@ -219,7 +219,6 @@ if __name__ == '__main__':
     modeled_mask_file_list = glob.glob(MODELED_MASK_DIR_PATTERN)
 
     LOGGER.info('align all base data to the mask file')
-    # TODO: do this.
     try:
         os.makedirs(ALIGNED_DATA_DIR)
     except OSError:
