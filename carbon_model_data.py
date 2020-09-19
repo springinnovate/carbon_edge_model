@@ -162,6 +162,8 @@ def create_aligned_base_data(
             LOGGER.info(
                 f'{base_raster_path} and {alignment_raster_path} are aligned '
                 f'already, hardlinking to {target_aligned_raster_path}')
+            if os.path.exists(target_aligned_raster_path):
+                os.remove(target_aligned_raster_path)
             os.link(base_raster_path, target_aligned_raster_path)
             continue
 

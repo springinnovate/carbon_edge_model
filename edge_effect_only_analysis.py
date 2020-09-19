@@ -223,8 +223,13 @@ if __name__ == '__main__':
         os.makedirs(ALIGNED_DATA_DIR)
     except OSError:
         pass
-    carbon_model_data.create_aligned_base_data(
-        ipcc_mask_file_list[0], ALIGNED_DATA_DIR)
+    task_graph = taskgraph.TaskGraph(
+        WORKSPACE_DIR, multiprocessing.cpu_count(), 15)
+    task_graph.add_task(
+        add_task=carbon_model_data.create_aligned_base_data,
+        args=(ipcc_mask_file_list[0], ALIGNED_DATA_DIR),
+        task_name='align data')
+    task_graph.join()
 
     LOGGER.info('starting biomass calculations')
     task_graph = taskgraph.TaskGraph(
