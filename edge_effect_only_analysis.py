@@ -55,7 +55,8 @@ MODELED_MASK_DIR_PATTERN = (
     './esa_restoration_optimization/optimization_workspaces/'
     'optimization_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_'
     'compressed_restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f'
-    '_ipcc_mode/optimal_mask_*.tif')
+    '_modeled_mode_carbon_model_lsvr_poly_2_90000_pts/optimal_mask_*.tif')
+
 
 WORKSPACE_DIR = 'edge_effect_only_workspace'
 ALIGNED_DATA_DIR = os.path.join(WORKSPACE_DIR, 'aligned_data')
@@ -136,7 +137,7 @@ def sum_valid(raster_path):
     return accumulator_sum
 
 
-def calculate_old_forest_biomass_increase(mask_raster_path):
+def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
     """Calculate increase due to new forest in only the old forest.
 
     Calculate the total new biomass, mask it to old forest only, subtract
@@ -148,6 +149,8 @@ def calculate_old_forest_biomass_increase(mask_raster_path):
     Args:
         mask_raster_path (str): 1 where there's new forest, same size as
             BASE_BIOMASS_RASTER_PATH.
+        model_type (str): used to differentiate between mask raster paths
+            that have the same basename
 
     Returns:
         (sum of edge biomass increase due to the new mask,
@@ -156,8 +159,10 @@ def calculate_old_forest_biomass_increase(mask_raster_path):
     """
     try:
         LOGGER.info(f'calculate biomass for {mask_raster_path}')
-        biomass_raster_path = os.path.join(WORKSPACE_DIR, f'''{
-            os.path.basename(os.path.splitext(mask_raster_path)[0])}''')
+        basename = f'''{model_type}_{
+            os.path.basename(os.path.splitext(mask_raster_path))}'''
+        biomass_raster_path = os.path.join(
+            WORKSPACE_DIR, f'''biomass_{basename}.tif''')
         n_local_workers = 3  # change this after watching disk IO
         esa_restoration_optimization._calculate_modeled_biomass_from_mask(
             BASE_BIOMASS_RASTER_PATH, mask_raster_path,
@@ -248,7 +253,7 @@ if __name__ == '__main__':
                 (modeled_mask_raster_path, 'regression')]:
             biomass_diff_sum_task = task_graph.add_task(
                 func=calculate_old_forest_biomass_increase,
-                args=(mask_raster_path,),
+                args=(mask_raster_path, model_type),
                 store_result=True,
                 task_name=(
                     f'calculate old forest biomass for '

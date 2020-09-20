@@ -470,7 +470,7 @@ def _calculate_modeled_biomass_from_mask(
     """
     churn_dir = tempfile.mkdtemp(
         prefix=os.path.basename(os.path.splitext(
-            new_forest_mask_raster_path)[0]),
+            target_biomass_raster_path)[0]),
         dir=os.path.dirname(target_biomass_raster_path))
 
     # this raster is base with new forest in it
