@@ -160,7 +160,7 @@ def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
     try:
         LOGGER.info(f'calculate biomass for {mask_raster_path}')
         basename = f'''{model_type}_{
-            os.path.basename(os.path.splitext(mask_raster_path))}'''
+            os.path.basename(os.path.splitext(mask_raster_path)[0])}'''
         biomass_raster_path = os.path.join(
             WORKSPACE_DIR, f'''biomass_{basename}.tif''')
         n_local_workers = 3  # change this after watching disk IO
@@ -169,8 +169,7 @@ def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
             biomass_raster_path, n_workers=n_local_workers,
             base_data_dir=ALIGNED_DATA_DIR)
         old_forest_biomass_masked_raster = os.path.join(
-            WORKSPACE_DIR, f'''old_forest_only_{os.path.basename(
-                os.path.splitext(biomass_raster_path)[0])}''')
+            WORKSPACE_DIR, f'''old_forest_only_{basename}.tif''')
 
         LOGGER.info(
             f'mask {biomass_raster_path} opposite of NEW_FOREST_RASTER_PATH')
@@ -181,8 +180,7 @@ def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
         LOGGER.info(
             f'diff {old_forest_biomass_masked_raster} against base biomass')
         old_forest_biomass_diff_raster = os.path.join(
-            WORKSPACE_DIR, f'''old_forest_diff_{os.path.basename(
-                os.path.splitext(biomass_raster_path)[0])}''')
+            WORKSPACE_DIR, f'''old_forest_diff_{basename}.tif''')
         diff_valid(
             old_forest_biomass_masked_raster, BASE_BIOMASS_RASTER_PATH,
             old_forest_biomass_diff_raster)
@@ -191,8 +189,7 @@ def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
         old_edge_biomass_diff_sum = sum_valid(old_forest_biomass_diff_raster)
 
         total_forest_biomass_diff_raster = os.path.join(
-            WORKSPACE_DIR, f'''total_forest_diff_{os.path.basename(
-                os.path.splitext(biomass_raster_path)[0])}''')
+            WORKSPACE_DIR, f'''total_forest_diff_{basename}.tif''')
         LOGGER.info(
             f'diff {total_forest_biomass_diff_raster} against base biomass')
         diff_valid(
@@ -200,7 +197,8 @@ def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
             total_forest_biomass_diff_raster)
 
         LOGGER.info(f'sum {total_forest_biomass_diff_raster}')
-        total_edge_biomass_diff_sum = sum_valid(total_forest_biomass_diff_raster)
+        total_edge_biomass_diff_sum = sum_valid(
+            total_forest_biomass_diff_raster)
 
         return (old_edge_biomass_diff_sum, total_edge_biomass_diff_sum)
     except Exception:
