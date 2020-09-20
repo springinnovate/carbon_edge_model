@@ -154,49 +154,53 @@ def calculate_old_forest_biomass_increase(mask_raster_path):
          sum of total biomass increase)
 
     """
-    LOGGER.info(f'calculate biomass for {mask_raster_path}')
-    biomass_raster_path = os.path.join(WORKSPACE_DIR, f'''{
-        os.path.basename(os.path.splitext(mask_raster_path)[0])}''')
-    n_local_workers = 3  # change this after watching disk IO
-    esa_restoration_optimization._calculate_modeled_biomass_from_mask(
-        BASE_BIOMASS_RASTER_PATH, mask_raster_path,
-        biomass_raster_path, n_workers=n_local_workers,
-        base_data_dir=ALIGNED_DATA_DIR)
-    old_forest_biomass_masked_raster = os.path.join(
-        WORKSPACE_DIR, f'''old_forest_only_{os.path.basename(
-            os.path.splitext(biomass_raster_path)[0])}''')
+    try:
+        LOGGER.info(f'calculate biomass for {mask_raster_path}')
+        biomass_raster_path = os.path.join(WORKSPACE_DIR, f'''{
+            os.path.basename(os.path.splitext(mask_raster_path)[0])}''')
+        n_local_workers = 3  # change this after watching disk IO
+        esa_restoration_optimization._calculate_modeled_biomass_from_mask(
+            BASE_BIOMASS_RASTER_PATH, mask_raster_path,
+            biomass_raster_path, n_workers=n_local_workers,
+            base_data_dir=ALIGNED_DATA_DIR)
+        old_forest_biomass_masked_raster = os.path.join(
+            WORKSPACE_DIR, f'''old_forest_only_{os.path.basename(
+                os.path.splitext(biomass_raster_path)[0])}''')
 
-    LOGGER.info(
-        f'mask {biomass_raster_path} opposite of NEW_FOREST_RASTER_PATH')
-    mask_to_nodata(
-        biomass_raster_path, NEW_FOREST_RASTER_PATH,
-        old_forest_biomass_masked_raster)
+        LOGGER.info(
+            f'mask {biomass_raster_path} opposite of NEW_FOREST_RASTER_PATH')
+        mask_to_nodata(
+            biomass_raster_path, NEW_FOREST_RASTER_PATH,
+            old_forest_biomass_masked_raster)
 
-    LOGGER.info(
-        f'diff {old_forest_biomass_masked_raster} against base biomass')
-    old_forest_biomass_diff_raster = os.path.join(
-        WORKSPACE_DIR, f'''old_forest_diff_{os.path.basename(
-            os.path.splitext(biomass_raster_path)[0])}''')
-    diff_valid(
-        old_forest_biomass_masked_raster, BASE_BIOMASS_RASTER_PATH,
-        old_forest_biomass_diff_raster)
+        LOGGER.info(
+            f'diff {old_forest_biomass_masked_raster} against base biomass')
+        old_forest_biomass_diff_raster = os.path.join(
+            WORKSPACE_DIR, f'''old_forest_diff_{os.path.basename(
+                os.path.splitext(biomass_raster_path)[0])}''')
+        diff_valid(
+            old_forest_biomass_masked_raster, BASE_BIOMASS_RASTER_PATH,
+            old_forest_biomass_diff_raster)
 
-    LOGGER.info(f'sum {old_forest_biomass_diff_raster}')
-    old_edge_biomass_diff_sum = sum_valid(old_forest_biomass_diff_raster)
+        LOGGER.info(f'sum {old_forest_biomass_diff_raster}')
+        old_edge_biomass_diff_sum = sum_valid(old_forest_biomass_diff_raster)
 
-    total_forest_biomass_diff_raster = os.path.join(
-        WORKSPACE_DIR, f'''total_forest_diff_{os.path.basename(
-            os.path.splitext(biomass_raster_path)[0])}''')
-    LOGGER.info(
-        f'diff {total_forest_biomass_diff_raster} against base biomass')
-    diff_valid(
-        biomass_raster_path, BASE_BIOMASS_RASTER_PATH,
-        total_forest_biomass_diff_raster)
+        total_forest_biomass_diff_raster = os.path.join(
+            WORKSPACE_DIR, f'''total_forest_diff_{os.path.basename(
+                os.path.splitext(biomass_raster_path)[0])}''')
+        LOGGER.info(
+            f'diff {total_forest_biomass_diff_raster} against base biomass')
+        diff_valid(
+            biomass_raster_path, BASE_BIOMASS_RASTER_PATH,
+            total_forest_biomass_diff_raster)
 
-    LOGGER.info(f'sum {total_forest_biomass_diff_raster}')
-    total_edge_biomass_diff_sum = sum_valid(total_forest_biomass_diff_raster)
+        LOGGER.info(f'sum {total_forest_biomass_diff_raster}')
+        total_edge_biomass_diff_sum = sum_valid(total_forest_biomass_diff_raster)
 
-    return (old_edge_biomass_diff_sum, total_edge_biomass_diff_sum)
+        return (old_edge_biomass_diff_sum, total_edge_biomass_diff_sum)
+    except Exception:
+        LOGGER.exception(f'error occurred on {mask_raster_path}')
+        raise
 
 
 if __name__ == '__main__':

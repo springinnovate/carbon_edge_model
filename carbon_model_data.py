@@ -254,6 +254,7 @@ def create_convolutions(
         List of convolution file paths created by this function
     """
     churn_dir = os.path.join(target_data_dir, 'convolution_kernels')
+    LOGGER.debug(f'making convolution kernel churn dir at {churn_dir}')
     try:
         os.makedirs(churn_dir)
     except OSError:
@@ -286,7 +287,7 @@ def create_convolutions(
             mask_gf_path = (
                 f'{os.path.splitext(mask_raster_path)[0]}_gf_'
                 f'{expected_max_edge_effect_km}.tif')
-
+            LOGGER.debug(f'making convoluion for {mask_gf_path}')
             convolution_task = task_graph.add_task(
                 func=pygeoprocessing.convolve_2d,
                 args=(
@@ -294,10 +295,10 @@ def create_convolutions(
                     mask_gf_path),
                 dependent_task_list=[create_mask_task, kernel_task],
                 target_path_list=[mask_gf_path],
-                task_name=f'create guassian filter of {mask_id}')
+                task_name=f'create guassian filter of {mask_id} at {mask_gf_path}')
             convolution_raster_list.append(((mask_gf_path, None, None)))
     task_graph.join()
-
+    LOGGER.debug(f'all done convolutoin list - {convolution_raster_list}')
     return convolution_raster_list
 
 

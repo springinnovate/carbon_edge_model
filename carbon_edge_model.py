@@ -285,7 +285,7 @@ def warp_and_gaussian_filter_data(
     convolution_file_paths = carbon_model_data.create_convolutions(
         landcover_type_raster_path,
         carbon_model_data.EXPECTED_MAX_EDGE_EFFECT_KM_LIST,
-        carbon_model_data.BASE_DATA_DIR, task_graph)
+        target_data_dir, task_graph)
     LOGGER.info('wait for convolution to complete')
     task_graph.join()
     return convolution_file_paths
