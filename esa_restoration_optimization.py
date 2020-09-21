@@ -482,8 +482,6 @@ def _calculate_modeled_biomass_from_mask(
         base_lulc_raster_path, FOREST_CODE, new_forest_mask_raster_path,
         converted_lulc_raster_path)
 
-    return
-
     # calculate biomass for that raster
     _calculate_modeled_biomass(
         converted_lulc_raster_path,
