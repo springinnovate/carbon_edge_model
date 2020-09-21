@@ -502,7 +502,7 @@ def main():
         _raw_basename(BASE_LULC_RASTER_PATH)}_{
         _raw_basename(ESA_RESTORATION_SCENARIO_RASTER_PATH)}'''
 
-    LOGGER.info('calculate new forest mask')
+    LOGGER.info(f'calculate new forest mask on {BASE_LULC_RASTER_PATH}')
     new_forest_raster_path = os.path.join(
         NEW_FOREST_MASK_DIR, f'{unique_scenario_id}.tif')
     new_forest_mask_task = task_graph.add_task(
@@ -637,7 +637,6 @@ def main():
                 target_path_list=[optimization_biomass_raster_path],
                 task_name=f'''calculate modeled optimization biomass for {
                     optimization_biomass_raster_path}''')
-            break # TODO: debugging break
             mask_area = float(re.match(
                 r'optimal_mask_(.*)\.tif', os.path.basename(
                     optimal_mask_raster_path)).group(1))
@@ -646,10 +645,6 @@ def main():
                     optimization_biomass_raster_path,
                     optimization_biomass_task)
 
-    optimization_biomass_task.join() # TODO: debugging join
-    task_graph.close()
-    task_graph.join()
-    return
     # TODO: calculate difference between modeled vs IPCC
     LOGGER.info(
         'calculate difference between modeled biomass optimization and IPCC '

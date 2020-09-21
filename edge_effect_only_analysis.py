@@ -165,8 +165,8 @@ def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
             WORKSPACE_DIR, f'''biomass_{basename}.tif''')
         n_local_workers = 3  # change this after watching disk IO
         esa_restoration_optimization._calculate_modeled_biomass_from_mask(
-            BASE_BIOMASS_RASTER_PATH, mask_raster_path,
-            biomass_raster_path, n_workers=n_local_workers,
+            esa_restoration_optimization.BASE_LULC_RASTER_PATH,
+            mask_raster_path, biomass_raster_path, n_workers=n_local_workers,
             base_data_dir=ALIGNED_DATA_DIR)
         old_forest_biomass_masked_raster = os.path.join(
             WORKSPACE_DIR, f'''old_forest_only_{basename}.tif''')
