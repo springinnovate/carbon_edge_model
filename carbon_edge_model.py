@@ -332,8 +332,9 @@ def evaluate_model_with_landcover(
          (nodata, 'raw'),
          (nodata_replace, 'raw'))
         for filename, nodata, nodata_replace in
-        carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA +
-        convolution_file_paths]
+        carbon_model_data.CARBON_EDGE_MODEL_DATA_NODATA] + \
+        [((path, 1), (nodata, 'raw'), (nodata_replace, 'raw'))
+         for path, nodata, nodata_replace in convolution_file_paths]
 
     target_nodata = -1
     raster_path_band_list = [
