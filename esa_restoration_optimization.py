@@ -281,7 +281,7 @@ def _diff_rasters(
         target_diff_raster_path, raster_info['datatype'], nodata)
 
 
-def _calcualte_new_forest(
+def _calculate_new_forest(
         base_lulc_raster_path, future_lulc_raster_path,
         new_forest_mask_raster_path):
     """Calculate where there is new forest from base to future.
@@ -475,9 +475,14 @@ def _calculate_modeled_biomass_from_mask(
 
     # this raster is base with new forest in it
     converted_lulc_raster_path = os.path.join(churn_dir, 'converted_lulc.tif')
+    LOGGER.info(
+        f'creating converted LULC off of {base_lulc_raster_path} to '
+        f'{converted_lulc_raster_path}')
     _replace_value_by_mask(
         base_lulc_raster_path, FOREST_CODE, new_forest_mask_raster_path,
         converted_lulc_raster_path)
+
+    return
 
     # calculate biomass for that raster
     _calculate_modeled_biomass(
@@ -501,7 +506,7 @@ def main():
     new_forest_raster_path = os.path.join(
         NEW_FOREST_MASK_DIR, f'{unique_scenario_id}.tif')
     new_forest_mask_task = task_graph.add_task(
-        func=_calcualte_new_forest,
+        func=_calculate_new_forest,
         args=(
             BASE_LULC_RASTER_PATH, ESA_RESTORATION_SCENARIO_RASTER_PATH,
             new_forest_raster_path),
@@ -632,7 +637,7 @@ def main():
                 target_path_list=[optimization_biomass_raster_path],
                 task_name=f'''calculate modeled optimization biomass for {
                     optimization_biomass_raster_path}''')
-
+            break # TODO: debugging break
             mask_area = float(re.match(
                 r'optimal_mask_(.*)\.tif', os.path.basename(
                     optimal_mask_raster_path)).group(1))
@@ -641,6 +646,10 @@ def main():
                     optimization_biomass_raster_path,
                     optimization_biomass_task)
 
+    optimization_biomass_task.join() # TODO: debugging join
+    task_graph.close()
+    task_graph.join()
+    return
     # TODO: calculate difference between modeled vs IPCC
     LOGGER.info(
         'calculate difference between modeled biomass optimization and IPCC '
