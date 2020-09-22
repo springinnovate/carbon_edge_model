@@ -257,7 +257,6 @@ if __name__ == '__main__':
                     f'calculate old forest biomass for '
                     f'{model_type} {mask_raster_path}'))
             task_result_list.append(biomass_diff_sum_task)
-        break
 
     task_list_iter = iter(task_result_list)
     for column_name, ipcc_task, regression_task in zip(
