@@ -345,11 +345,18 @@ def evaluate_model_with_landcover(
     forest_carbon_stocks_raster_path = os.path.join(
         churn_dir,
         f'{landtype_basename}_forest_biomass_per_ha{file_suffix}.tif')
-    LOGGER.info('scheduling the regression model')
-    pygeoprocessing.multiprocessing.raster_calculator(
-        raster_path_band_list, _carbon_op,
-        forest_carbon_stocks_raster_path, gdal.GDT_Float32, target_nodata,
-        n_workers=n_workers)
+    LOGGER.info(
+        f'scheduling the regression model on {raster_path_band_list} to '
+        f'target {forest_carbon_stocks_raster_path}')
+    if n_workers == -1:
+        pygeoprocessing.raster_calculator(
+            raster_path_band_list, _carbon_op,
+            forest_carbon_stocks_raster_path, gdal.GDT_Float32, target_nodata)
+    else:
+        pygeoprocessing.multiprocessing.raster_calculator(
+            raster_path_band_list, _carbon_op,
+            forest_carbon_stocks_raster_path, gdal.GDT_Float32, target_nodata,
+            n_workers=n_workers)
 
     # NON-FOREST BIOMASS
     LOGGER.info(f'convert baccini non forest into biomass_per_ha')
