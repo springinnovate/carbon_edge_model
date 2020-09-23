@@ -29,6 +29,10 @@ import taskgraph
 import carbon_model_data
 import esa_restoration_optimization
 
+from osgeo import gdal
+gdal.SetCacheMax(2**27)
+
+
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -49,13 +53,13 @@ IPCC_MASK_DIR_PATTERN = (
     './esa_restoration_optimization/optimization_workspaces/'
     'optimization_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_'
     'compressed_restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f'
-    '_ipcc_mode/optimal_mask_*.tif')
+    '_ipcc_mode/optimal_mask_350000000.0.tif') #optimal_mask_*.tif')
 
 MODELED_MASK_DIR_PATTERN = (
     './esa_restoration_optimization/optimization_workspaces/'
     'optimization_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_'
     'compressed_restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f'
-    '_modeled_mode_carbon_model_lsvr_poly_2_90000_pts/optimal_mask_*.tif')
+    '_modeled_mode_carbon_model_lsvr_poly_2_90000_pts/optimal_mask_350000000.0.tif') #optimal_mask_*.tif')
 
 
 WORKSPACE_DIR = 'edge_effect_only_workspace'
@@ -137,7 +141,8 @@ def sum_valid(raster_path):
     return accumulator_sum
 
 
-def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
+def calculate_old_forest_biomass_increase(
+        mask_raster_path, model_type, n_workers):
     """Calculate increase due to new forest in only the old forest.
 
     Calculate the total new biomass, mask it to old forest only, subtract
@@ -151,6 +156,7 @@ def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
             BASE_BIOMASS_RASTER_PATH.
         model_type (str): used to differentiate between mask raster paths
             that have the same basename
+        n_workers (int): number of parallel workers to allow
 
     Returns:
         (sum of edge biomass increase due to the new mask,
@@ -163,10 +169,9 @@ def calculate_old_forest_biomass_increase(mask_raster_path, model_type):
             os.path.basename(os.path.splitext(mask_raster_path)[0])}'''
         biomass_raster_path = os.path.join(
             WORKSPACE_DIR, f'''biomass_{basename}.tif''')
-        n_local_workers = 3  # change this after watching disk IO
         esa_restoration_optimization._calculate_modeled_biomass_from_mask(
             esa_restoration_optimization.BASE_LULC_RASTER_PATH,
-            mask_raster_path, biomass_raster_path, n_workers=n_local_workers,
+            mask_raster_path, biomass_raster_path, n_workers=n_workers,
             base_data_dir=ALIGNED_DATA_DIR)
         old_forest_biomass_masked_raster = os.path.join(
             WORKSPACE_DIR, f'''old_forest_only_{basename}.tif''')
@@ -231,7 +236,9 @@ if __name__ == '__main__':
     except OSError:
         pass
     task_graph = taskgraph.TaskGraph(
-        WORKSPACE_DIR, multiprocessing.cpu_count(), 15)
+        WORKSPACE_DIR,
+        len(ipcc_mask_file_list)*2,  # multiprocessing.cpu_count(),
+        15)
     task_graph.add_task(
         func=carbon_model_data.create_aligned_base_data,
         args=(ipcc_mask_file_list[0], ALIGNED_DATA_DIR),
@@ -239,11 +246,9 @@ if __name__ == '__main__':
     task_graph.join()
 
     LOGGER.info('starting biomass calculations')
-    task_graph = taskgraph.TaskGraph(
-        WORKSPACE_DIR, multiprocessing.cpu_count(), 15)
     for ipcc_mask_raster_path, modeled_mask_raster_path in zip(
-            glob.glob(IPCC_MASK_DIR_PATTERN),
-            glob.glob(MODELED_MASK_DIR_PATTERN)):
+            ipcc_mask_file_list,
+            modeled_mask_file_list):
         column_filename_list.append(os.path.basename(
                 os.path.splitext(ipcc_mask_raster_path)[0]))
         for mask_raster_path, model_type in [
@@ -251,7 +256,9 @@ if __name__ == '__main__':
                 (modeled_mask_raster_path, 'regression')]:
             biomass_diff_sum_task = task_graph.add_task(
                 func=calculate_old_forest_biomass_increase,
-                args=(mask_raster_path, model_type),
+                args=(mask_raster_path, model_type,
+                      min(3, multiprocessing.cpu_count() // len(
+                        ipcc_mask_raster_path))),
                 store_result=True,
                 task_name=(
                     f'calculate old forest biomass for '

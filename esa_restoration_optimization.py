@@ -20,6 +20,8 @@ import carbon_model_data
 from utils.density_per_ha_to_total_per_pixel import \
     density_per_ha_to_total_per_pixel
 
+gdal.SetCacheMax(2**27)
+
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -358,8 +360,7 @@ def _calculate_modeled_biomass(
         landcover_type_mask_raster_path, gdal.GDT_Byte, None)
 
     LOGGER.info(f"prep data for modeled biomass {esa_landcover_raster_path}")
-    task_graph = taskgraph.TaskGraph(
-        churn_dir, n_workers, 15.0)
+    task_graph = taskgraph.TaskGraph(churn_dir, n_workers, 15.0)
     convolution_file_paths = carbon_edge_model.warp_and_gaussian_filter_data(
         landcover_type_mask_raster_path, base_data_dir, churn_dir,
         task_graph)
@@ -372,7 +373,7 @@ def _calculate_modeled_biomass(
         carbon_edge_model.evaluate_model_with_landcover(
             BIOMASS_MODEL, landcover_type_mask_raster_path,
             convolution_file_paths,
-            churn_dir, churn_dir, -1, '')
+            churn_dir, churn_dir, n_workers, '')
 
     density_per_ha_to_total_per_pixel(
         total_biomass_per_ha_raster_path, 1.0,
@@ -468,26 +469,40 @@ def _calculate_modeled_biomass_from_mask(
     Returns:
         None
     """
-    churn_dir = tempfile.mkdtemp(
-        prefix=os.path.basename(os.path.splitext(
-            target_biomass_raster_path)[0]),
-        dir=os.path.dirname(target_biomass_raster_path))
+    churn_dir = os.path.join(
+        os.path.dirname(target_biomass_raster_path),
+        os.path.basename(os.path.splitext(target_biomass_raster_path)[0]))
+    task_graph = taskgraph.TaskGraph(churn_dir, -1)
 
     # this raster is base with new forest in it
     converted_lulc_raster_path = os.path.join(churn_dir, 'converted_lulc.tif')
     LOGGER.info(
         f'creating converted LULC off of {base_lulc_raster_path} to '
         f'{converted_lulc_raster_path}')
-    _replace_value_by_mask(
-        base_lulc_raster_path, FOREST_CODE, new_forest_mask_raster_path,
-        converted_lulc_raster_path)
+    replace_value_by_mask_task = task_graph.add_task(
+        func=_replace_value_by_mask,
+        args=(
+            base_lulc_raster_path, FOREST_CODE, new_forest_mask_raster_path,
+            converted_lulc_raster_path),
+        target_path_list=[converted_lulc_raster_path],
+        task_name=f'replace by mask to {converted_lulc_raster_path}')
 
     # calculate biomass for that raster
-    _calculate_modeled_biomass(
-        converted_lulc_raster_path,
-        churn_dir, target_biomass_raster_path, n_workers=n_workers,
-        base_data_dir=base_data_dir)
+    task_graph.add_task(
+        func=_calculate_modeled_biomass,
+        args=(
+            converted_lulc_raster_path,
+            churn_dir, target_biomass_raster_path),
+        kwargs={
+            'n_workers': n_workers,
+            'base_data_dir': base_data_dir},
+        dependent_task_list=[replace_value_by_mask_task],
+        target_path_list=[target_biomass_raster_path],
+        task_name=(
+            f'calculated modeled biomass for {target_biomass_raster_path}'))
 
+    task_graph.close()
+    task_graph.join()
     # shutil.rmtree(churn_dir)
 
 
