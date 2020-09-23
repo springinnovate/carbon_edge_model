@@ -235,10 +235,9 @@ if __name__ == '__main__':
         os.makedirs(ALIGNED_DATA_DIR)
     except OSError:
         pass
+    n_total_rasters = len(ipcc_mask_file_list)*2
     task_graph = taskgraph.TaskGraph(
-        WORKSPACE_DIR,
-        len(ipcc_mask_file_list)*2,  # multiprocessing.cpu_count(),
-        15)
+        WORKSPACE_DIR, min(n_total_rasters, multiprocessing.cpu_count()), 15)
     task_graph.add_task(
         func=carbon_model_data.create_aligned_base_data,
         args=(ipcc_mask_file_list[0], ALIGNED_DATA_DIR),
@@ -257,14 +256,13 @@ if __name__ == '__main__':
             biomass_diff_sum_task = task_graph.add_task(
                 func=calculate_old_forest_biomass_increase,
                 args=(mask_raster_path, model_type,
-                      min(3, multiprocessing.cpu_count() // len(
-                        ipcc_mask_raster_path))),
+                      max(3, multiprocessing.cpu_count() // len(
+                        ipcc_mask_file_list))),
                 store_result=True,
                 task_name=(
                     f'calculate old forest biomass for '
                     f'{model_type} {mask_raster_path}'))
             task_result_list.append(biomass_diff_sum_task)
-        break
 
     task_list_iter = iter(task_result_list)
     for column_name, ipcc_task, regression_task in zip(
