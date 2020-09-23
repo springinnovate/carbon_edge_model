@@ -246,6 +246,11 @@ def warp_and_gaussian_filter_data(
                 f'{base_raster_path} and {landcover_type_raster_path} are '
                 f'aligned already, hardlinking to '
                 f'{target_aligned_raster_path}')
+            if os.path.exists(target_aligned_raster_path):
+                LOGGER.warn(
+                    f'{target_aligned_raster_path} already exists, removing '
+                    'so we can hard link')
+                os.remove(target_aligned_raster_path)
             os.link(base_raster_path, target_aligned_raster_path)
             continue
 
