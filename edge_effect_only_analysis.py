@@ -245,6 +245,8 @@ if __name__ == '__main__':
     task_graph.join()
 
     LOGGER.info('starting biomass calculations')
+    n_workers_per_task = max(
+        3, multiprocessing.cpu_count() // len(ipcc_mask_file_list))
     for ipcc_mask_raster_path, modeled_mask_raster_path in zip(
             ipcc_mask_file_list,
             modeled_mask_file_list):
@@ -255,9 +257,7 @@ if __name__ == '__main__':
                 (modeled_mask_raster_path, 'regression')]:
             biomass_diff_sum_task = task_graph.add_task(
                 func=calculate_old_forest_biomass_increase,
-                args=(mask_raster_path, model_type,
-                      max(3, multiprocessing.cpu_count() // len(
-                        ipcc_mask_file_list))),
+                args=(mask_raster_path, model_type, n_workers_per_task),
                 store_result=True,
                 task_name=(
                     f'calculate old forest biomass for '
