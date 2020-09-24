@@ -114,8 +114,8 @@ def diff_valid(a_raster_path, b_raster_path, target_diff_raster_path):
         result = numpy.empty_like(a_array)
         result[:] = a_info['nodata'][0]
         valid_mask = (
-            ~numpy.is_close(a_array, a_info['nodata'][0]) &
-            ~numpy.is_close(b_array, b_info['nodata'][0]))
+            ~numpy.isclose(a_array, a_info['nodata'][0]) &
+            ~numpy.isclose(b_array, b_info['nodata'][0]))
         result[valid_mask] = a_array[valid_mask] - b_array[valid_mask]
         return result
 
