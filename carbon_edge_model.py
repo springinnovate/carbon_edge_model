@@ -34,7 +34,7 @@ MAX_CARBON = 368  # 99th percentile of baccini
 
 MODEL_URI = (
     'gs://ecoshard-root/global_carbon_regression/models/'
-    'carbon_model_lasso_lars_cv_poly_no_trans_640000_pts.mod')
+    'carbon_model_lsvr_poly_2_90000_pts.mod')
 
 # Landcover classification codes
 # 1: cropland
