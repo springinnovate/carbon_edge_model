@@ -31,7 +31,7 @@ Step 2 -- Run the Carbon Model
 
 This step requires that you have a raster with the four landcover types described in Step 1. that raster is called ``carbon_model_landcover_types.tif`` the model can be run as follows:
 
-``python carbon_edge_model.py --landtype_mask_raster_path carbon_model_landcover_types.tif``
+``python carbon_edge_model.py --landcover_type_raster_path carbon_model_landcover_types.tif``
 
 This script will make a directory in the current directory called ``carbon_model_workspace``. When complete, the root of this directory will contain the output file ``biomass_per_ha_stocks_{mask}.tif'`` where ``mask`` is the basename of the input landtype mask raster.
 
