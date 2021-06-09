@@ -2,12 +2,16 @@ import logging
 import os
 
 import ecoshard
+import pygeoprocessing
 
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
+
+gdal.SetCacheMax(2**27)
+
 
 RASTER_LIST = [
     'https://storage.googleapis.com/ecoshard-root/global_carbon_regression/inputs/accessibility_to_cities_2015_30sec_compressed_md5_c8b0cede8a8f6b0f004c8b97586ea61a.tif',
