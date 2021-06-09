@@ -93,7 +93,7 @@ WARP_PIXEL_SIZE = (0.002777777777777777884, -0.002777777777777777884)
 WARP_PROJ_WKT = osr.SRS_WKT_WGS84_LAT_LONG
 WARP_BB = [-179, -60, 179, 75]
 for dir_path in [ORIGINAL_DIR, PROJECTED_DIR]:
-    os.makedirs(dir_path)
+    os.makedirs(dir_path, exist_ok=True)
 
 
 def download_warp_and_hash(base_url, target_dir):
