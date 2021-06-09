@@ -1,6 +1,10 @@
 import logging
 import os
+import re
+import threading
 
+from osgeo import gdal
+from osgeo import osr
 import ecoshard
 import pygeoprocessing
 
@@ -84,7 +88,7 @@ RASTER_LIST = [
 
 WORKSPACE_DIR = 'workspace'
 ORIGINAL_DIR = os.path.join(WORKSPACE_DIR, 'originals')
-PROJECTED_DIR = os..path.join(WORKSPACE_DIR, 'projected')
+PROJECTED_DIR = os.path.join(WORKSPACE_DIR, 'projected')
 WARP_PIXEL_SIZE = (0.002777777777777777884, -0.002777777777777777884)
 WARP_PROJ_WKT = osr.SRS_WKT_WGS84_LAT_LONG
 WARP_BB = [-179, -60, 179, 75]
