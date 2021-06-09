@@ -118,7 +118,7 @@ def download_warp_and_hash(base_url, target_dir):
 if __name__ == '__main__':
     thread_list = []
     for raster_url in RASTER_LIST:
-        download_thread = threading.thread(
+        download_thread = threading.Thread(
             target=download_warp_and_hash,
             args=(raster_url, PROJECTED_DIR))
         download_thread.start()
