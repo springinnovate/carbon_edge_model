@@ -14,7 +14,6 @@ import taskgraph
 from osgeo import gdal
 
 BASE_DATA_DIR = os.path.join(os.path.dirname(__file__), 'model_base_data')
-
 BASE_URL = (
     'https://storage.googleapis.com/ecoshard-root/'
     'global_carbon_regression/inputs')
@@ -65,40 +64,41 @@ CARBON_EDGE_MODEL_DATA_NODATA = [
     ('wind_speed_10sec_compressed_md5_ec54562e1a6d307e532b767989f48a13.tif', -999, None),
     ('population_2015_30sec_compressed_md5_676c2ff75cebe0a4fcd090dfecc7a037.tif', 3.4028235e+38, 0.0),
     ('population_2015_5min_compressed_md5_4c267e3cb681689acc08020fd64e023d.tif', 3.4028235e+38, 0.0),
-    ('bdod_0-5cm_uncertainty_compressed_md5_37f9af4d5cb1babc47642f90e3fbaf9a.tif', 65535, None),
+    #('bdod_0-5cm_mean_compressed_md5_fe9e39b9527e9197dd4195ee53dc0fad.tif', -32768, None),
+    # ('bdod_0-5cm_uncertainty_compressed_md5_37f9af4d5cb1babc47642f90e3fbaf9a.tif', 65535, None),
     ('bdod_5-15cm_mean_compressed_md5_eabee41137f65c5400c16012fd31c686.tif', -32768, None),
-    ('bdod_5-15cm_uncertainty_compressed_md5_a3ae7668759e85482b4a3930b1bc4818.tif', 65535, None),
+    # ('bdod_5-15cm_uncertainty_compressed_md5_a3ae7668759e85482b4a3930b1bc4818.tif', 65535, None),
     ('cec_0-5cm_mean_compressed_md5_fcb258ec64c03d494f6f37811e1953e7.tif', -32768, None),
-    ('cec_0-5cm_uncertainty_compressed_md5_da49cc29b7e92932636bef2fcb59f2bc.tif', 65535, None),
+    # ('cec_0-5cm_uncertainty_compressed_md5_da49cc29b7e92932636bef2fcb59f2bc.tif', 65535, None),
     ('cec_5-15cm_mean_compressed_md5_2237766c8236006be2ae6b533c18ce1b.tif', -32768, None),
-    ('cec_5-15cm_uncertainty_compressed_md5_d5bbaf58ccce257fa9b6c848ebeb1438.tif', 65535, None),
+    # ('cec_5-15cm_uncertainty_compressed_md5_d5bbaf58ccce257fa9b6c848ebeb1438.tif', 65535, None),
     ('cfvo_0-5cm_mean_compressed_md5_559e5694539eebc1c1812d097f51f264.tif', -32768, None),
-    ('cfvo_0-5cm_uncertainty_compressed_md5_3ceda87f2ff831a5bca7dcddbba8a0ec.tif', 65535, None),
+    # ('cfvo_0-5cm_uncertainty_compressed_md5_3ceda87f2ff831a5bca7dcddbba8a0ec.tif', 65535, None),
     ('cfvo_5-15cm_mean_compressed_md5_2d0ca616540fac16f337111d161044c7.tif', -32768, None),
-    ('cfvo_5-15cm_uncertainty_compressed_md5_c4708eda6aae30dbda28957419a4aeef.tif', 65535, None),
+    # ('cfvo_5-15cm_uncertainty_compressed_md5_c4708eda6aae30dbda28957419a4aeef.tif', 65535, None),
     ('clay_0-5cm_mean_compressed_md5_8811e315c128b13d19b91eedd38f3289.tif', -32768, None),
-    ('clay_0-5cm_uncertainty_compressed_md5_d2d5413cad4be779f67633f055ec7edd.tif', 65535, None),
+    # ('clay_0-5cm_uncertainty_compressed_md5_d2d5413cad4be779f67633f055ec7edd.tif', 65535, None),
     ('clay_5-15cm_mean_compressed_md5_f3034943f4c27c2e34cd8b1c3c9eae12.tif', -32768, None),
-    ('clay_5-15cm_uncertainty_compressed_md5_2bc6390a2f1be9a148364daf1d74cd1e.tif', 65535, None),
+    # ('clay_5-15cm_uncertainty_compressed_md5_2bc6390a2f1be9a148364daf1d74cd1e.tif', 65535, None),
     ('nitrogen_0-5cm_mean_compressed_md5_982afcaa250504dda1c74a9305bd4dfb.tif', -32768, None),
-    ('nitrogen_0-5cm_uncertainty_compressed_md5_0a764e8e11c095a6198cbe0d57ff17e9.tif', 65535, None),
+    # ('nitrogen_0-5cm_uncertainty_compressed_md5_0a764e8e11c095a6198cbe0d57ff17e9.tif', 65535, None),
     ('nitrogen_5-15cm_mean_compressed_md5_40cc7a4f8dc6e3f20477b26e61a7fe14.tif', -32768, None),
-    ('nitrogen_5-15cm_uncertainty_compressed_md5_0a20d836d1d3e10ee369e100b864267b.tif', 65535, None),
+    # ('nitrogen_5-15cm_uncertainty_compressed_md5_0a20d836d1d3e10ee369e100b864267b.tif', 65535, None),
     ('phh2o_0-5cm_mean_compressed_md5_cf6d71bd6fb983f0b95da9a4a42daa5f.tif', -32768, None),
-    ('phh2o_0-5cm_uncertainty_compressed_md5_53cbff25993947a31426ad9eeeac89a8.tif', 65535, None),
+    # ('phh2o_0-5cm_uncertainty_compressed_md5_53cbff25993947a31426ad9eeeac89a8.tif', 65535, None),
     ('phh2o_5-15cm_mean_compressed_md5_a4791fe139d07654cd51539a3ef4cee0.tif', -32768, None),
-    ('phh2o_5-15cm_uncertainty_compressed_md5_b44c67d80604a9cb678a907961f13b6b.tif', 65535, None),
+    # ('phh2o_5-15cm_uncertainty_compressed_md5_b44c67d80604a9cb678a907961f13b6b.tif', 65535, None),
     ('sand_0-5cm_mean_compressed_md5_39ce08e191c75f63fd0b876d41b54688.tif', -32768, None),
-    ('sand_0-5cm_uncertainty_compressed_md5_e7034724303f6dce155ad29ad450102e.tif', 65535, None),
-    ('sand_5-15cm_uncertainty_compressed_md5_4ecbda7ddf5504e5cc6a86ab3986239d.tif', 65535, None),
+    # ('sand_0-5cm_uncertainty_compressed_md5_e7034724303f6dce155ad29ad450102e.tif', 65535, None),
+    # ('sand_5-15cm_uncertainty_compressed_md5_4ecbda7ddf5504e5cc6a86ab3986239d.tif', 65535, None),
     ('silt_0-5cm_mean_compressed_md5_2d035d45e08cc5a442bbbffcc1ebc0c7.tif', -32768, None),
-    ('silt_0-5cm_uncertainty_compressed_md5_bd64b35062130e80bdf76ebde9f91f58.tif', 65535, None),
+    # ('silt_0-5cm_uncertainty_compressed_md5_bd64b35062130e80bdf76ebde9f91f58.tif', 65535, None),
     ('silt_5-15cm_mean_compressed_md5_8393319c8345da12c664d39b67a0afa4.tif', -32768, None),
-    ('silt_5-15cm_uncertainty_compressed_md5_8277d8b498e593cb352be7bf43592be6.tif', 65535, None),
+    # ('silt_5-15cm_uncertainty_compressed_md5_8277d8b498e593cb352be7bf43592be6.tif', 65535, None),
     ('soc_0-5cm_mean_compressed_md5_076f6fa676ab399577e5881d4aa3784e.tif', -32768, None),
-    ('soc_0-5cm_uncertainty_compressed_md5_e7f40d8b08e2ad9b128e916b93b346b5.tif', -32768, None),
+    # ('soc_0-5cm_uncertainty_compressed_md5_e7f40d8b08e2ad9b128e916b93b346b5.tif', -32768, None),
     ('soc_5-15cm_mean_compressed_md5_6bf0892a2bbe8ee00f84fafd84302f29.tif', -32768, None),
-    ('soc_5-15cm_uncertainty_compressed_md5_153b60fa1115c7e99210a6d81cd70fa5.tif', -32768, None),
+    # ('soc_5-15cm_uncertainty_compressed_md5_153b60fa1115c7e99210a6d81cd70fa5.tif', -32768, None),
     # These were in the 1.0 version
     # ('AWCh1_10sec.tif', 255, None),
     # ('AWCh2_10sec.tif', 255, None),
@@ -150,75 +150,6 @@ def same_coverage(raster_a_path, raster_b_path):
             raster_b_info['bounding_box']).all():
         return False
     return True
-
-
-def create_aligned_base_data(
-        alignment_raster_path, target_data_dir,
-        n_workers=multiprocessing.cpu_count()):
-    """Create aligned base data.
-
-    Create the base data that are aligned to the given raster path.
-
-    Args:
-        alignment_raster_path (str): base raster to align inputs to.
-        target_data_dir (str): path to directory to dump aligned rasters.
-        n_workers (str): how many warps to allow to run in parallel.
-
-    Returns:
-        None
-    """
-    LOGGER.info(
-        f"align data to {alignment_raster_path}, place in {target_data_dir}")
-    task_graph = taskgraph.TaskGraph(
-        target_data_dir, n_workers, 15.0)
-    # Expected data is given by `carbon_model_data`.
-    base_raster_data_path_list = [
-        os.path.join(BASE_DATA_DIR, filename)
-        for filename, _, _ in CARBON_EDGE_MODEL_DATA_NODATA]
-
-    # sanity check:
-    missing_raster_list = []
-    for path in base_raster_data_path_list:
-        if not os.path.exists(path):
-            missing_raster_list.append(path)
-    if missing_raster_list:
-        raise ValueError(
-            f'Expected the following files that did not exist: '
-            f'{missing_raster_list}')
-
-    alignment_raster_info = pygeoprocessing.get_raster_info(
-        alignment_raster_path)
-    aligned_raster_path_list = [
-        os.path.join(target_data_dir, os.path.basename(path))
-        for path in base_raster_data_path_list]
-    for base_raster_path, target_aligned_raster_path in zip(
-            base_raster_data_path_list, aligned_raster_path_list):
-        if same_coverage(base_raster_path, alignment_raster_path):
-            LOGGER.info(
-                f'{base_raster_path} and {alignment_raster_path} are aligned '
-                f'already, hardlinking to {target_aligned_raster_path}')
-            if os.path.exists(target_aligned_raster_path):
-                os.remove(target_aligned_raster_path)
-            os.link(base_raster_path, target_aligned_raster_path)
-            continue
-
-        _ = task_graph.add_task(
-            func=pygeoprocessing.warp_raster,
-            args=(
-                base_raster_path, alignment_raster_info['pixel_size'],
-                target_aligned_raster_path, 'near'),
-            kwargs={
-                'target_bb': alignment_raster_info['bounding_box'],
-                'target_projection_wkt': (
-                    alignment_raster_info['projection_wkt']),
-                'working_dir': target_data_dir,
-                },
-            target_path_list=[target_aligned_raster_path],
-            task_name=f'align {base_raster_path} data')
-    LOGGER.info('wait for data to align')
-    task_graph.join()
-    task_graph.close()
-    task_graph = None
 
 
 def _reclassify_vals_op(array, array_nodata, mask_values):
