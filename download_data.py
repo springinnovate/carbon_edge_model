@@ -20,7 +20,7 @@ logging.basicConfig(
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('taskgraph').setLevel(logging.INFO)
+logging.getLogger('taskgraph').setLevel(logging.WARN)
 LOGGER = logging.getLogger(__name__)
 
 WORKSPACE_DIR = 'workspace/ecoshards'
@@ -37,6 +37,8 @@ RESPONSE_RASTER_FILENAME = 'baccini_carbon_data_2003_2014_compressed_md5_11d1455
 CELL_SIZE = (0.004, -0.004)  # in degrees
 PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
 BOUNDING_BOX = [-179, -56, 179, 60]
+
+MAX_TIME_INDEX = 11
 
 TIME_PREDICTOR_LIST = [
     ('baccini_carbon_error_compressed_wgs84__md5_77ea391e63c137b80727a00e4945642f.tif', None),
@@ -124,15 +126,24 @@ def download_data():
     response_url = URL_PREFIX + RESPONSE_RASTER_FILENAME
     response_path = os.path.join(WORKSPACE_DIR, RESPONSE_RASTER_FILENAME)
     LOGGER.debug(f'download {response_url} to {response_path}')
-    response_task = task_graph.add_task(
+    download_task = task_graph.add_task(
         func=ecoshard.download_url,
         args=(response_url, response_path),
         target_path_list=[response_path],
         task_name=f'download {response_path}')
-    response_task.join()
-    LOGGER.info(f'downloaded {response_path}')
-    response_info = pygeoprocessing.get_raster_info(response_path)
+    aligned_path = os.path.join(ALIGN_DIR, RESPONSE_RASTER_FILENAME)
+    align_task = task_graph.add_task(
+        func=pygeoprocessing.warp_raster,
+        args=(response_path, CELL_SIZE, aligned_path, 'near'),
+        kwargs={
+            'target_bb': BOUNDING_BOX,
+            'target_projection_wkt': PROJECTION_WKT,
+            'working_dir': WORKSPACE_DIR},
+        dependent_task_list=[download_task],
+        target_path_list=[aligned_path],
+        task_name=f'align {aligned_path}')
     raster_lookup = collections.defaultdict(list)
+    raster_lookup['response'] = aligned_path
 
     # download the rest and align to response
     download_project_list = []
@@ -157,7 +168,6 @@ def download_data():
 
         for filename in download_project_list:
             url = URL_PREFIX + filename
-            LOGGER.info(url)
             ecoshard_path = os.path.join(WORKSPACE_DIR, filename)
             download_task = task_graph.add_task(
                 func=ecoshard.download_url,
@@ -181,7 +191,7 @@ def download_data():
     return raster_lookup
 
 
-def sample_data(response_path, predictor_lookup):
+def sample_data(predictor_lookup):
     """Sample data stack.
 
     All input rasters are aligned.
@@ -196,10 +206,13 @@ def sample_data(response_path, predictor_lookup):
 
     """
     predictor_band_nodata_list = []
+    raster_list = []
     # simple lookup to map predictor band/nodata to a list
     for predictor_path, nodata in predictor_lookup['predictor']:
         predictor_raster = gdal.OpenEx(predictor_path, gdal.OF_RASTER)
+        raster_list.append(predictor_raster)
         predictor_band = predictor_raster.GetRasterBand(1)
+
         if nodata is None:
             nodata = predictor_band.GetNoDataValue()
         predictor_band_nodata_list.append((predictor_band, nodata))
@@ -215,6 +228,7 @@ def sample_data(response_path, predictor_lookup):
             time_predictor_path, nodata = payload
             time_predictor_raster = gdal.OpenEx(
                 time_predictor_path, gdal.OF_RASTER)
+            raster_list.append(time_predictor_raster)
             for index in range(time_predictor_raster.RasterCount):
                 time_predictor_band = time_predictor_raster.GetRasterBand(
                     index+1)
@@ -227,6 +241,7 @@ def sample_data(response_path, predictor_lookup):
                     payload):
                 time_predictor_raster = gdal.OpenEx(
                     time_predictor_path, gdal.OF_RASTER)
+                raster_list.append(time_predictor_raster)
                 time_predictor_band = time_predictor_raster.GetRasterBand(1)
                 if nodata is None:
                     nodata = time_predictor_band.GetNoDataValue()
@@ -237,17 +252,18 @@ def sample_data(response_path, predictor_lookup):
                 f'expected str or tuple but got {payload}')
 
     # build up an array of predictor stack
-    response_raster = gdal.OpenEx(response_path, gdal.OF_RASTER)
+    response_raster = gdal.OpenEx(predictor_lookup['response'], gdal.OF_RASTER)
+    raster_list.append(response_raster)
     if response_raster.RasterCount != len(time_predictor_lookup):
         raise ValueError(
             f'expected {response_raster.RasterCount} time elements but only '
             f'got {len(time_predictor_lookup)}')
 
-    x_vector = []
-    y_vector = []
-
+    y_list = []
+    x_vector = None
+    i = 0
     for offset_dict in pygeoprocessing.iterblocks(
-            (response_path, 1), offset_only=True):
+            (predictor_lookup['response'], 1), offset_only=True):
         predictor_stack = []  # N elements long
         valid_array = numpy.ones(
             (offset_dict['win_ysize'], offset_dict['win_xsize']),
@@ -262,10 +278,13 @@ def sample_data(response_path, predictor_lookup):
         if not numpy.any(valid_array):
             LOGGER.info(f'nodata at {offset_dict}')
             continue
+        LOGGER.debug(f'len predictors: {len(predictor_stack)}')
 
         # load the time based predictors
         for index, time_predictor_band_nodata_list in \
                 time_predictor_lookup.items():
+            if index > MAX_TIME_INDEX:
+                break
             valid_time_array = numpy.copy(valid_array)
             predictor_time_stack = []
             predictor_time_stack.extend(predictor_stack)
@@ -275,6 +294,7 @@ def sample_data(response_path, predictor_lookup):
                 if predictor_nodata is not None:
                     valid_time_array &= predictor_array != predictor_nodata
                 predictor_time_stack.append(predictor_array)
+                LOGGER.debug(f'put {index}')
 
             # load the time based responses
             response_band = response_raster.GetRasterBand(index+1)
@@ -288,19 +308,28 @@ def sample_data(response_path, predictor_lookup):
                 break
 
             # all of response_time_stack and response_array are valid, clip and add to set
-            local_x_vector = []
-            # this is wrong, local_x_vector should be transposed
+            local_x_list = []
+            # each element in array should correspond with an element in y
             for array in predictor_time_stack:
-                local_x_vector.append(array[valid_time_array])
-            x_vector.push(numpy.array(local_x_vector).T)
-            y_vector.extend(list(response_array[valid_time_array]))
-            if len(local_x_vector) != len(y_vector):
-                raise ValueError('local x vector not same length as y vector')
-        break
+                local_x_list.append(array[valid_time_array])
+            if x_vector is None:
+                x_vector = numpy.array(local_x_list)
+            else:
+                local_x_vector = numpy.array(local_x_list)
+                LOGGER.debug(f'{x_vector.shape} {local_x_vector.shape}')
+                x_vector = numpy.append(x_vector, local_x_vector, axis=1)
+            LOGGER.debug(f'{x_vector.shape}')
+            y_list.extend(list(response_array[valid_time_array]))
+        y_vector = numpy.array(y_list)
+        if i == 1:
+            break
+        i += 1
 
-    LOGGER.debug(f'got all done {len(x_vector)} {len(y_vector)}')
+    LOGGER.debug(f'got all done {x_vector.shape} {y_vector.shape}')
 
 
 if __name__ == '__main__':
     raster_lookup = download_data()
-    sample_data(raster_lookup, 1000)
+    LOGGER.debug('runnign sample data')
+    sample_data(raster_lookup)
+    LOGGER.debug('all done')
