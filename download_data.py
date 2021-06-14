@@ -10,8 +10,8 @@ from osgeo import osr
 import ecoshard
 import pygeoprocessing
 import numpy
-import rtree
 import taskgraph
+import torch
 
 gdal.SetCacheMax(2**27)
 
@@ -20,7 +20,7 @@ logging.basicConfig(
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('taskgraph').setLevel(logging.WARN)
+logging.getLogger('taskgraph').setLevel(logging.ERROR)
 LOGGER = logging.getLogger(__name__)
 
 WORKSPACE_DIR = 'workspace/ecoshards'
@@ -37,6 +37,7 @@ RESPONSE_RASTER_FILENAME = 'baccini_carbon_data_2003_2014_compressed_md5_11d1455
 CELL_SIZE = (0.004, -0.004)  # in degrees
 PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
 BOUNDING_BOX = [-179, -56, 179, 60]
+SAMPLE_RATE = 0.0001
 
 MAX_TIME_INDEX = 11
 
@@ -262,8 +263,16 @@ def sample_data(predictor_lookup):
     y_list = []
     x_vector = None
     i = 0
+    last_time = time.time()
+    total_pixels = predictor_raster.RasterXSize * predictor_raster.RasterYSize
     for offset_dict in pygeoprocessing.iterblocks(
-            (predictor_lookup['response'], 1), offset_only=True):
+            (predictor_lookup['response'], 1),
+            offset_only=True, largest_block=2**20):
+        LOGGER.debug(f"{offset_dict['win_xsize']} {offset_dict['win_ysize']}")
+        if time.time() - last_time > 5.0:
+            n_pixels_processed = offset_dict['xoff']+offset_dict['yoff']*predictor_raster.RasterXSize
+            LOGGER.info(f"processed {100*n_pixels_processed/total_pixels:.3f}% so far ({n_pixels_processed}) (x/y {offset_dict['xoff']}/{offset_dict['yoff']})")
+            last_time = time.time()
         predictor_stack = []  # N elements long
         valid_array = numpy.ones(
             (offset_dict['win_ysize'], offset_dict['win_xsize']),
@@ -276,9 +285,7 @@ def sample_data(predictor_lookup):
             predictor_stack.append(predictor_array)
 
         if not numpy.any(valid_array):
-            LOGGER.info(f'nodata at {offset_dict}')
             continue
-        LOGGER.debug(f'len predictors: {len(predictor_stack)}')
 
         # load the time based predictors
         for index, time_predictor_band_nodata_list in \
@@ -294,7 +301,6 @@ def sample_data(predictor_lookup):
                 if predictor_nodata is not None:
                     valid_time_array &= predictor_array != predictor_nodata
                 predictor_time_stack.append(predictor_array)
-                LOGGER.debug(f'put {index}')
 
             # load the time based responses
             response_band = response_raster.GetRasterBand(index+1)
@@ -304,32 +310,95 @@ def sample_data(predictor_lookup):
                 valid_time_array &= response_array != response_nodata
 
             if not numpy.any(valid_time_array):
-                LOGGER.info(f'nodata at {offset_dict}')
                 break
+
+            sample_mask = numpy.random.rand(
+                numpy.count_nonzero(valid_time_array)) > SAMPLE_RATE
 
             # all of response_time_stack and response_array are valid, clip and add to set
             local_x_list = []
             # each element in array should correspond with an element in y
             for array in predictor_time_stack:
-                local_x_list.append(array[valid_time_array])
+                local_x_list.append((array[valid_time_array])[sample_mask])
             if x_vector is None:
                 x_vector = numpy.array(local_x_list)
             else:
                 local_x_vector = numpy.array(local_x_list)
-                LOGGER.debug(f'{x_vector.shape} {local_x_vector.shape}')
                 x_vector = numpy.append(x_vector, local_x_vector, axis=1)
-            LOGGER.debug(f'{x_vector.shape}')
-            y_list.extend(list(response_array[valid_time_array]))
-        y_vector = numpy.array(y_list)
-        if i == 1:
+            y_list.extend(
+                list((response_array[valid_time_array])[sample_mask]))
+
+        if i == 0:
             break
         i += 1
-
+    y_vector = numpy.array(y_list)
     LOGGER.debug(f'got all done {x_vector.shape} {y_vector.shape}')
+    return (x_vector.T).astype(numpy.float32), (y_vector.astype(numpy.float32))
+
+
+def train(x_vector, y_vector):
+    LOGGER.debug(f'{x_vector.shape} {y_vector.shape}')
+    # Use the nn package to define our model and loss function.
+    N = 100
+    model = torch.nn.Sequential(
+        torch.nn.Linear(x_vector.shape[1], N),
+        torch.nn.ReLU(),
+        torch.nn.Linear(N, N),
+        #torch.nn.Sigmoid(),
+        #torch.nn.Linear(N, N),
+        #torch.nn.Sigmoid(),
+        torch.nn.Linear(N, 1),
+        torch.nn.Flatten(0, 1)
+    )
+    loss_fn = torch.nn.MSELoss(reduction='sum')
+
+    # Use the optim package to define an Optimizer that will update the weights of
+    # the model for us. Here we will use RMSprop; the optim package contains many other
+    # optimization algorithms. The first argument to the RMSprop constructor tells the
+    # optimizer which Tensors it should update.
+    learning_rate = 1e-3
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
+    last_loss = None
+
+    iter_count = 0
+    while True:
+        iter_count += 1
+        # Forward pass: compute predicted y by passing x to the model.
+        y_pred = model(x_vector)
+
+        # Compute and print loss.
+        loss = loss_fn(y_pred, y_vector)
+        if iter_count % 9 == 0:
+            if last_loss is not None:
+                if loss.item() - last_loss > 0:
+                    learning_rate *= 0.95
+                else:
+                    learning_rate *= 1.05
+                loss_rate = (last_loss-loss.item())/last_loss
+                if loss_rate < 0.00001:
+                    break
+                print(iter_count, loss.item(), learning_rate, loss_rate)
+            last_loss = loss.item()
+
+        # Before the backward pass, use the optimizer object to zero all of the
+        # gradients for the variables it will update (which are the learnable
+        # weights of the model). This is because by default, gradients are
+        # accumulated in buffers( i.e, not overwritten) whenever .backward()
+        # is called. Checkout docs of torch.autograd.backward for more details.
+        optimizer.zero_grad()
+
+        # Backward pass: compute gradient of the loss with respect to model
+        # parameters
+        loss.backward()
+
+        # Calling the step function on an Optimizer makes an update to its
+        # parameters
+        optimizer.step()
 
 
 if __name__ == '__main__':
     raster_lookup = download_data()
     LOGGER.debug('runnign sample data')
-    sample_data(raster_lookup)
+    x_vector, y_vector = sample_data(raster_lookup)
+    train(torch.from_numpy(x_vector), torch.from_numpy(y_vector))
     LOGGER.debug('all done')
