@@ -6,6 +6,7 @@ import time
 import logging
 
 from osgeo import gdal
+from osgeo import osr
 import ecoshard
 import pygeoprocessing
 import numpy
@@ -31,7 +32,7 @@ URL_PREFIX = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regress
 
 RESPONSE_RASTER_FILENAME = 'baccini_carbon_data_2003_2014_compressed_md5_11d1455ee8f091bf4be12c4f7ff9451b.tif'
 
-CELL_SIZE = 0.0004  # in degrees
+CELL_SIZE = (0.0004, -0.0004)  # in degrees
 PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
 BOUNDING_BOX = [-179, -56, 179, 60]
 
@@ -192,7 +193,6 @@ def sample_data(response_path, predictor_lookup):
 
 
     """
-    response_info = pygeoprocessing.get_raster_info(response_path)
     predictor_band_nodata_list = []
     # simple lookup to map predictor band/nodata to a list
     for predictor_path, nodata in predictor_lookup['predictor']:
@@ -206,32 +206,33 @@ def sample_data(response_path, predictor_lookup):
     # values, will be used to create a stack of data with the previous
     # collection and one per timestep on this one
     time_predictor_lookup = collections.defaultdict(list)
-    for time_predictor_path_tuple, nodata in \
-            predictor_lookup['time_predictor']:
+    for payload in predictor_lookup['time_predictor']:
         # time predictors could either be a tuple of rasters or a single
         # raster with multiple bands
-        if isinstance(time_predictor_path_tuple, str):
+        if isinstance(payload, tuple):
+            time_predictor_path, nodata = payload
             time_predictor_raster = gdal.OpenEx(
-                time_predictor_path_tuple, gdal.OF_RASTER)
+                time_predictor_path, gdal.OF_RASTER)
             for index in range(time_predictor_raster.RasterCount):
                 time_predictor_band = time_predictor_raster.GetRasterBand(
-                    band_index+1)
+                    index+1)
                 if nodata is None:
                     nodata = time_predictor_band.GetNoDataValue()
                 time_predictor_lookup[index].append(
                     (time_predictor_band, nodata))
-        else isinstance(time_predictor_path_tuple, tuple):
-            for index, time_predictor_path in enumerate(
-                    time_predictor_path_tuple):
+        elif isinstance(payload, list):
+            for index, (time_predictor_path, nodata) in enumerate(
+                    payload):
                 time_predictor_raster = gdal.OpenEx(
                     time_predictor_path, gdal.OF_RASTER)
                 time_predictor_band = time_predictor_raster.GetRasterBand(1)
+                if nodata is None:
+                    nodata = time_predictor_band.GetNoDataValue()
                 time_predictor_lookup[index].append((
-                    time_predictor_band,
-                    time_predictor_band.GetNoDataValue()))
+                    time_predictor_band, nodata))
         else:
             raise ValueError(
-                f'expected str or tuple but got {time_predictor_path_tuple}')
+                f'expected str or tuple but got {payload}')
 
     # build up an array of predictor stack
     response_raster = gdal.OpenEx(response_path, gdal.OF_RASTER)
@@ -239,6 +240,9 @@ def sample_data(response_path, predictor_lookup):
         raise ValueError(
             f'expected {response_raster.RasterCount} time elements but only '
             f'got {len(time_predictor_lookup)}')
+
+    x_vector = []
+    y_vector = []
 
     for offset_dict in pygeoprocessing.iterblocks(
             (response_path, 1), offset_only=True):
@@ -253,40 +257,46 @@ def sample_data(response_path, predictor_lookup):
                 valid_array &= predictor_array != predictor_nodata
             predictor_stack.append(predictor_array)
 
+        if not numpy.any(valid_array):
+            LOGGER.info(f'nodata at {offset_dict}')
+            continue
+
         # load the time based predictors
         for index, time_predictor_band_nodata_list in \
                 time_predictor_lookup.items():
             valid_time_array = numpy.copy(valid_array)
             predictor_time_stack = []
             predictor_time_stack.extend(predictor_stack)
-            response_time_stack = []  # time steps long
             for predictor_band, predictor_nodata in \
                     time_predictor_band_nodata_list:
                 predictor_array = predictor_band.ReadAsArray(**offset_dict)
                 if predictor_nodata is not None:
                     valid_time_array &= predictor_array != predictor_nodata
-                predictor_time_list.append(predictor_array)
-            predictor_time_stack.append(predictor_time_list)
+                predictor_time_stack.append(predictor_array)
 
-        # load the time based responses
-        for index in range(response_raster.RasterCount):
+            # load the time based responses
             response_band = response_raster.GetRasterBand(index+1)
             response_nodata = response_band.GetNoDataValue()
             response_array = response_band.ReadAsArray(**offset_dict)
             if response_nodata is not None:
-                valid_array &= response_array != response_nodata
-            response_time_stack.append(response_array)
+                valid_time_array &= response_array != response_nodata
 
-        if not numpy.any(valid_array):
-            LOGGER.info(f'nodata at {offset_dict}')
-            continue
+            if not numpy.any(valid_time_array):
+                LOGGER.info(f'nodata at {offset_dict}')
+                break
 
-        # push valid values onto a single data structure
-        valid_predictor_stack = []
-        for response_array, predictor_time_array in zip(
-                response_time_stack, predictor_time_stack):
-            for predictor_array in predictor_stack:
-                valid_predictor_stack.append(predictor_array[valid_array])
+            # all of response_time_stack and response_array are valid, clip and add to set
+            local_x_vector = []
+            # this is wrong, local_x_vector should be transposed
+            for array in predictor_time_stack:
+                local_x_vector.append(array[valid_time_array])
+            x_vector.push(numpy.array(local_x_vector).T)
+            y_vector.extend(list(response_array[valid_time_array]))
+            if len(local_x_vector) != len(y_vector):
+                raise ValueError('local x vector not same length as y vector')
+        break
+
+    LOGGER.debug(f'got all done {len(x_vector)} {len(y_vector)}')
 
 
 if __name__ == '__main__':
