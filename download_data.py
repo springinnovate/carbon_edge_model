@@ -32,7 +32,9 @@ URL_PREFIX = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regress
 
 RESPONSE_RASTER_FILENAME = 'baccini_carbon_data_2003_2014_compressed_md5_11d1455ee8f091bf4be12c4f7ff9451b.tif'
 
-CELL_SIZE = (0.0004, -0.0004)  # in degrees
+0.002777777777777777884,-0.002777777777777777884
+
+CELL_SIZE = (0.004, -0.004)  # in degrees
 PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
 BOUNDING_BOX = [-179, -56, 179, 60]
 
