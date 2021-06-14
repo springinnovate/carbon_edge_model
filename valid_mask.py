@@ -96,7 +96,7 @@ def make_mask():
     nodata_list = []
     for path, nodata in PREDICTOR_LIST:
         if nodata is None:
-            raster_info = pygeoprocessing.get_raster_info(path)
+            raster_info = pygeoprocessing.get_raster_info(os.path.join(ALIGN_DIR, path))
             nodata = raster_info['nodata'][0]
         nodata_list.append((nodata, 'raw'))
 
