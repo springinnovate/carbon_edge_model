@@ -101,8 +101,8 @@ def make_mask():
         nodata_list.append((nodata, 'raw'))
 
     pygeoprocessing.raster_calculator(
-        raster_path_list+nodata_list, _nodata_mask, gdal.GDT_Byte,
-        'mask.tif', None)
+        raster_path_list+nodata_list, _nodata_mask, 'mask.tif', gdal.GDT_Byte,
+        None)
 
 
 if __name__ == '__main__':
