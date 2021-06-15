@@ -342,72 +342,12 @@ def sample_data(time_domain_mask_list, predictor_lookup):
             y_list.extend(
                 list((response_array[valid_time_array])[sample_mask]))
 
-        if i == 0:
+        if i == 10:
             break
         i += 1
     y_vector = numpy.array(y_list)
     LOGGER.debug(f'got all done {x_vector.shape} {y_vector.shape}')
     return (x_vector.T).astype(numpy.float32), (y_vector.astype(numpy.float32))
-
-
-def train(x_vector, y_vector):
-    LOGGER.debug(f'{x_vector.shape} {y_vector.shape}')
-    # Use the nn package to define our model and loss function.
-    N = 100
-    model = torch.nn.Sequential(
-        torch.nn.Linear(x_vector.shape[1], N),
-        torch.nn.ReLU(),
-        torch.nn.Linear(N, N),
-        #torch.nn.Sigmoid(),
-        #torch.nn.Linear(N, N),
-        #torch.nn.Sigmoid(),
-        torch.nn.Linear(N, 1),
-        torch.nn.Flatten(0, 1)
-    )
-    loss_fn = torch.nn.MSELoss(reduction='sum')
-
-    # Use the optim package to define an Optimizer that will update the weights of
-    # the model for us. Here we will use RMSprop; the optim package contains many other
-    # optimization algorithms. The first argument to the RMSprop constructor tells the
-    # optimizer which Tensors it should update.
-    learning_rate = 1e-3
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
-    last_loss = None
-
-    iter_count = 0
-    while True:
-        iter_count += 1
-        # Forward pass: compute predicted y by passing x to the model.
-        y_pred = model(x_vector)
-
-        # Compute and print loss.
-        loss = loss_fn(y_pred, y_vector)
-        if iter_count % 9 == 0:
-            if last_loss is not None:
-                if loss.item() - last_loss > 0:
-                    learning_rate *= 0.95
-                else:
-                    learning_rate *= 1.05
-                loss_rate = (last_loss-loss.item())/last_loss
-                if loss_rate < 0.00001:
-                    break
-                print(iter_count, loss.item(), learning_rate, loss_rate)
-            last_loss = loss.item()
-
-        # Before the backward pass, use the optimizer object to zero all of the
-        # gradients for the variables it will update (which are the learnable
-        # weights of the model). This is because by default, gradients are
-        # accumulated in buffers( i.e, not overwritten) whenever .backward()
-        # is called. Checkout docs of torch.autograd.backward for more details.
-        optimizer.zero_grad()
-
-        # Backward pass: compute gradient of the loss with respect to model
-        # parameters
-        loss.backward()
-
-        # Calling the step function on an Optimizer makes an update to its
-        # parameters
-        optimizer.step()
 
 
 def make_kernel_raster(pixel_radius, target_path):
@@ -473,6 +413,66 @@ def mask_lulc(task_graph, lulc_raster_path):
     task_graph.join()
     LOGGER.debug(f'all done convolution list - {convolution_raster_list}')
     return forest_mask_raster_path, convolution_raster_list
+
+
+def train(x_vector, y_vector):
+    LOGGER.debug(f'{x_vector.shape} {y_vector.shape}')
+    # Use the nn package to define our model and loss function.
+    N = 100
+    model = torch.nn.Sequential(
+        torch.nn.Linear(x_vector.shape[1], N),
+        torch.nn.ReLU(),
+        torch.nn.Linear(N, N),
+        #torch.nn.Sigmoid(),
+        #torch.nn.Linear(N, N),
+        #torch.nn.Sigmoid(),
+        torch.nn.Linear(N, 1),
+        torch.nn.Flatten(0, 1)
+    )
+    loss_fn = torch.nn.MSELoss(reduction='sum')
+
+    # Use the optim package to define an Optimizer that will update the weights of
+    # the model for us. Here we will use RMSprop; the optim package contains many other
+    # optimization algorithms. The first argument to the RMSprop constructor tells the
+    # optimizer which Tensors it should update.
+    learning_rate = 1e-3
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
+    last_loss = None
+
+    iter_count = 0
+    while True:
+        iter_count += 1
+        # Forward pass: compute predicted y by passing x to the model.
+        y_pred = model(x_vector)
+
+        # Compute and print loss.
+        loss = loss_fn(y_pred, y_vector)
+        if iter_count % 9 == 0:
+            if last_loss is not None:
+                if loss.item() - last_loss > 0:
+                    learning_rate *= 0.95
+                else:
+                    learning_rate *= 1.05
+                loss_rate = (last_loss-loss.item())/last_loss
+                if loss_rate < 0.00001:
+                    break
+                print(iter_count, loss.item(), learning_rate, loss_rate)
+            last_loss = loss.item()
+
+        # Before the backward pass, use the optimizer object to zero all of the
+        # gradients for the variables it will update (which are the learnable
+        # weights of the model). This is because by default, gradients are
+        # accumulated in buffers( i.e, not overwritten) whenever .backward()
+        # is called. Checkout docs of torch.autograd.backward for more details.
+        optimizer.zero_grad()
+
+        # Backward pass: compute gradient of the loss with respect to model
+        # parameters
+        loss.backward()
+
+        # Calling the step function on an Optimizer makes an update to its
+        # parameters
+        optimizer.step()
 
 
 if __name__ == '__main__':
