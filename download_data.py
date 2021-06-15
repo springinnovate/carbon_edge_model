@@ -421,11 +421,11 @@ def train(x_vector, y_vector):
     N = 100
     model = torch.nn.Sequential(
         torch.nn.Linear(x_vector.shape[1], N),
-        torch.nn.ReLU(),
+        torch.nn.Sigmoid(),
         torch.nn.Linear(N, N),
-        #torch.nn.Sigmoid(),
-        #torch.nn.Linear(N, N),
-        #torch.nn.Sigmoid(),
+        torch.nn.Sigmoid(),
+        torch.nn.Linear(N, N),
+        torch.nn.Sigmoid(),
         torch.nn.Linear(N, 1),
         torch.nn.Flatten(0, 1)
     )
