@@ -1,7 +1,9 @@
 """Script to download everything needed to train the models."""
+import argparse
 import os
 import collections
 import multiprocessing
+import pickle
 import time
 import logging
 
@@ -30,6 +32,8 @@ ALIGN_DIR = os.path.join(WORKSPACE_DIR, 'align')
 CHURN_DIR = os.path.join(WORKSPACE_DIR, 'churn')
 for dir_path in [WORKSPACE_DIR, ALIGN_DIR, CHURN_DIR]:
     os.makedirs(dir_path, exist_ok=True)
+MODEL_PATH = os.path.join(WORKSPACE_DIR, 'model.dat')
+RASTER_LOOKUP_PATH = os.path.join(WORKSPACE_DIR, 'raster_lookup.dat')
 
 URL_PREFIX = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regression_2/inputs/'
 
@@ -415,7 +419,7 @@ def mask_lulc(task_graph, lulc_raster_path):
     return forest_mask_raster_path, convolution_raster_list
 
 
-def train(x_vector, y_vector):
+def train(x_vector, y_vector, target_model_path):
     LOGGER.debug(f'{x_vector.shape} {y_vector.shape}')
     # Use the nn package to define our model and loss function.
     N = 100
@@ -473,26 +477,138 @@ def train(x_vector, y_vector):
         # Calling the step function on an Optimizer makes an update to its
         # parameters
         optimizer.step()
+    torch.save(model, target_model_path)
+
+
+def align_predictors(
+        task_graph, lulc_raster_base_path, predictor_list, workspace_dir):
+    """Align all the predictors to lulc."""
+    lulc_raster_info = pygeoprocessing.get_raster_info(lulc_raster_base_path)
+    aligned_predictor_list = []
+    for predictor_raster_path, nodata in predictor_list:
+        if nodata is None:
+            nodata = pygeoprocessing.get_raster_info(
+                predictor_raster_path)['nodata'][0]
+        aligned_predictor_raster_path = os.path.join(
+            workspace_dir, 'aligned', os.path.basename(predictor_raster_path))
+        task_graph.add_task(
+            func=pygeoprocessing.warp_raster,
+            args=(
+                predictor_raster_path, lulc_raster_info['pixel_size'],
+                'near', aligned_predictor_raster_path),
+            kwargs={
+                'target_bb': lulc_raster_info['bounding_box'],
+                'target_projection_wkt': lulc_raster_info['projection_wkt']},
+            target_path_list=[aligned_predictor_raster_path],
+            task_name=f'align {aligned_predictor_raster_path}')
+        aligned_predictor_list.append((aligned_predictor_raster_path, nodata))
+    return aligned_predictor_list
+
+
+def model_predict(
+            model, lulc_raster_path, forest_mask_raster_path,
+            aligned_predictor_list, predicted_biomass_raster_path):
+    """Predict biomass given predictors."""
+    pygeoprocessing.new_raster_from_base(
+        lulc_raster_path, predicted_biomass_raster_path, gdal.GDT_Float32,
+        [-1])
+    predicted_biomass_raster = gdal.OpenEx(
+        predicted_biomass_raster_path, gdal.OF_RASTER)
+    predicted_biomass_band = predicted_biomass_raster.GetRasterBand(1)
+
+    predictor_band_nodata_list = []
+    raster_list = []
+    # simple lookup to map predictor band/nodata to a list
+    for predictor_path, nodata in aligned_predictor_list:
+        predictor_raster = gdal.OpenEx(predictor_path, gdal.OF_RASTER)
+        raster_list.append(predictor_raster)
+        predictor_band = predictor_raster.GetRasterBand(1)
+
+        if nodata is None:
+            nodata = predictor_band.GetNoDataValue()
+        predictor_band_nodata_list.append((predictor_band, nodata))
+
+    forest_raster = gdal.OpenEx(forest_mask_raster_path, gdal.OF_RASTER)
+    forest_band = forest_raster.GetRasterBand(1)
+
+    for offset_dict in pygeoprocessing.iterblocks(
+            (lulc_raster_path, 1), offset_only=True):
+        forest_array = forest_band.ReadAsArray(**offset_dict)
+        valid_mask = (forest_array == 1)
+        x_vector = None
+        array_list = []
+        for band, nodata in predictor_band_nodata_list:
+            array = band.ReadAsArray(**offset_dict)
+            if nodata is None:
+                nodata = band.GetNoDataValue()
+            if nodata is not None:
+                valid_mask &= array != nodata
+            array_list.append(array)
+        if not numpy.any(valid_mask):
+            continue
+        for array in array_list:
+            if x_vector is None:
+                x_vector = array[valid_mask]
+            else:
+                x_vector = numpy.append(x_vector, array[valid_mask], axis=1)
+        y_vector = model(x_vector)
+        predicted_biomass_band.WriteArray(
+            y_vector,
+            xoff=offset_dict['xoff'],
+            yoff=offset_dict['yoff'])
+    predicted_biomass_band = None
+    predicted_biomass_raster = None
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='People Travel Coverage')
+    parser.add_argument('lulc_raster_input', help='Path to lulc raster to model')
+    args = parser.parse_args()
+
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 15.0)
-    raster_lookup = download_data(task_graph)
-    task_graph.join()
-    # raster lookup has 'predictor' and 'time_predictor' lists
-    LOGGER.debug('running sample data')
-    time_domain_convolution_raster_list = []
-    forest_mask_raster_path_list = []
-    for lulc_path, _ in raster_lookup['lulc_time_list']:
+    if not os.path.exists(MODEL_PATH) or not os.path.exists(RASTER_LOOKUP_PATH):
+        raster_lookup = download_data(task_graph)
+        task_graph.join()
+        # raster lookup has 'predictor' and 'time_predictor' lists
+        LOGGER.debug('running sample data')
+
+        time_domain_convolution_raster_list = []
+        forest_mask_raster_path_list = []
+        for lulc_path, _ in raster_lookup['lulc_time_list']:
+            forest_mask_raster_path, convolution_raster_list = mask_lulc(
+                task_graph, lulc_path)
+            time_domain_convolution_raster_list.append(convolution_raster_list)
+            forest_mask_raster_path_list.append(forest_mask_raster_path)
+            # convolution_raster_list is all the convolutions for a given timestep
+        for time_domain_list in zip(*time_domain_convolution_raster_list):
+            raster_lookup['time_predictor'].append(list(time_domain_list))
+        task_graph.join()
+        task_graph.close()
+        x_vector, y_vector = sample_data(forest_mask_raster_path_list, raster_lookup)
+        train(torch.from_numpy(x_vector), torch.from_numpy(y_vector), MODEL_PATH)
+        with open(RASTER_LOOKUP_PATH, 'w') as raster_lookup_file:
+            pickle.dump(raster_lookup_file, raster_lookup)
+    else:
+
+        with open(RASTER_LOOKUP_PATH, 'r') as raster_lookup_file:
+            raster_lookup = pickle.load(raster_lookup_file)
+        local_workspace = os.path.join(
+            WORKSPACE_DIR,
+            os.path.basename(os.path.splitext(args.lulc_raster_input)[0]))
+
+        local_info = pygeoprocessing.get_raster_info(args.lulc_raster_input)
+        aligned_predictor_list = align_predictors(
+            args.lulc_raster_input, raster_lookup, local_workspace)
         forest_mask_raster_path, convolution_raster_list = mask_lulc(
-            task_graph, lulc_path)
-        time_domain_convolution_raster_list.append(convolution_raster_list)
-        forest_mask_raster_path_list.append(forest_mask_raster_path)
-        # convolution_raster_list is all the convolutions for a given timestep
-    for time_domain_list in zip(*time_domain_convolution_raster_list):
-        raster_lookup['time_predictor'].append(list(time_domain_list))
-    task_graph.join()
-    task_graph.close()
-    x_vector, y_vector = sample_data(forest_mask_raster_path_list, raster_lookup)
-    train(torch.from_numpy(x_vector), torch.from_numpy(y_vector))
+            task_graph, args.lulc_raster_input)
+        model = torch.load(MODEL_PATH)
+        model.eval()
+        predicted_biomass_raster_path = os.path.join(
+            local_workspace,
+            f'modeled_biomass_{os.path.basename(args.lulc_raster_path)}')
+        model_predict(
+            model, forest_mask_raster_path,
+            aligned_predictor_list+convolution_raster_list,
+            predicted_biomass_raster_path)
+
     LOGGER.debug('all done')
