@@ -450,8 +450,7 @@ def mask_lulc(task_graph, lulc_raster_path):
                 CHURN_DIR, f'{mask_id}_mask.tif')
             create_mask_task = task_graph.add_task(
                 func=_create_lulc_mask,
-                args=(lulc_raster_path,
-                      (mask_code,), mask_raster_path),
+                args=(lulc_raster_path, mask_code, mask_raster_path),
                 target_path_list=[mask_raster_path],
                 task_name=f'create {mask_id} mask')
             if mask_id == 'forest':
@@ -482,7 +481,7 @@ if __name__ == '__main__':
     LOGGER.debug('running sample data')
     time_domain_convolution_raster_list = []
     forest_mask_raster_path_list = []
-    for lulc_path in raster_lookup['lulc_time_list']:
+    for lulc_path, _ in raster_lookup['lulc_time_list']:
         forest_mask_raster_path, convolution_raster_list = mask_lulc(
             task_graph, lulc_path)
         time_domain_convolution_raster_list.append(convolution_raster_list)
