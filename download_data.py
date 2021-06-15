@@ -7,6 +7,7 @@ import logging
 
 from osgeo import gdal
 from osgeo import osr
+from utils import esa_to_carbon_model_landcover_types
 import ecoshard
 import pygeoprocessing
 import numpy
@@ -35,10 +36,9 @@ URL_PREFIX = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regress
 RESPONSE_RASTER_FILENAME = 'baccini_carbon_data_2003_2014_compressed_md5_11d1455ee8f091bf4be12c4f7ff9451b.tif'
 
 MASK_TYPES = [
-    ('cropland', 1),
-    ('urban', 2),
-    ('forest', 3)]
-OTHER_TYPE = 4
+    ('cropland', esa_to_carbon_model_landcover_types.CROPLAND_LULC_CODES),
+    ('urban', esa_to_carbon_model_landcover_types.URBAN_LULC_CODES),
+    ('forest', esa_to_carbon_model_landcover_types.FOREST_CODES)]
 
 EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0, 30.0]
 
@@ -424,10 +424,12 @@ def make_kernel_raster(pixel_radius, target_path):
         target_path)
 
 
-def _create_lulc_mask(lulc_raster_path, mask_code, target_mask_raster_path):
+def _create_lulc_mask(lulc_raster_path, mask_codes, target_mask_raster_path):
     """Create a mask raster given an lulc and mask code."""
+    numpy_mask_codes = numpy.array(mask_codes)
     pygeoprocessing.raster_calculator(
-        [(lulc_raster_path, 1)], lambda x: x == mask_code,
+        [(lulc_raster_path, 1)],
+        lambda array: numpy.isin(array, numpy_mask_codes),
         target_mask_raster_path, gdal.GDT_Byte, None)
 
 
@@ -445,12 +447,12 @@ def mask_lulc(task_graph, lulc_raster_path):
             target_path_list=[kernel_raster_path],
             task_name=f'make kernel of radius {pixel_radius}')
 
-        for mask_id, mask_code in MASK_TYPES:
+        for mask_id, mask_codes in MASK_TYPES:
             mask_raster_path = os.path.join(
                 CHURN_DIR, f'{mask_id}_mask.tif')
             create_mask_task = task_graph.add_task(
                 func=_create_lulc_mask,
-                args=(lulc_raster_path, mask_code, mask_raster_path),
+                args=(lulc_raster_path, mask_codes, mask_raster_path),
                 target_path_list=[mask_raster_path],
                 task_name=f'create {mask_id} mask')
             if mask_id == 'forest':
