@@ -10,6 +10,7 @@ from osgeo import osr
 import ecoshard
 import pygeoprocessing
 import numpy
+import scipy
 import taskgraph
 import torch
 
@@ -24,15 +25,22 @@ logging.getLogger('taskgraph').setLevel(logging.ERROR)
 LOGGER = logging.getLogger(__name__)
 
 WORKSPACE_DIR = 'workspace/ecoshards'
-os.makedirs(WORKSPACE_DIR, exist_ok=True)
 ALIGN_DIR = os.path.join(WORKSPACE_DIR, 'align')
-os.makedirs(ALIGN_DIR, exist_ok=True)
+CHURN_DIR = os.path.join(WORKSPACE_DIR, 'churn')
+for dir_path in [WORKSPACE_DIR, ALIGN_DIR, CHURN_DIR]:
+    os.makedirs(dir_path, exist_ok=True)
 
 URL_PREFIX = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regression_2/inputs/'
 
 RESPONSE_RASTER_FILENAME = 'baccini_carbon_data_2003_2014_compressed_md5_11d1455ee8f091bf4be12c4f7ff9451b.tif'
 
-0.002777777777777777884,-0.002777777777777777884
+MASK_TYPES = [
+    ('cropland', 1),
+    ('urban', 2),
+    ('forest', 3)]
+OTHER_TYPE = 4
+
+EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0, 30.0]
 
 CELL_SIZE = (0.004, -0.004)  # in degrees
 PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
@@ -43,19 +51,21 @@ MAX_TIME_INDEX = 11
 
 TIME_PREDICTOR_LIST = [
     ('baccini_carbon_error_compressed_wgs84__md5_77ea391e63c137b80727a00e4945642f.tif', None),
-    [('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2003-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2004-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2005-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2006-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2007-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2008-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2009-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2010-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2011-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2012-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2013-v2.0.7_smooth_compressed.tif', None),
-     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif', None)],
 ]
+
+LULC_TIME_LIST = [
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2003-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2004-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2005-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2006-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2007-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2008-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2009-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2010-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2011-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2012-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2013-v2.0.7_smooth_compressed.tif', None),
+    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif', None)]
 
 PREDICTOR_LIST = [
     ('accessibility_to_cities_2015_30sec_compressed_wgs84__md5_a6a8ffcb6c1025c131f7663b80b3c9a7.tif', -9999),
@@ -119,10 +129,8 @@ PREDICTOR_LIST = [
 ]
 
 
-def download_data():
+def download_data(task_graph):
     """Download the whole data stack."""
-    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 15.0)
-
     # First download the response raster to align all the rest
     response_url = URL_PREFIX + RESPONSE_RASTER_FILENAME
     response_path = os.path.join(WORKSPACE_DIR, RESPONSE_RASTER_FILENAME)
@@ -149,6 +157,7 @@ def download_data():
     # download the rest and align to response
     download_project_list = []
     for raster_list, raster_type in [
+            (LULC_TIME_LIST, 'lulc_time_list'),
             (TIME_PREDICTOR_LIST, 'time_predictor'),
             (PREDICTOR_LIST, 'predictor')]:
         for payload in raster_list:
@@ -186,13 +195,11 @@ def download_data():
                 dependent_task_list=[download_task],
                 target_path_list=[aligned_path],
                 task_name=f'align {aligned_path}')
-    task_graph.join()
-    task_graph.close()
 
     return raster_lookup
 
 
-def sample_data(predictor_lookup):
+def sample_data(time_domain_mask_list, predictor_lookup):
     """Sample data stack.
 
     All input rasters are aligned.
@@ -251,6 +258,12 @@ def sample_data(predictor_lookup):
         else:
             raise ValueError(
                 f'expected str or tuple but got {payload}')
+    mask_band_list = []
+    for time_domain_mask_raster_path in time_domain_mask_list:
+        mask_raster = gdal.OpenEx(time_domain_mask_raster_path, gdal.OF_RASTER)
+        raster_list.append(mask_raster)
+        mask_band = mask_raster.GetRasterBand(1)
+        mask_band_list.append(mask_band)
 
     # build up an array of predictor stack
     response_raster = gdal.OpenEx(predictor_lookup['response'], gdal.OF_RASTER)
@@ -292,7 +305,8 @@ def sample_data(predictor_lookup):
                 time_predictor_lookup.items():
             if index > MAX_TIME_INDEX:
                 break
-            valid_time_array = numpy.copy(valid_array)
+            mask_array = mask_band_list[index].ReadAsArray(**offset_dict)
+            valid_time_array = valid_array & (mask_array == 1)
             predictor_time_stack = []
             predictor_time_stack.extend(predictor_stack)
             for predictor_band, predictor_nodata in \
@@ -396,9 +410,88 @@ def train(x_vector, y_vector):
         optimizer.step()
 
 
+def make_kernel_raster(pixel_radius, target_path):
+    """Create kernel with given radius to `target_path`."""
+    truncate = 2
+    size = int(pixel_radius * 2 * truncate + 1)
+    step_fn = numpy.zeros((size, size))
+    step_fn[size//2, size//2] = 1
+    kernel_array = scipy.ndimage.filters.gaussian_filter(
+        step_fn, pixel_radius, order=0, mode='constant', cval=0.0,
+        truncate=truncate)
+    pygeoprocessing.numpy_array_to_raster(
+        kernel_array, -1, (1., -1.), (0.,  0.), None,
+        target_path)
+
+
+def _create_lulc_mask(lulc_raster_path, mask_code, target_mask_raster_path):
+    """Create a mask raster given an lulc and mask code."""
+    pygeoprocessing.raster_calculator(
+        [(lulc_raster_path, 1)], lambda x: x == mask_code,
+        target_mask_raster_path, gdal.GDT_Byte, None)
+
+
+def mask_lulc(task_graph, lulc_raster_path):
+    """Create all the masks and convolutions off of lulc_raster_path."""
+    # this is calculated as 111km per degree
+    convolution_raster_list = []
+    for expected_max_edge_effect_km in EXPECTED_MAX_EDGE_EFFECT_KM_LIST:
+        pixel_radius = (CELL_SIZE[0] * 111 / expected_max_edge_effect_km)**-1
+        kernel_raster_path = os.path.join(
+            CHURN_DIR, f'kernel_{pixel_radius}.tif')
+        kernel_task = task_graph.add_task(
+            func=make_kernel_raster,
+            args=(pixel_radius, kernel_raster_path),
+            target_path_list=[kernel_raster_path],
+            task_name=f'make kernel of radius {pixel_radius}')
+
+        for mask_id, mask_code in MASK_TYPES:
+            mask_raster_path = os.path.join(
+                CHURN_DIR, f'{mask_id}_mask.tif')
+            create_mask_task = task_graph.add_task(
+                func=_create_lulc_mask,
+                args=(lulc_raster_path,
+                      (mask_code,), mask_raster_path),
+                target_path_list=[mask_raster_path],
+                task_name=f'create {mask_id} mask')
+            if mask_id == 'forest':
+                forest_mask_raster_path = mask_raster_path
+            mask_gf_path = (
+                f'{os.path.splitext(mask_raster_path)[0]}_gf_'
+                f'{expected_max_edge_effect_km}.tif')
+            LOGGER.debug(f'making convoluion for {mask_gf_path}')
+            convolution_task = task_graph.add_task(
+                func=pygeoprocessing.convolve_2d,
+                args=(
+                    (mask_raster_path, 1), (kernel_raster_path, 1),
+                    mask_gf_path),
+                dependent_task_list=[create_mask_task, kernel_task],
+                target_path_list=[mask_gf_path],
+                task_name=f'create guassian filter of {mask_id} at {mask_gf_path}')
+            convolution_raster_list.append(((mask_gf_path, None)))
+    task_graph.join()
+    LOGGER.debug(f'all done convolution list - {convolution_raster_list}')
+    return forest_mask_raster_path, convolution_raster_list
+
+
 if __name__ == '__main__':
-    raster_lookup = download_data()
-    LOGGER.debug('runnign sample data')
-    x_vector, y_vector = sample_data(raster_lookup)
+    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 15.0)
+    raster_lookup = download_data(task_graph)
+    task_graph.join()
+    # raster lookup has 'predictor' and 'time_predictor' lists
+    LOGGER.debug('running sample data')
+    time_domain_convolution_raster_list = []
+    forest_mask_raster_path_list = []
+    for lulc_path in raster_lookup['lulc_time_list']:
+        forest_mask_raster_path, convolution_raster_list = mask_lulc(
+            task_graph, lulc_path)
+        time_domain_convolution_raster_list.append(convolution_raster_list)
+        forest_mask_raster_path_list.append(forest_mask_raster_path)
+        # convolution_raster_list is all the convolutions for a given timestep
+    for time_domain_list in zip(*time_domain_convolution_raster_list):
+        raster_lookup['time_predictor'].append(list(time_domain_list))
+    task_graph.join()
+    task_graph.close()
+    x_vector, y_vector = sample_data(forest_mask_raster_path_list, raster_lookup)
     train(torch.from_numpy(x_vector), torch.from_numpy(y_vector))
     LOGGER.debug('all done')
