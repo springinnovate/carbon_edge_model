@@ -389,7 +389,7 @@ def mask_lulc(task_graph, lulc_raster_path):
 
         for mask_id, mask_codes in MASK_TYPES:
             mask_raster_path = os.path.join(
-                CHURN_DIR, f'{mask_id}_mask.tif')
+                CHURN_DIR, f'{os.path.basename(os.path.splitext(lulc_raster_path))}_{mask_id}_mask.tif')
             create_mask_task = task_graph.add_task(
                 func=_create_lulc_mask,
                 args=(lulc_raster_path, mask_codes, mask_raster_path),
