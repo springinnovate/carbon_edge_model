@@ -425,7 +425,7 @@ def mask_lulc(task_graph, lulc_raster_path):
 def train(x_vector, y_vector, target_model_path):
     LOGGER.debug(f'starting training on {x_vector.shape} {y_vector.shape}')
     # Use the nn package to define our model and loss function.
-    N = 100
+    N = 200
     model = torch.nn.Sequential(
         torch.nn.Linear(x_vector.shape[1], N),
         torch.nn.Sigmoid(),
