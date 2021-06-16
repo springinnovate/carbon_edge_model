@@ -609,7 +609,7 @@ if __name__ == '__main__':
         model.eval()
         predicted_biomass_raster_path = os.path.join(
             local_workspace,
-            f'modeled_biomass_{os.path.basename(args.lulc_raster_path)}')
+            f'modeled_biomass_{os.path.basename(args.lulc_raster_input)}')
         model_predict(
             model, forest_mask_raster_path,
             aligned_predictor_list+convolution_raster_list,
