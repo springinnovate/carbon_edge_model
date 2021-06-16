@@ -558,7 +558,7 @@ def model_predict(
                 valid_array = numpy.reshape(valid_array, (-1, valid_array.size))
                 LOGGER.debug(
                     f'x_vector.shape {x_vector.shape} vs {valid_array.shape}')
-                x_vector = numpy.append(x_vector, valid_array, axis=1)
+                x_vector = numpy.append(x_vector, valid_array, axis=0)
         y_vector = model(torch.from_numpy(x_vector))
         predicted_biomass_band.WriteArray(
             y_vector,
