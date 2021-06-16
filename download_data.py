@@ -18,7 +18,8 @@ import taskgraph
 import torch
 
 gdal.SetCacheMax(2**27)
-
+torch.set_num_threads(multiprocessing.cpu_count())
+torch.set_num_interop_threads(multiprocessing.cpu_count())
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -454,7 +455,7 @@ def train(x_vector, y_vector, target_model_path):
 
         # Compute and print loss.
         loss = loss_fn(y_pred, y_vector)
-        if iter_count % 999 == 0:
+        if iter_count % 300 == 0:
             if last_loss is not None:
                 if loss.item() - last_loss > 0:
                     learning_rate *= 0.95
@@ -462,7 +463,7 @@ def train(x_vector, y_vector, target_model_path):
                     learning_rate *= 1.05
                 total_loss = last_loss-loss.item()
                 loss_rate = (total_loss)/last_loss
-                if (total_loss < 10 and loss_rate > 0) or iter_count > 10000:
+                if (total_loss < 10 and loss_rate > 0) or iter_count > 4000:
                     break
                 print(iter_count, loss.item(), total_loss, loss_rate)
             last_loss = loss.item()
