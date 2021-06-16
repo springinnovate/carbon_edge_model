@@ -459,7 +459,6 @@ def train(x_vector, y_vector, target_model_path):
                 if loss_rate < 0.00001:
                     break
                 print(iter_count, loss.item(), learning_rate, loss_rate)
-                break
             last_loss = loss.item()
 
         # Before the backward pass, use the optimizer object to zero all of the
