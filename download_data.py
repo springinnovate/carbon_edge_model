@@ -573,11 +573,11 @@ def model_predict(
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='People Travel Coverage')
+    parser = argparse.ArgumentParser(description='download data')
     parser.add_argument('lulc_raster_input', help='Path to lulc raster to model')
     args = parser.parse_args()
 
-    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 5.0)
+    task_graph = taskgraph.TaskGraph('.', -1) #multiprocessing.cpu_count(), 5.0)
     if not os.path.exists(MODEL_PATH) or not os.path.exists(RASTER_LOOKUP_PATH):
         raster_lookup = download_data(task_graph)
         task_graph.join()
