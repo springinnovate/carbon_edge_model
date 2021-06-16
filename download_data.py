@@ -27,7 +27,9 @@ logging.basicConfig(
 logging.getLogger('taskgraph').setLevel(logging.ERROR)
 LOGGER = logging.getLogger(__name__)
 
-WORKSPACE_DIR = 'workspace/ecoshards'
+BOUNDING_BOX = [-64, -4, -55, 3]
+
+WORKSPACE_DIR = f"workspace{'_'.join([str(v) for v in BOUNDING_BOX])}/ecoshards"
 ALIGN_DIR = os.path.join(WORKSPACE_DIR, 'align')
 CHURN_DIR = os.path.join(WORKSPACE_DIR, 'churn')
 for dir_path in [WORKSPACE_DIR, ALIGN_DIR, CHURN_DIR]:
@@ -35,7 +37,9 @@ for dir_path in [WORKSPACE_DIR, ALIGN_DIR, CHURN_DIR]:
 MODEL_PATH = os.path.join(WORKSPACE_DIR, 'model.dat')
 RASTER_LOOKUP_PATH = os.path.join(WORKSPACE_DIR, 'raster_lookup.dat')
 
-URL_PREFIX = 'https://storage.googleapis.com/ecoshard-root/global_carbon_regression_2/inputs/'
+URL_PREFIX = (
+    'https://storage.googleapis.com/ecoshard-root/global_carbon_regression_2/'
+    'inputs/')
 
 RESPONSE_RASTER_FILENAME = 'baccini_carbon_data_2003_2014_compressed_md5_11d1455ee8f091bf4be12c4f7ff9451b.tif'
 
@@ -48,7 +52,6 @@ EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0]
 
 CELL_SIZE = (0.004, -0.004)  # in degrees
 PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
-BOUNDING_BOX = [-179, -56, 179, 60]
 SAMPLE_RATE = 0.00001
 
 MAX_TIME_INDEX = 11
@@ -189,7 +192,7 @@ def download_data(task_graph):
                 target_path_list=[ecoshard_path],
                 task_name=f'download {ecoshard_path}')
             aligned_path = os.path.join(ALIGN_DIR, filename)
-            align_task = task_graph.add_task(
+            _ = task_graph.add_task(
                 func=pygeoprocessing.warp_raster,
                 args=(ecoshard_path, CELL_SIZE, aligned_path, 'near'),
                 kwargs={
@@ -617,3 +620,4 @@ if __name__ == '__main__':
             predicted_biomass_raster_path)
 
     LOGGER.debug('all done')
+# keep it special
