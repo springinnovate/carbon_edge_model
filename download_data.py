@@ -496,7 +496,7 @@ def align_predictors(
             func=pygeoprocessing.warp_raster,
             args=(
                 predictor_raster_path, lulc_raster_info['pixel_size'],
-                'near', aligned_predictor_raster_path),
+                aligned_predictor_raster_path, 'near'),
             kwargs={
                 'target_bb': lulc_raster_info['bounding_box'],
                 'target_projection_wkt': lulc_raster_info['projection_wkt']},
