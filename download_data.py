@@ -550,10 +550,10 @@ def model_predict(
             continue
         for array in array_list:
             if x_vector is None:
-                x_vector = array[valid_mask]
+                x_vector = array[valid_mask].astype(numpy.float32)
                 x_vector = numpy.reshape(x_vector, (-1, x_vector.size))
             else:
-                valid_array = array[valid_mask]
+                valid_array = array[valid_mask].astype(numpy.float32)
                 valid_array = numpy.reshape(valid_array, (-1, valid_array.size))
                 LOGGER.debug(
                     f'x_vector.shape {x_vector.shape} vs {valid_array.shape}')
