@@ -54,7 +54,7 @@ SAMPLE_RATE = 0.0001
 MAX_TIME_INDEX = 11
 
 TIME_PREDICTOR_LIST = [
-    ('baccini_carbon_error_compressed_wgs84__md5_77ea391e63c137b80727a00e4945642f.tif', None),
+    #('baccini_carbon_error_compressed_wgs84__md5_77ea391e63c137b80727a00e4945642f.tif', None),
 ]
 
 LULC_TIME_LIST = [
@@ -530,7 +530,7 @@ def model_predict(
         if nodata is None:
             nodata = predictor_band.GetNoDataValue()
         predictor_band_nodata_list.append((predictor_band, nodata))
-
+    LOGGER.debug(f'{"\n".join([v[0] for v in aligned_predictor_list])}')
     forest_raster = gdal.OpenEx(forest_mask_raster_path, gdal.OF_RASTER)
     forest_band = forest_raster.GetRasterBand(1)
 
