@@ -553,6 +553,8 @@ def model_predict(
             if x_vector is None:
                 x_vector = numpy.array(array[valid_mask])
             else:
+                LOGGER.debug(
+                    f'x_vector.shape {x_vector.shape} vs {array[valid_mask].shape}')
                 x_vector = numpy.stack((x_vector, array[valid_mask]), 1)
         y_vector = model(torch.from_numpy(x_vector))
         predicted_biomass_band.WriteArray(
