@@ -485,13 +485,15 @@ def align_predictors(
         task_graph, lulc_raster_base_path, predictor_list, workspace_dir):
     """Align all the predictors to lulc."""
     lulc_raster_info = pygeoprocessing.get_raster_info(lulc_raster_base_path)
+    aligned_dir = os.path.join(workspace_dir, 'aligned')
+    os.makedirs(aligned_dir, exist_ok=True)
     aligned_predictor_list = []
     for predictor_raster_path, nodata in predictor_list:
         if nodata is None:
             nodata = pygeoprocessing.get_raster_info(
                 predictor_raster_path)['nodata'][0]
         aligned_predictor_raster_path = os.path.join(
-            workspace_dir, 'aligned', os.path.basename(predictor_raster_path))
+            aligned_dir, os.path.basename(predictor_raster_path))
         task_graph.add_task(
             func=pygeoprocessing.warp_raster,
             args=(
