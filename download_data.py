@@ -599,7 +599,6 @@ if __name__ == '__main__':
             store_result=True,
             task_name='sample data')
         x_vector, y_vector = sample_data_task.get()
-        task_graph.close()
         task_graph.add_task(
             func=train,
             args=(
@@ -609,29 +608,28 @@ if __name__ == '__main__':
             task_name='train')
         with open(RASTER_LOOKUP_PATH, 'wb') as raster_lookup_file:
             pickle.dump(raster_lookup, raster_lookup_file)
-    else:
 
-        with open(RASTER_LOOKUP_PATH, 'rb') as raster_lookup_file:
-            raster_lookup = pickle.load(raster_lookup_file)
-        local_workspace = os.path.join(
-            WORKSPACE_DIR,
-            os.path.basename(os.path.splitext(args.lulc_raster_input)[0]))
+    with open(RASTER_LOOKUP_PATH, 'rb') as raster_lookup_file:
+        raster_lookup = pickle.load(raster_lookup_file)
+    local_workspace = os.path.join(
+        WORKSPACE_DIR,
+        os.path.basename(os.path.splitext(args.lulc_raster_input)[0]))
 
-        local_info = pygeoprocessing.get_raster_info(args.lulc_raster_input)
-        aligned_predictor_list = align_predictors(
-            task_graph, args.lulc_raster_input, raster_lookup['predictor'],
-            local_workspace)
-        forest_mask_raster_path, convolution_raster_list = mask_lulc(
-            task_graph, args.lulc_raster_input)
-        model = torch.load(MODEL_PATH)
-        model.eval()
-        predicted_biomass_raster_path = os.path.join(
-            local_workspace,
-            f'modeled_biomass_{os.path.basename(args.lulc_raster_input)}')
-        model_predict(
-            model, args.lulc_raster_input, forest_mask_raster_path,
-            aligned_predictor_list+convolution_raster_list,
-            predicted_biomass_raster_path)
-
+    local_info = pygeoprocessing.get_raster_info(args.lulc_raster_input)
+    aligned_predictor_list = align_predictors(
+        task_graph, args.lulc_raster_input, raster_lookup['predictor'],
+        local_workspace)
+    forest_mask_raster_path, convolution_raster_list = mask_lulc(
+        task_graph, args.lulc_raster_input)
+    model = torch.load(MODEL_PATH)
+    model.eval()
+    predicted_biomass_raster_path = os.path.join(
+        local_workspace,
+        f'modeled_biomass_{os.path.basename(args.lulc_raster_input)}')
+    model_predict(
+        model, args.lulc_raster_input, forest_mask_raster_path,
+        aligned_predictor_list+convolution_raster_list,
+        predicted_biomass_raster_path)
     LOGGER.debug('all done')
+    task_graph.close()
 # keep it special
