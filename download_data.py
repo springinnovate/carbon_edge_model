@@ -611,7 +611,7 @@ if __name__ == '__main__':
             local_workspace,
             f'modeled_biomass_{os.path.basename(args.lulc_raster_input)}')
         model_predict(
-            model, forest_mask_raster_path,
+            model, args.lulc_raster_input, forest_mask_raster_path,
             aligned_predictor_list+convolution_raster_list,
             predicted_biomass_raster_path)
 
