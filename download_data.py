@@ -53,7 +53,7 @@ EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0]
 
 CELL_SIZE = (0.004, -0.004)  # in degrees
 PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
-SAMPLE_RATE = 0.001
+SAMPLE_RATE = 0.01
 
 MAX_TIME_INDEX = 11
 
@@ -425,9 +425,11 @@ def mask_lulc(task_graph, lulc_raster_path):
 def train(x_vector, y_vector, target_model_path):
     LOGGER.debug(f'starting training on {x_vector.shape} {y_vector.shape}')
     # Use the nn package to define our model and loss function.
-    N = 300
+    N = 100
     model = torch.nn.Sequential(
         torch.nn.Linear(x_vector.shape[1], N),
+        torch.nn.Sigmoid(),
+        torch.nn.Linear(N, N),
         torch.nn.Sigmoid(),
         torch.nn.Linear(N, N),
         torch.nn.Sigmoid(),
