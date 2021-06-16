@@ -436,7 +436,7 @@ def train(x_vector, y_vector, target_model_path):
         torch.nn.Linear(N, 1),
         torch.nn.Flatten(0, 1)
     )
-    loss_fn = torch.nn.MSELoss(reduction='sum')
+    loss_fn = torch.nn.MSELoss(reduction='mean')
 
     # Use the optim package to define an Optimizer that will update the weights of
     # the model for us. Here we will use RMSprop; the optim package contains many other
@@ -454,7 +454,7 @@ def train(x_vector, y_vector, target_model_path):
 
         # Compute and print loss.
         loss = loss_fn(y_pred, y_vector)
-        if iter_count % 99 == 0:
+        if iter_count % 999 == 0:
             if last_loss is not None:
                 if loss.item() - last_loss > 0:
                     learning_rate *= 0.95
@@ -462,9 +462,9 @@ def train(x_vector, y_vector, target_model_path):
                     learning_rate *= 1.05
                 total_loss = last_loss-loss.item()
                 loss_rate = (total_loss)/last_loss
-                if total_loss < 10 and loss_rate > 0:
+                if (total_loss < 10 and loss_rate > 0) or iter_count > 10000:
                     break
-                print(iter_count, loss.item(), loss_rate)
+                print(iter_count, loss.item(), total_loss, loss_rate)
             last_loss = loss.item()
 
         # Before the backward pass, use the optimizer object to zero all of the
