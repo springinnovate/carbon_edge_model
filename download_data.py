@@ -587,7 +587,7 @@ if __name__ == '__main__':
         task_graph.close()
         x_vector, y_vector = sample_data(forest_mask_raster_path_list, raster_lookup)
         train(torch.from_numpy(x_vector), torch.from_numpy(y_vector), MODEL_PATH)
-        with open(RASTER_LOOKUP_PATH, 'w') as raster_lookup_file:
+        with open(RASTER_LOOKUP_PATH, 'wb') as raster_lookup_file:
             pickle.dump(raster_lookup, raster_lookup_file)
     else:
 
