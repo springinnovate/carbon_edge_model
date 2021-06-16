@@ -599,7 +599,7 @@ if __name__ == '__main__':
 
         local_info = pygeoprocessing.get_raster_info(args.lulc_raster_input)
         aligned_predictor_list = align_predictors(
-            args.lulc_raster_input, raster_lookup, local_workspace)
+            task_graph, args.lulc_raster_input, raster_lookup, local_workspace)
         forest_mask_raster_path, convolution_raster_list = mask_lulc(
             task_graph, args.lulc_raster_input)
         model = torch.load(MODEL_PATH)
