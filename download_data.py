@@ -560,7 +560,7 @@ def model_predict(
                 x_vector = numpy.append(x_vector, valid_array, axis=0)
         y_vector = model(torch.from_numpy(x_vector.T))
         result = numpy.full(forest_array.shape, -1)
-        result[valid_mask] = y_vector
+        result[valid_mask] = y_vector.detach().numpy()
         predicted_biomass_band.WriteArray(
             result,
             xoff=offset_dict['xoff'],
