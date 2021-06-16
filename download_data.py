@@ -272,10 +272,10 @@ def sample_data(time_domain_mask_list, predictor_lookup):
     # build up an array of predictor stack
     response_raster = gdal.OpenEx(predictor_lookup['response'], gdal.OF_RASTER)
     raster_list.append(response_raster)
-    if response_raster.RasterCount != len(time_predictor_lookup):
-        raise ValueError(
-            f'expected {response_raster.RasterCount} time elements but only '
-            f'got {len(time_predictor_lookup)}')
+    # if response_raster.RasterCount != len(time_predictor_lookup):
+    #     raise ValueError(
+    #         f'expected {response_raster.RasterCount} time elements but only '
+    #         f'got {len(time_predictor_lookup)}')
 
     y_list = []
     x_vector = None
