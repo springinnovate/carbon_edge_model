@@ -530,7 +530,6 @@ def model_predict(
         if nodata is None:
             nodata = predictor_band.GetNoDataValue()
         predictor_band_nodata_list.append((predictor_band, nodata))
-    LOGGER.debug(f'{"\n".join([v[0] for v in aligned_predictor_list])}')
     forest_raster = gdal.OpenEx(forest_mask_raster_path, gdal.OF_RASTER)
     forest_band = forest_raster.GetRasterBand(1)
 
