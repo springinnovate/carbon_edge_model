@@ -516,7 +516,7 @@ def model_predict(
         lulc_raster_path, predicted_biomass_raster_path, gdal.GDT_Float32,
         [-1])
     predicted_biomass_raster = gdal.OpenEx(
-        predicted_biomass_raster_path, gdal.OF_RASTER)
+        predicted_biomass_raster_path, gdal.OF_RASTER | gdal.GA_Update)
     predicted_biomass_band = predicted_biomass_raster.GetRasterBand(1)
 
     predictor_band_nodata_list = []
@@ -555,8 +555,6 @@ def model_predict(
             else:
                 valid_array = array[valid_mask].astype(numpy.float32)
                 valid_array = numpy.reshape(valid_array, (-1, valid_array.size))
-                LOGGER.debug(
-                    f'x_vector.shape {x_vector.shape} vs {valid_array.shape}')
                 x_vector = numpy.append(x_vector, valid_array, axis=0)
         y_vector = model(torch.from_numpy(x_vector.T))
         result = numpy.full(forest_array.shape, -1)
