@@ -423,7 +423,7 @@ def mask_lulc(task_graph, lulc_raster_path):
 def train(x_vector, y_vector, target_model_path):
     LOGGER.debug(f'{x_vector.shape} {y_vector.shape}')
     # Use the nn package to define our model and loss function.
-    N = 100
+    N = 200
     model = torch.nn.Sequential(
         torch.nn.Linear(x_vector.shape[1], N),
         torch.nn.Sigmoid(),
@@ -593,9 +593,20 @@ if __name__ == '__main__':
         for time_domain_list in zip(*time_domain_convolution_raster_list):
             raster_lookup['time_predictor'].append(list(time_domain_list))
         task_graph.join()
+        sample_data_task = task_graph.add_task(
+            func=sample_data,
+            args=(forest_mask_raster_path_list, raster_lookup),
+            store_result=True,
+            task_name='sample data')
+        x_vector, y_vector = sample_data_task.get()
         task_graph.close()
-        x_vector, y_vector = sample_data(forest_mask_raster_path_list, raster_lookup)
-        train(torch.from_numpy(x_vector), torch.from_numpy(y_vector), MODEL_PATH)
+        task_graph.add_task(
+            func=train,
+            args=(
+                torch.from_numpy(x_vector), torch.from_numpy(y_vector),
+                MODEL_PATH),
+            target_path_list=[MODEL_PATH],
+            task_name='train')
         with open(RASTER_LOOKUP_PATH, 'wb') as raster_lookup_file:
             pickle.dump(raster_lookup, raster_lookup_file)
     else:
