@@ -346,7 +346,7 @@ def sample_data(time_domain_mask_list, predictor_lookup):
             y_list.extend(
                 list((response_array[valid_time_array])[sample_mask]))
 
-        if i == 10:
+        if i == 0:
             break
         i += 1
     y_vector = numpy.array(y_list)
@@ -461,6 +461,7 @@ def train(x_vector, y_vector, target_model_path):
                 if loss_rate < 0.00001:
                     break
                 print(iter_count, loss.item(), learning_rate, loss_rate)
+                break
             last_loss = loss.item()
 
         # Before the backward pass, use the optimizer object to zero all of the
