@@ -551,7 +551,7 @@ def model_predict(
             continue
         for array in array_list:
             if x_vector is None:
-                x_vector = numpy.array(array[valid_mask])
+                x_vector = numpy.array([array[valid_mask]])
             else:
                 x_vector = numpy.append(x_vector, array[valid_mask], axis=1)
         y_vector = model(x_vector)
