@@ -431,6 +431,8 @@ def train(x_vector, y_vector, target_model_path):
         torch.nn.Sigmoid(),
         torch.nn.Linear(N, N),
         torch.nn.Sigmoid(),
+        torch.nn.Linear(N, N),
+        torch.nn.Sigmoid(),
         torch.nn.Linear(N, 1),
         torch.nn.Flatten(0, 1)
     )
@@ -452,7 +454,7 @@ def train(x_vector, y_vector, target_model_path):
 
         # Compute and print loss.
         loss = loss_fn(y_pred, y_vector)
-        if iter_count % 9 == 0:
+        if iter_count % 99 == 0:
             if last_loss is not None:
                 if loss.item() - last_loss > 0:
                     learning_rate *= 0.95
@@ -461,7 +463,7 @@ def train(x_vector, y_vector, target_model_path):
                 loss_rate = (last_loss-loss.item())/last_loss
                 if loss_rate < 0.00001:
                     break
-                print(iter_count, loss.item(), learning_rate, loss_rate)
+                print(iter_count, loss.item(), loss_rate)
             last_loss = loss.item()
 
         # Before the backward pass, use the optimizer object to zero all of the
