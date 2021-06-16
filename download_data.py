@@ -30,10 +30,11 @@ LOGGER = logging.getLogger(__name__)
 
 BOUNDING_BOX = [-64, -4, -55, 3]
 
-WORKSPACE_DIR = f"workspace{'_'.join([str(v) for v in BOUNDING_BOX])}/ecoshards"
-ALIGN_DIR = os.path.join(WORKSPACE_DIR, 'align')
-CHURN_DIR = os.path.join(WORKSPACE_DIR, 'churn')
-for dir_path in [WORKSPACE_DIR, ALIGN_DIR, CHURN_DIR]:
+WORKSPACE_DIR = 'workspace'
+ECOSHARD_DIR = os.path.join(WORKSPACE_DIR, 'ecoshard')
+ALIGN_DIR = os.path.join(WORKSPACE_DIR, f'align{"_".join([str(v) for v in BOUNDING_BOX])}')
+CHURN_DIR = os.path.join(WORKSPACE_DIR, f'churn{"_".join([str(v) for v in BOUNDING_BOX])}')
+for dir_path in [WORKSPACE_DIR, ECOSHARD_DIR, ALIGN_DIR, CHURN_DIR]:
     os.makedirs(dir_path, exist_ok=True)
 MODEL_PATH = os.path.join(WORKSPACE_DIR, 'model.dat')
 RASTER_LOOKUP_PATH = os.path.join(WORKSPACE_DIR, 'raster_lookup.dat')
@@ -137,11 +138,12 @@ PREDICTOR_LIST = [
 ]
 
 
-def download_data(task_graph):
+def download_data(task_graph, bounding_box):
     """Download the whole data stack."""
     # First download the response raster to align all the rest
+    LOGGER.info(f'download data and clip to {bounding_box}')
     response_url = URL_PREFIX + RESPONSE_RASTER_FILENAME
-    response_path = os.path.join(WORKSPACE_DIR, RESPONSE_RASTER_FILENAME)
+    response_path = os.path.join(ECOSHARD_DIR, RESPONSE_RASTER_FILENAME)
     LOGGER.debug(f'download {response_url} to {response_path}')
     download_task = task_graph.add_task(
         func=ecoshard.download_url,
@@ -186,13 +188,13 @@ def download_data(task_graph):
 
         for filename in download_project_list:
             url = URL_PREFIX + filename
-            ecoshard_path = os.path.join(WORKSPACE_DIR, filename)
+            ecoshard_path = os.path.join(ECOSHARD_DIR, filename)
             download_task = task_graph.add_task(
                 func=ecoshard.download_url,
                 args=(url, ecoshard_path),
                 target_path_list=[ecoshard_path],
                 task_name=f'download {ecoshard_path}')
-            aligned_path = os.path.join(ALIGN_DIR, filename)
+            aligned_path = os.path.join(ECOSHARD_DIR, filename)
             _ = task_graph.add_task(
                 func=pygeoprocessing.warp_raster,
                 args=(ecoshard_path, CELL_SIZE, aligned_path, 'near'),
@@ -203,7 +205,6 @@ def download_data(task_graph):
                 dependent_task_list=[download_task],
                 target_path_list=[aligned_path],
                 task_name=f'align {aligned_path}')
-
     return raster_lookup
 
 
@@ -574,36 +575,51 @@ def model_predict(
     predicted_biomass_raster = None
 
 
+def prep_data(task_graph, raster_lookup_path):
+    """Download and convolve global data."""
+    raster_lookup = download_data(task_graph, BOUNDING_BOX)
+    task_graph.join()
+    # raster lookup has 'predictor' and 'time_predictor' lists
+    time_domain_convolution_raster_list = []
+    forest_mask_raster_path_list = []
+    for lulc_path, _ in raster_lookup['lulc_time_list']:
+        LOGGER.debug(f'mask {lulc_path}')
+        forest_mask_raster_path, convolution_raster_list = mask_lulc(
+            task_graph, lulc_path)
+        time_domain_convolution_raster_list.append(convolution_raster_list)
+        forest_mask_raster_path_list.append(forest_mask_raster_path)
+    for time_domain_list in zip(*time_domain_convolution_raster_list):
+        raster_lookup['time_predictor'].append(list(time_domain_list))
+    with open(raster_lookup_path, 'wb') as raster_lookup_file:
+        pickle.dump(
+            (forest_mask_raster_path_list, raster_lookup),
+            raster_lookup_file)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='download data')
     parser.add_argument('lulc_raster_input', help='Path to lulc raster to model')
     args = parser.parse_args()
-
     task_graph = taskgraph.TaskGraph('.', -1) #multiprocessing.cpu_count(), 5.0)
-    if not os.path.exists(MODEL_PATH) or not os.path.exists(RASTER_LOOKUP_PATH):
-        raster_lookup = download_data(task_graph)
-        task_graph.join()
-        # raster lookup has 'predictor' and 'time_predictor' lists
-        LOGGER.debug('running sample data')
 
-        time_domain_convolution_raster_list = []
-        forest_mask_raster_path_list = []
-        for lulc_path, _ in raster_lookup['lulc_time_list']:
-            LOGGER.debug(f'mask {lulc_path}')
-            forest_mask_raster_path, convolution_raster_list = mask_lulc(
-                task_graph, lulc_path)
-            time_domain_convolution_raster_list.append(convolution_raster_list)
-            forest_mask_raster_path_list.append(forest_mask_raster_path)
-            # convolution_raster_list is all the convolutions for a given timestep
-        for time_domain_list in zip(*time_domain_convolution_raster_list):
-            raster_lookup['time_predictor'].append(list(time_domain_list))
+    if not os.path.exists(RASTER_LOOKUP_PATH):
+        LOGGER.info('prep data...')
+        prep_data(task_graph, RASTER_LOOKUP_PATH)
         task_graph.join()
+    with open(RASTER_LOOKUP_PATH, 'rb') as raster_lookup_file:
+        forest_mask_raster_path_list, raster_lookup = pickle.load(
+            raster_lookup_file)
+    if not os.path.exists(MODEL_PATH):
+        LOGGER.info('sample data...')
         sample_data_task = task_graph.add_task(
             func=sample_data,
             args=(forest_mask_raster_path_list, raster_lookup),
             store_result=True,
             task_name='sample data')
+        LOGGER.info('get x/y vector...')
         x_vector, y_vector = sample_data_task.get()
+        LOGGER.info('train...')
+        task_graph.join()
         task_graph.add_task(
             func=train,
             args=(
@@ -611,13 +627,9 @@ if __name__ == '__main__':
                 MODEL_PATH),
             target_path_list=[MODEL_PATH],
             task_name='train')
-        with open(RASTER_LOOKUP_PATH, 'wb') as raster_lookup_file:
-            pickle.dump(raster_lookup, raster_lookup_file)
 
-    with open(RASTER_LOOKUP_PATH, 'rb') as raster_lookup_file:
-        raster_lookup = pickle.load(raster_lookup_file)
     local_workspace = os.path.join(
-        WORKSPACE_DIR,
+        CHURN_DIR,
         os.path.basename(os.path.splitext(args.lulc_raster_input)[0]))
 
     local_info = pygeoprocessing.get_raster_info(args.lulc_raster_input)
