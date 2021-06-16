@@ -221,6 +221,7 @@ def sample_data(time_domain_mask_list, predictor_lookup):
 
 
     """
+    LOGGER.info(f'building sample data')
     predictor_band_nodata_list = []
     raster_list = []
     # simple lookup to map predictor band/nodata to a list
@@ -422,7 +423,7 @@ def mask_lulc(task_graph, lulc_raster_path):
 
 
 def train(x_vector, y_vector, target_model_path):
-    LOGGER.debug(f'{x_vector.shape} {y_vector.shape}')
+    LOGGER.debug(f'starting training on {x_vector.shape} {y_vector.shape}')
     # Use the nn package to define our model and loss function.
     N = 300
     model = torch.nn.Sequential(
@@ -463,9 +464,9 @@ def train(x_vector, y_vector, target_model_path):
                     learning_rate *= 1.05
                 total_loss = last_loss-loss.item()
                 loss_rate = (total_loss)/last_loss
+                print(iter_count, loss.item(), total_loss, loss_rate)
                 if (total_loss < 10 and loss_rate > 0) or iter_count > 4000:
                     break
-                print(iter_count, loss.item(), total_loss, loss_rate)
             last_loss = loss.item()
 
         # Before the backward pass, use the optimizer object to zero all of the
@@ -576,7 +577,7 @@ if __name__ == '__main__':
     parser.add_argument('lulc_raster_input', help='Path to lulc raster to model')
     args = parser.parse_args()
 
-    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 15.0)
+    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 5.0)
     if not os.path.exists(MODEL_PATH) or not os.path.exists(RASTER_LOOKUP_PATH):
         raster_lookup = download_data(task_graph)
         task_graph.join()
@@ -586,6 +587,7 @@ if __name__ == '__main__':
         time_domain_convolution_raster_list = []
         forest_mask_raster_path_list = []
         for lulc_path, _ in raster_lookup['lulc_time_list']:
+            LOGGER.debug(f'mask {lulc_path}')
             forest_mask_raster_path, convolution_raster_list = mask_lulc(
                 task_graph, lulc_path)
             time_domain_convolution_raster_list.append(convolution_raster_list)
