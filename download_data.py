@@ -460,8 +460,9 @@ def train(x_vector, y_vector, target_model_path):
                     learning_rate *= 0.95
                 else:
                     learning_rate *= 1.05
-                loss_rate = (last_loss-loss.item())/last_loss
-                if last_loss-loss.item() < 10:
+                total_loss = last_loss-loss.item()
+                loss_rate = (total_loss)/last_loss
+                if total_loss < 10 and loss_rate > 0:
                     break
                 print(iter_count, loss.item(), loss_rate)
             last_loss = loss.item()
