@@ -288,7 +288,7 @@ def sample_data(time_domain_mask_list, predictor_lookup):
         LOGGER.debug(f"{offset_dict['win_xsize']} {offset_dict['win_ysize']}")
         if time.time() - last_time > 5.0:
             n_pixels_processed = offset_dict['xoff']+offset_dict['yoff']*predictor_raster.RasterXSize
-            LOGGER.info(f"processed {100*n_pixels_processed/total_pixels:.3f}% so far ({n_pixels_processed}) (x/y {offset_dict['xoff']}/{offset_dict['yoff']}) y_list size {y_list.size}")
+            LOGGER.info(f"processed {100*n_pixels_processed/total_pixels:.3f}% so far ({n_pixels_processed}) (x/y {offset_dict['xoff']}/{offset_dict['yoff']}) y_list size {len(y_list)}")
             last_time = time.time()
         predictor_stack = []  # N elements long
         valid_array = numpy.ones(
