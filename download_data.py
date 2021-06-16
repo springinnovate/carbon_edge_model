@@ -331,7 +331,7 @@ def sample_data(time_domain_mask_list, predictor_lookup):
                 break
 
             sample_mask = numpy.random.rand(
-                numpy.count_nonzero(valid_time_array)) > SAMPLE_RATE
+                numpy.count_nonzero(valid_time_array)) < SAMPLE_RATE
 
             # all of response_time_stack and response_array are valid, clip and add to set
             local_x_list = []
@@ -346,8 +346,6 @@ def sample_data(time_domain_mask_list, predictor_lookup):
             y_list.extend(
                 list((response_array[valid_time_array])[sample_mask]))
 
-        if i == 0:
-            break
         i += 1
     y_vector = numpy.array(y_list)
     LOGGER.debug(f'got all done {x_vector.shape} {y_vector.shape}')
