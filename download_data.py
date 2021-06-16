@@ -591,7 +591,7 @@ if __name__ == '__main__':
             pickle.dump(raster_lookup, raster_lookup_file)
     else:
 
-        with open(RASTER_LOOKUP_PATH, 'r') as raster_lookup_file:
+        with open(RASTER_LOOKUP_PATH, 'rb') as raster_lookup_file:
             raster_lookup = pickle.load(raster_lookup_file)
         local_workspace = os.path.join(
             WORKSPACE_DIR,
