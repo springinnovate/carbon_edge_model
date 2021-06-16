@@ -44,7 +44,7 @@ MASK_TYPES = [
     ('urban', esa_to_carbon_model_landcover_types.URBAN_LULC_CODES),
     ('forest', esa_to_carbon_model_landcover_types.FOREST_CODES)]
 
-EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0, 30.0]
+EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0]
 
 CELL_SIZE = (0.004, -0.004)  # in degrees
 PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
