@@ -25,7 +25,7 @@ logging.basicConfig(
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('taskgraph').setLevel(logging.ERROR)
+logging.getLogger('taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 BOUNDING_BOX = [-64, -4, -55, 3]
@@ -194,7 +194,7 @@ def download_data(task_graph, bounding_box):
                 args=(url, ecoshard_path),
                 target_path_list=[ecoshard_path],
                 task_name=f'download {ecoshard_path}')
-            aligned_path = os.path.join(ECOSHARD_DIR, filename)
+            aligned_path = os.path.join(ALIGN_DIR, filename)
             _ = task_graph.add_task(
                 func=pygeoprocessing.warp_raster,
                 args=(ecoshard_path, CELL_SIZE, aligned_path, 'near'),
