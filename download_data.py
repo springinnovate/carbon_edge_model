@@ -37,7 +37,8 @@ logging.basicConfig(
 logging.getLogger('taskgraph').setLevel(logging.WARN)
 LOGGER = logging.getLogger(__name__)
 
-BOUNDING_BOX = [-64, -4, -55, 3]
+#BOUNDING_BOX = [-64, -4, -55, 3]
+BOUNDING_BOX = [-179, -60, 179, 60]
 
 WORKSPACE_DIR = 'workspace'
 ECOSHARD_DIR = os.path.join(WORKSPACE_DIR, 'ecoshard')
@@ -683,11 +684,11 @@ def main():
     ds = torch.utils.data.TensorDataset(x_tensor, y_tensor, )
 
     config = {
-        "l1": tune.sample_from(lambda _: 2 ** numpy.random.randint(5, 9)),
-        "l2": tune.sample_from(lambda _: 2 ** numpy.random.randint(5, 9)),
-        "l3": tune.sample_from(lambda _: 2 ** numpy.random.randint(5, 9)),
-        "lr": tune.loguniform(1e-5, 1e-3),
-        "batch_size": tune.sample_from(lambda _: [50, 100, 150, 200])
+        "l1": tune.sample_from(lambda _: 100), #2 ** numpy.random.randint(5, 9)),
+        "l2": tune.sample_from(lambda _: 100), #(lambda _: 2 ** numpy.random.randint(5, 9)),
+        "l3": tune.sample_from(lambda _: 100), #(lambda _: 2 ** numpy.random.randint(5, 9)),
+        "lr": tune.sample_from(lambda _: 0.000848956), #tune.loguniform(1e-5, 1e-3),
+        "batch_size": tune.sample_from(lambda _: 1000)
     }
 
     scheduler = ASHAScheduler(
@@ -709,7 +710,7 @@ def main():
             n_samples=x_vector.shape[0]),
         resources_per_trial={"cpu": multiprocessing.cpu_count()},
         config=config,
-        num_samples=10,
+        num_samples=1,
         scheduler=scheduler,
         progress_reporter=reporter)
 
@@ -725,8 +726,9 @@ def main():
         best_trial.config["l3"])
 
     best_checkpoint_dir = best_trial.checkpoint.value
-    model_state, optimizer_state = torch.load(os.path.join(
-        best_checkpoint_dir, "checkpoint"))
+    best_model_path = os.path.join(best_checkpoint_dir, "checkpoint")
+    LOGGER.info(f'best model path: {best_model_path}')
+    model_state, optimizer_state = torch.load(best_model_path)
     best_trained_model.load_state_dict(model_state)
 
     predicted_biomass_raster_path = os.path.join(
