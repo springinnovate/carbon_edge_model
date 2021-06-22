@@ -10,6 +10,7 @@ import logging
 
 from osgeo import gdal
 from osgeo import osr
+from osgeo import ogr
 from utils import esa_to_carbon_model_landcover_types
 import ecoshard
 import pygeoprocessing
@@ -61,7 +62,7 @@ EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0]
 
 CELL_SIZE = (0.004, -0.004)  # in degrees
 PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
-SAMPLE_RATE = 0.001
+SAMPLE_RATE = 0.01
 
 MAX_TIME_INDEX = 11
 
@@ -147,17 +148,17 @@ PREDICTOR_LIST = [
 
 
 class NeuralNetwork(torch.nn.Module):
-    def __init__(self, M, N):
+    def __init__(self, M, l1, l2, l3):
         super(NeuralNetwork, self).__init__()
         self.flatten = torch.nn.Flatten()
         self.linear_relu_stack = torch.nn.Sequential(
-            torch.nn.Linear(M, N),
+            torch.nn.Linear(M, l1),
             torch.nn.Sigmoid(),
-            torch.nn.Linear(N, N),
+            torch.nn.Linear(l1, l2),
             torch.nn.Sigmoid(),
-            torch.nn.Linear(N, N),
+            torch.nn.Linear(l2, l3),
             torch.nn.Sigmoid(),
-            torch.nn.Linear(N, 1),
+            torch.nn.Linear(l3, 1),
             torch.nn.Flatten(0, 1)
         )
 
@@ -237,7 +238,9 @@ def download_data(task_graph, bounding_box):
     return raster_lookup
 
 
-def sample_data(time_domain_mask_list, predictor_lookup, sample_rate):
+def sample_data(
+        time_domain_mask_list, predictor_lookup, sample_rate, edge_index,
+        sample_point_vector_path):
     """Sample data stack.
 
     All input rasters are aligned.
@@ -248,9 +251,26 @@ def sample_data(time_domain_mask_list, predictor_lookup, sample_rate):
             'time_predictor'. 'time_predictor' are either a tuple of rasters
             or a single multiband raster with indexes that conform to the
             bands in ``response_path``.
+        edge_index (int): this is the edge raster in the predictor stack
+            that should be used to randomly select samples from.
 
 
     """
+    raster_info = pygeoprocessing.get_raster_info(
+        predictor_lookup['predictor'][0][0])
+    inv_gt = gdal.InvGeoTransform(raster_info['geotransform'])
+
+    raster_srs = osr.SpatialReference()
+    raster_srs.ImportFromWkt(raster_info['projection_wkt'])
+    raster_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
+    gpkg_driver = gdal.GetDriverByName('GPKG')
+    sample_point_vector = gpkg_driver.Create(
+        sample_point_vector_path, 0, 0, 0, gdal.GDT_Unknown)
+    sample_point_layer = sample_point_vector.CreateLayer(
+        'sample_points', raster_srs, ogr.wkbPoint)
+    sample_point_layer.StartTransaction()
+
     LOGGER.info(f'building sample data')
     predictor_band_nodata_list = []
     raster_list = []
@@ -320,7 +340,6 @@ def sample_data(time_domain_mask_list, predictor_lookup, sample_rate):
     for offset_dict in pygeoprocessing.iterblocks(
             (predictor_lookup['response'], 1),
             offset_only=True, largest_block=2**20):
-        LOGGER.debug(f"{offset_dict['win_xsize']} {offset_dict['win_ysize']}")
         if time.time() - last_time > 5.0:
             n_pixels_processed = offset_dict['xoff']+offset_dict['yoff']*predictor_raster.RasterXSize
             LOGGER.info(f"processed {100*n_pixels_processed/total_pixels:.3f}% so far ({n_pixels_processed}) (x/y {offset_dict['xoff']}/{offset_dict['yoff']}) y_list size {len(y_list)}")
@@ -348,11 +367,16 @@ def sample_data(time_domain_mask_list, predictor_lookup, sample_rate):
             valid_time_array = valid_array & (mask_array == 1)
             predictor_time_stack = []
             predictor_time_stack.extend(predictor_stack)
-            for predictor_band, predictor_nodata in \
-                    time_predictor_band_nodata_list:
+            for predictor_index, (predictor_band, predictor_nodata) in \
+                    enumerate(time_predictor_band_nodata_list):
                 predictor_array = predictor_band.ReadAsArray(**offset_dict)
                 if predictor_nodata is not None:
                     valid_time_array &= predictor_array != predictor_nodata
+                # if len(predictor_time_stack) == edge_index:
+                #     LOGGER.debug(f'{min(predictor_array[predictor_array > 0])}, {max(predictor_array[predictor_array > 0])}')
+                #     valid_time_array &= (
+                #         (1-(2*numpy.abs(predictor_array-.5)))**0.5 < numpy.random.random(
+                #             predictor_array.shape))
                 predictor_time_stack.append(predictor_array)
 
             # load the time based responses
@@ -367,6 +391,23 @@ def sample_data(time_domain_mask_list, predictor_lookup, sample_rate):
 
             sample_mask = numpy.random.rand(
                 numpy.count_nonzero(valid_time_array)) < sample_rate
+
+            X2D, Y2D = numpy.meshgrid(
+                range(valid_time_array.shape[1]),
+                range(valid_time_array.shape[0]))
+
+            for i, j in zip(
+                    (X2D[valid_time_array])[sample_mask],
+                    (Y2D[valid_time_array])[sample_mask]):
+
+                sample_point = ogr.Feature(sample_point_layer.GetLayerDefn())
+                sample_geom = ogr.Geometry(ogr.wkbPoint)
+                x, y = gdal.ApplyGeoTransform(
+                    inv_gt, i+0.5+offset_dict['xoff'],
+                    j+0.5+offset_dict['yoff'])
+                sample_geom.AddPoint(x, y)
+                sample_point.SetGeometry(sample_geom)
+                sample_point_layer.CreateFeature(sample_point)
 
             # all of response_time_stack and response_array are valid, clip and add to set
             local_x_list = []
@@ -384,6 +425,7 @@ def sample_data(time_domain_mask_list, predictor_lookup, sample_rate):
         i += 1
     y_vector = numpy.array(y_list)
     LOGGER.debug(f'got all done {x_vector.shape} {y_vector.shape}')
+    sample_point_layer.CommitTransaction()
     return (x_vector.T).astype(numpy.float32), (y_vector.astype(numpy.float32))
 
 
@@ -414,42 +456,58 @@ def mask_lulc(task_graph, lulc_raster_path):
     """Create all the masks and convolutions off of lulc_raster_path."""
     # this is calculated as 111km per degree
     convolution_raster_list = []
+    edge_effect_index = None
+    current_raster_index = -1
+
     for expected_max_edge_effect_km in EXPECTED_MAX_EDGE_EFFECT_KM_LIST:
         pixel_radius = (CELL_SIZE[0] * 111 / expected_max_edge_effect_km)**-1
         kernel_raster_path = os.path.join(
             CHURN_DIR, f'kernel_{pixel_radius}.tif')
-        kernel_task = task_graph.add_task(
-            func=make_kernel_raster,
-            args=(pixel_radius, kernel_raster_path),
-            target_path_list=[kernel_raster_path],
-            task_name=f'make kernel of radius {pixel_radius}')
+        if not os.path.exists(kernel_raster_path):
+            kernel_task = task_graph.add_task(
+                func=make_kernel_raster,
+                args=(pixel_radius, kernel_raster_path),
+                target_path_list=[kernel_raster_path],
+                task_name=f'make kernel of radius {pixel_radius}')
+            kernel_task.join()
 
-        for mask_id, mask_codes in MASK_TYPES:
-            mask_raster_path = os.path.join(
-                CHURN_DIR, f'{os.path.basename(os.path.splitext(lulc_raster_path)[0])}_{mask_id}_mask.tif')
-            create_mask_task = task_graph.add_task(
-                func=_create_lulc_mask,
-                args=(lulc_raster_path, mask_codes, mask_raster_path),
-                target_path_list=[mask_raster_path],
-                task_name=f'create {mask_id} mask')
-            if mask_id == 'forest':
-                forest_mask_raster_path = mask_raster_path
+    for mask_id, mask_codes in MASK_TYPES:
+        mask_raster_path = os.path.join(
+            CHURN_DIR, f'{os.path.basename(os.path.splitext(lulc_raster_path)[0])}_{mask_id}_mask.tif')
+        create_mask_task = task_graph.add_task(
+            func=_create_lulc_mask,
+            args=(lulc_raster_path, mask_codes, mask_raster_path),
+            target_path_list=[mask_raster_path],
+            task_name=f'create {mask_id} mask')
+        if mask_id == 'forest':
+            forest_mask_raster_path = mask_raster_path
+            if edge_effect_index is None:
+                LOGGER.debug(f'CURRENT EDGE INDEX {current_raster_index}')
+                edge_effect_index = current_raster_index
+
+        for expected_max_edge_effect_km in EXPECTED_MAX_EDGE_EFFECT_KM_LIST:
+            current_raster_index += 1
+
+            pixel_radius = (CELL_SIZE[0] * 111 / expected_max_edge_effect_km)**-1
+            kernel_raster_path = os.path.join(
+                CHURN_DIR, f'kernel_{pixel_radius}.tif')
             mask_gf_path = (
                 f'{os.path.splitext(mask_raster_path)[0]}_gf_'
                 f'{expected_max_edge_effect_km}.tif')
             LOGGER.debug(f'making convoluion for {mask_gf_path}')
+
             convolution_task = task_graph.add_task(
                 func=pygeoprocessing.convolve_2d,
                 args=(
                     (mask_raster_path, 1), (kernel_raster_path, 1),
                     mask_gf_path),
-                dependent_task_list=[create_mask_task, kernel_task],
+                dependent_task_list=[create_mask_task],
                 target_path_list=[mask_gf_path],
                 task_name=f'create guassian filter of {mask_id} at {mask_gf_path}')
             convolution_raster_list.append(((mask_gf_path, None)))
     task_graph.join()
     LOGGER.debug(f'all done convolution list - {convolution_raster_list}')
-    return forest_mask_raster_path, convolution_raster_list
+    return forest_mask_raster_path, convolution_raster_list, edge_effect_index
 
 
 def _train_loop(dataloader, model, loss_fn, optimizer):
@@ -564,12 +622,14 @@ def prep_data(task_graph, raster_lookup_path):
     forest_mask_raster_path_list = []
     for lulc_path, _ in raster_lookup['lulc_time_list']:
         LOGGER.debug(f'mask {lulc_path}')
-        forest_mask_raster_path, convolution_raster_list = mask_lulc(
+        forest_mask_raster_path, convolution_raster_list, edge_effect_index = mask_lulc(
             task_graph, lulc_path)
         time_domain_convolution_raster_list.append(convolution_raster_list)
         forest_mask_raster_path_list.append(forest_mask_raster_path)
     for time_domain_list in zip(*time_domain_convolution_raster_list):
         raster_lookup['time_predictor'].append(list(time_domain_list))
+    raster_lookup['edge_effect_index'] = (
+        edge_effect_index+len(raster_lookup['predictor']))
     with open(raster_lookup_path, 'wb') as raster_lookup_file:
         pickle.dump(
             (forest_mask_raster_path_list, raster_lookup),
@@ -594,8 +654,10 @@ def main():
     LOGGER.info('sample data...')
     sample_data_task = task_graph.add_task(
         func=sample_data,
-        args=(forest_mask_raster_path_list, raster_lookup, SAMPLE_RATE),
+        args=(forest_mask_raster_path_list, raster_lookup, SAMPLE_RATE,
+              raster_lookup['edge_effect_index'], 'sample.gpkg'),
         store_result=True,
+        target_path_list=['sample.gpkg'],
         task_name='sample data')
 
     LOGGER.info('align input slices')
@@ -605,7 +667,7 @@ def main():
     aligned_predictor_list = align_predictors(
         task_graph, args.lulc_raster_input, raster_lookup['predictor'],
         local_workspace)
-    forest_mask_raster_path, convolution_raster_list = mask_lulc(
+    forest_mask_raster_path, convolution_raster_list, edge_effect_index = mask_lulc(
         task_graph, args.lulc_raster_input)
     task_graph.join()
     task_graph.close()
@@ -622,8 +684,10 @@ def main():
 
     config = {
         "l1": tune.sample_from(lambda _: 2 ** numpy.random.randint(5, 9)),
+        "l2": tune.sample_from(lambda _: 2 ** numpy.random.randint(5, 9)),
+        "l3": tune.sample_from(lambda _: 2 ** numpy.random.randint(5, 9)),
         "lr": tune.loguniform(1e-5, 1e-3),
-        "batch_size": tune.choice([x**2 for x in range(10, 15)])
+        "batch_size": tune.sample_from(lambda _: [50, 100, 150, 200])
     }
 
     scheduler = ASHAScheduler(
@@ -654,7 +718,11 @@ def main():
     print("Best trial final validation loss: {}".format(
         best_trial.last_result["loss"]))
 
-    best_trained_model = NeuralNetwork(x_vector.shape[1], best_trial.config["l1"])
+    best_trained_model = NeuralNetwork(
+        x_vector.shape[1],
+        best_trial.config["l1"],
+        best_trial.config["l2"],
+        best_trial.config["l3"])
 
     best_checkpoint_dir = best_trial.checkpoint.value
     model_state, optimizer_state = torch.load(os.path.join(
@@ -672,7 +740,6 @@ def main():
     LOGGER.debug('all done')
 
     return
-
 
     # LOGGER.info(f'train... {x_vector.shape} {y_vector.shape}')
     # x_torch = torch.from_numpy(x_vector)
@@ -742,7 +809,7 @@ def main():
 #train_cifar({'l1': 100, 'lr': args.learning_rate, 'batch_size': 1000}, train_loader, val_loader, checkpoint_dir='checkpoint')
 
 def train_cifar(config,  n_predictors, n_samples, ds, n_epochs, checkpoint_dir=None):
-    net = NeuralNetwork(n_predictors, config["l1"])
+    net = NeuralNetwork(n_predictors, config["l1"], config["l2"], config["l3"])
     device = "cpu"
     if torch.cuda.is_available():
         device = "cuda:0"
