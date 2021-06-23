@@ -747,6 +747,8 @@ def train_cifar(
     optimizer = torch.optim.RMSprop(
         net.parameters(), lr=config["lr"], momentum=0.9)
 
+    loss_csv_path = f'{datetime.now().strftime("%H:%M:%S")}.csv'
+
     for epoch in range(n_epochs):  # loop over the dataset multiple times
         running_loss = 0.0
         epoch_steps = 0
@@ -773,7 +775,7 @@ def train_cifar(
         for i, (predictor_t, response_t) in enumerate(val_loader, 0):
             with torch.no_grad():
                 outputs = net(predictor_t)
-                val_loss += loss(outputs, response_t)
+                val_loss += loss_fn(outputs, response_t).item()
                 r2_sum += r2_loss(outputs, response_t)
                 val_steps += 1
         print("[%d] \n training loss: %.3f \n validation loss: %.3f" % (
@@ -781,6 +783,9 @@ def train_cifar(
         r2 = r2_sum / val_steps
         print(f'r^2: {r2}')
         print(f'max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
+
+        with open(loss_csv_path, 'a') as csv_file:
+            csv_file.write(f'{epoch+1},{running_loss/n_train_samples},{val_loss/n_test_samples},{r2}\n')
 
         predicted_biomass_raster_path = f'{epoch}_{val_loss}.tif'
         model_predict(
