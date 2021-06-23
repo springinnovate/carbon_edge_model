@@ -35,7 +35,7 @@ logging.basicConfig(
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('taskgraph').setLevel(logging.WARN)
+logging.getLogger('taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 #BOUNDING_BOX = [-64, -4, -55, 3]
@@ -154,6 +154,8 @@ class NeuralNetwork(torch.nn.Module):
         self.flatten = torch.nn.Flatten()
         self.linear_relu_stack = torch.nn.Sequential(
             torch.nn.Linear(M, l1),
+            torch.nn.LeakyReLU(),
+            torch.nn.Linear(l1, l1),
             torch.nn.LeakyReLU(),
             torch.nn.Linear(l1, l1),
             nn.Dropout(0.2),
@@ -446,7 +448,7 @@ def _create_lulc_mask(lulc_raster_path, mask_codes, target_mask_raster_path):
         target_mask_raster_path, gdal.GDT_Byte, None)
 
 
-def mask_lulc(task_graph, lulc_raster_path):
+def mask_lulc(task_graph, lulc_raster_path, workspace_dir):
     """Create all the masks and convolutions off of lulc_raster_path."""
     # this is calculated as 111km per degree
     convolution_raster_list = []
@@ -456,7 +458,7 @@ def mask_lulc(task_graph, lulc_raster_path):
     for expected_max_edge_effect_km in EXPECTED_MAX_EDGE_EFFECT_KM_LIST:
         pixel_radius = (CELL_SIZE[0] * 111 / expected_max_edge_effect_km)**-1
         kernel_raster_path = os.path.join(
-            CHURN_DIR, f'kernel_{pixel_radius}.tif')
+            workspace_dir, f'kernel_{pixel_radius}.tif')
         if not os.path.exists(kernel_raster_path):
             kernel_task = task_graph.add_task(
                 func=make_kernel_raster,
@@ -467,7 +469,7 @@ def mask_lulc(task_graph, lulc_raster_path):
 
     for mask_id, mask_codes in MASK_TYPES:
         mask_raster_path = os.path.join(
-            CHURN_DIR, f'{os.path.basename(os.path.splitext(lulc_raster_path)[0])}_{mask_id}_mask.tif')
+            workspace_dir, f'{os.path.basename(os.path.splitext(lulc_raster_path)[0])}_{mask_id}_mask.tif')
         create_mask_task = task_graph.add_task(
             func=_create_lulc_mask,
             args=(lulc_raster_path, mask_codes, mask_raster_path),
@@ -484,7 +486,7 @@ def mask_lulc(task_graph, lulc_raster_path):
 
             pixel_radius = (CELL_SIZE[0] * 111 / expected_max_edge_effect_km)**-1
             kernel_raster_path = os.path.join(
-                CHURN_DIR, f'kernel_{pixel_radius}.tif')
+                workspace_dir, f'kernel_{pixel_radius}.tif')
             mask_gf_path = (
                 f'{os.path.splitext(mask_raster_path)[0]}_gf_'
                 f'{expected_max_edge_effect_km}.tif')
@@ -497,7 +499,7 @@ def mask_lulc(task_graph, lulc_raster_path):
                     mask_gf_path),
                 dependent_task_list=[create_mask_task],
                 target_path_list=[mask_gf_path],
-                task_name=f'create guassian filter of {mask_id} at {mask_gf_path}')
+                task_name=f'create gaussian filter of {mask_id} at {mask_gf_path}')
             convolution_raster_list.append(((mask_gf_path, None)))
     task_graph.join()
     LOGGER.debug(f'all done convolution list - {convolution_raster_list}')
@@ -600,7 +602,7 @@ def prep_data(task_graph, raster_lookup_path):
     for lulc_path, _ in raster_lookup['lulc_time_list']:
         LOGGER.debug(f'mask {lulc_path}')
         forest_mask_raster_path, convolution_raster_list, edge_effect_index = mask_lulc(
-            task_graph, lulc_path)
+            task_graph, lulc_path, CHURN_DIR)
         time_domain_convolution_raster_list.append(convolution_raster_list)
         forest_mask_raster_path_list.append(forest_mask_raster_path)
     for time_domain_list in zip(*time_domain_convolution_raster_list):
@@ -645,7 +647,7 @@ def main():
         task_graph, args.lulc_raster_input, raster_lookup['predictor'],
         local_workspace)
     forest_mask_raster_path, convolution_raster_list, edge_effect_index = mask_lulc(
-        task_graph, args.lulc_raster_input)
+        task_graph, args.lulc_raster_input, local_workspace)
     task_graph.join()
     task_graph.close()
     task_graph = None
@@ -663,7 +665,7 @@ def main():
     ds = torch.utils.data.TensorDataset(x_tensor, y_tensor, )
 
     config = {
-        "l1": 50,
+        "l1": 100,
         "lr": args.learning_rate,
     }
 
