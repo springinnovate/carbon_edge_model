@@ -1,5 +1,5 @@
 """Script to download everything needed to train the models."""
-from functools import partial
+from datetime import datetime
 import itertools
 import argparse
 import os
@@ -8,6 +8,7 @@ import multiprocessing
 import pickle
 import time
 import logging
+import threading
 
 from osgeo import gdal
 from osgeo import osr
@@ -35,7 +36,7 @@ logging.basicConfig(
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('taskgraph').setLevel(logging.INFO)
+logging.getLogger('taskgraph').setLevel(logging.WARN)
 LOGGER = logging.getLogger(__name__)
 
 #BOUNDING_BOX = [-64, -4, -55, 3]
@@ -158,7 +159,7 @@ class NeuralNetwork(torch.nn.Module):
             torch.nn.Linear(l1, l1),
             torch.nn.LeakyReLU(),
             torch.nn.Linear(l1, l1),
-            nn.Dropout(0.2),
+            #nn.Dropout(0.2),
             torch.nn.LeakyReLU(),
             torch.nn.Linear(l1, 1)
         )
@@ -748,7 +749,6 @@ def train_cifar(
         net.parameters(), lr=config["lr"], momentum=0.9)
 
     loss_csv_path = f'{datetime.now().strftime("%H:%M:%S")}.csv'
-
     for epoch in range(n_epochs):  # loop over the dataset multiple times
         running_loss = 0.0
         epoch_steps = 0
@@ -766,6 +766,8 @@ def train_cifar(
             # print statistics
             running_loss += loss.item()
             epoch_steps += 1
+            if i % 100 == 0:
+                LOGGER.debug(f'[{epoch+1}/{n_epochs}, {i+1}/{n_train_samples/batch_size}]')
 
         print(f'pre validation max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
         # Validation loss
@@ -778,6 +780,7 @@ def train_cifar(
                 val_loss += loss_fn(outputs, response_t).item()
                 r2_sum += r2_loss(outputs, response_t)
                 val_steps += 1
+
         print("[%d] \n training loss: %.3f \n validation loss: %.3f" % (
             epoch + 1, running_loss/n_train_samples, val_loss/n_test_samples))
         r2 = r2_sum / val_steps
@@ -787,14 +790,21 @@ def train_cifar(
         with open(loss_csv_path, 'a') as csv_file:
             csv_file.write(f'{epoch+1},{running_loss/n_train_samples},{val_loss/n_test_samples},{r2}\n')
 
-        predicted_biomass_raster_path = f'{epoch}_{val_loss}.tif'
-        model_predict(
+        LOGGER.info('save model')
+        model_path = f'model_{epoch}_{r2}.dat'
+        torch.save(net.state_dict(), model_path)
+        LOGGER.info('run again')
+    LOGGER.info('build prediction')
+    predicted_biomass_raster_path = f'{epoch}_{val_loss}.tif'
+    predict_worker = threading.Thread(
+        target=model_predict,
+        args=(
             net, lulc_raster_input, forest_mask_raster_path,
             predictor_list,
-            predicted_biomass_raster_path)
+            predicted_biomass_raster_path))
 
-        model_path = 'model_{epoch}_{r2}.dat'
-        torch.save(net.state_dict(), model_path)
+    predict_worker.start()
+    predict_worker.join()
     return model_path
 
 
