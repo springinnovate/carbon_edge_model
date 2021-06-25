@@ -193,7 +193,7 @@ def generate_sample_points_probably_forest_for_carbon_model(
     band_inv_gt_list = []
     raster_list = []
     LOGGER.debug("build band list")
-    for raster_path, nodata, nodata_replace in [
+    for raster_path, nodata in [
             baccini_raster_path_nodata + (None,)] + \
             independent_raster_path_nodata_list:
         LOGGER.debug(raster_path)
@@ -203,7 +203,7 @@ def generate_sample_points_probably_forest_for_carbon_model(
         gt = raster.GetGeoTransform()
         inv_gt = gdal.InvGeoTransform(gt)
         band_inv_gt_list.append(
-            (raster_path, band, nodata, nodata_replace, gt, inv_gt))
+            (raster_path, band, nodata, gt, inv_gt))
         raster = None
         band = None
     LOGGER.debug(len(band_inv_gt_list))
@@ -267,7 +267,7 @@ def generate_sample_points_probably_forest_for_carbon_model(
                 # is, set to the valid value
                 working_sample_list = []
                 valid_working_list = True
-                for index, (raster_path, band, nodata, nodata_replace,
+                for index, (raster_path, band, nodata,
                             gt, inv_gt) in enumerate(band_inv_gt_list):
                     x, y = [int(v) for v in (
                         gdal.ApplyGeoTransform(inv_gt, lng, lat))]
@@ -293,8 +293,6 @@ def generate_sample_points_probably_forest_for_carbon_model(
 
                     if nodata is None or not numpy.isclose(val, nodata):
                         working_sample_list.append(val)
-                    elif nodata_replace is not None:
-                        working_sample_list.append(nodata_replace)
                     else:
                         # nodata value, skip
                         LOGGER.debug(f'nodata on {raster_path} at {lng} {lat}')

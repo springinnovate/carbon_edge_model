@@ -26,6 +26,7 @@ from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
 from sklearn.model_selection import train_test_split
 import sklearn.preprocessing
+from sklearn.metrics import r2_score
 torch.autograd.set_detect_anomaly(True)
 
 gdal.SetCacheMax(2**27)
@@ -150,17 +151,18 @@ PREDICTOR_LIST = [
 
 
 class NeuralNetwork(torch.nn.Module):
-    def __init__(self, M, l1):
+    def __init__(self, M):
+        l1 = 100
+        #do = .5
         super(NeuralNetwork, self).__init__()
         self.flatten = torch.nn.Flatten()
         self.linear_relu_stack = torch.nn.Sequential(
             torch.nn.Linear(M, l1),
-            torch.nn.LeakyReLU(),
+            torch.nn.ReLU(),
             torch.nn.Linear(l1, l1),
-            torch.nn.LeakyReLU(),
-            torch.nn.Linear(l1, l1),
-            #nn.Dropout(0.2),
-            torch.nn.LeakyReLU(),
+            torch.nn.ReLU(),
+            #torch.nn.Linear(l1, l1),
+            #torch.nn.ReLU(),
             torch.nn.Linear(l1, 1)
         )
 
@@ -620,7 +622,9 @@ def main():
     parser = argparse.ArgumentParser(description='download data')
     parser.add_argument('lulc_raster_input', help='Path to lulc raster to model')
     parser.add_argument('n_epochs', type=int, help='number of iterations to run trainer')
+    parser.add_argument('batch_size', type=int, help='number of iterations to run trainer')
     parser.add_argument('learning_rate', type=float, help='learning rate of initial epoch')
+    parser.add_argument('--last_epoch', help='last epoch to pick up at')
     args = parser.parse_args()
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 5.0)
 
@@ -656,8 +660,6 @@ def main():
     LOGGER.info('get x/y training vector...')
     x_vector, y_vector = sample_data_task.get()
 
-    #scaler = sklearn.preprocessing.StandardScaler().fit(x_vector)
-    #x_vector_scale = scaler.transform(x_vector)
     y_vector = numpy.expand_dims(y_vector, axis=1)
     x_tensor = torch.from_numpy(x_vector)
     y_tensor = torch.from_numpy(y_vector)
@@ -671,38 +673,12 @@ def main():
     }
 
     n_predictors = x_vector.shape[1]
-    beta_list = [1.0] # [1.0, 5.0, 10.0, 20.0]
-    reduction_list = ['sum'] #['mean'] # ['mean', 'sum']
-    batch_size_list = [50] #[10, 50, 100, 200, 500, 1000]
-    for beta, reduction, batch_size in itertools.product(
-            beta_list, reduction_list, batch_size_list):
-        LOGGER.debug(f'this is the reduction: {reduction}')
-        #loss_fn = torch.nn.SmoothL1Loss(reduction=reduction, beta=beta)
-        loss_fn = torch.nn.L1Loss()
+    loss_fn = torch.nn.L1Loss(reduction='sum')
+    train_cifar(
+        config, loss_fn, n_predictors, x_vector.shape[0], ds, args.n_epochs,
+        args.batch_size, args.lulc_raster_input, forest_mask_raster_path,
+        aligned_predictor_list+convolution_raster_list, args.last_epoch)
 
-        model_path = train_cifar(
-            config, loss_fn, n_predictors, x_vector.shape[0], ds, args.n_epochs,
-            batch_size, args.lulc_raster_input, forest_mask_raster_path, aligned_predictor_list+convolution_raster_list)
-        #model_path = 'model.dat'
-        #model = NeuralNetwork(n_predictors, config['l1'])
-        #model.load_state_dict(torch.load(model_path))
-        #model.eval()
-
-        #predicted_biomass_raster_path = os.path.join(
-        #    local_workspace,
-        #    f'modeled_biomass_{os.path.basename(args.lulc_raster_input)}_{args.n_epochs}.tif')
-        #LOGGER.info('predict...')
-        # model_predict(
-        #     model, args.lulc_raster_input, forest_mask_raster_path,
-        #     aligned_predictor_list+convolution_raster_list,
-        #     predicted_biomass_raster_path)
-        # biomass_nodata = pygeoprocessing.get_raster_info(predicted_biomass_raster_path)['nodata'][0]
-        # expected_biomass_raster_path = './workspace/align-64_-4_-55_3/baccini_carbon_data_2003_2014_compressed_md5_11d1455ee8f091bf4be12c4f7ff9451b.tif'
-        # nodata = pygeoprocessing.get_raster_info(expected_biomass_raster_path)['nodata'][12]
-        # error_raster_path = f'SmoothL1Loss_{beta}_{reduction}_{batch_size}.tif'
-        # pygeoprocessing.raster_calculator(
-        #     [(predicted_biomass_raster_path, 1), (expected_biomass_raster_path, 12), (biomass_nodata, 'raw'), (nodata, 'raw')],
-        #     _sub_op, error_raster_path, gdal.GDT_Float32, biomass_nodata)
     LOGGER.debug('all done')
 
 
@@ -715,20 +691,27 @@ def _sub_op(array_a, array_b, nodata_a, nodata_b):
 
 def r2_loss(output, target):
     target_mean = torch.mean(target)
-    #LOGGER.debug(f'target_mean: {target_mean}')
     ss_tot = torch.sum((target - target_mean) ** 2)
-    #LOGGER.debug(f'ss_tot: {ss_tot}')
     ss_res = torch.sum((target - output) ** 2)
-    #LOGGER.debug(f'ss_res: {ss_res}')
-    r2 = abs(ss_res / ss_tot)
-    #LOGGER.debug(f'r2: {r2}')
+    r2 = 1-abs(ss_res / ss_tot)
     return r2
 
-#train_cifar({'l1': 100, 'lr': args.learning_rate, 'batch_size': 1000}, train_loader, val_loader, checkpoint_dir='checkpoint')
+
 def train_cifar(
         config, loss_fn, n_predictors, n_samples, ds, n_epochs, batch_size,
-        lulc_raster_input, forest_mask_raster_path, predictor_list):
-    net = NeuralNetwork(n_predictors, config["l1"])
+        lulc_raster_input, forest_mask_raster_path, predictor_list, checkpoint_epoch=None):
+    model = NeuralNetwork(n_predictors)
+    optimizer = torch.optim.RMSprop(
+        model.parameters(), lr=config["lr"], momentum=0.9)
+
+    last_epoch = 0
+    if checkpoint_epoch:
+        model_path = f'model_{checkpoint_epoch}.dat'
+        checkpoint = torch.load(model_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        last_epoch = checkpoint['epoch']
+        loss = checkpoint['loss']
 
     train_indexes, test_indexes = train_test_split(
         list(range(n_samples)), test_size=.2)
@@ -741,14 +724,11 @@ def train_cifar(
     n_train_samples = len(train_indexes)
     n_test_samples = len(test_indexes)
     print(f'{n_train_samples} samples to train {n_test_samples} samples to validate')
-    #loss_fn = torch.nn.L1Loss(reduction='mean')
-    #loss_fn = r2_loss
-    #loss_fn = torch.nn.MSELoss(reduction='sum')
-    #loss_fn = torch.nn.HuberLoss(reduction='sum', delta=5.0)
-    optimizer = torch.optim.RMSprop(
-        net.parameters(), lr=config["lr"], momentum=0.9)
 
-    loss_csv_path = f'{datetime.now().strftime("%H:%M:%S")}.csv'
+    loss_csv_path = f'{datetime.now().strftime("%H_%M_%S")}.csv'
+    with open(loss_csv_path, 'w') as csv_file:
+        csv_file.write('epoch,train,val,r2\n')
+
     for epoch in range(n_epochs):  # loop over the dataset multiple times
         running_loss = 0.0
         epoch_steps = 0
@@ -757,7 +737,7 @@ def train_cifar(
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs = net(predictor_t)
+            outputs = model(predictor_t)
             loss = loss_fn(outputs, response_t)
 
             loss.backward()
@@ -767,7 +747,7 @@ def train_cifar(
             running_loss += loss.item()
             epoch_steps += 1
             if i % 100 == 0:
-                LOGGER.debug(f'[{epoch+1}/{n_epochs}, {i+1}/{n_train_samples/batch_size}]')
+                LOGGER.debug(f'[{epoch+1+last_epoch}/{n_epochs+last_epoch}, {i+1}/{n_train_samples/batch_size}]')
 
         print(f'pre validation max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
         # Validation loss
@@ -776,37 +756,37 @@ def train_cifar(
         r2_sum = 0.0
         for i, (predictor_t, response_t) in enumerate(val_loader, 0):
             with torch.no_grad():
-                outputs = net(predictor_t)
+                outputs = model(predictor_t)
                 val_loss += loss_fn(outputs, response_t).item()
                 r2_sum += r2_loss(outputs, response_t)
+                r2 = r2_score(outputs, response_t)
                 val_steps += 1
 
         print("[%d] \n training loss: %.3f \n validation loss: %.3f" % (
-            epoch + 1, running_loss/n_train_samples, val_loss/n_test_samples))
+            epoch + 1 + last_epoch,
+            running_loss/n_train_samples, val_loss/n_test_samples))
         r2 = r2_sum / val_steps
         print(f'r^2: {r2}')
         print(f'max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
 
         with open(loss_csv_path, 'a') as csv_file:
-            csv_file.write(f'{epoch+1},{running_loss/n_train_samples},{val_loss/n_test_samples},{r2}\n')
+            csv_file.write(f'{epoch+1+last_epoch},{running_loss/n_train_samples},{val_loss/n_test_samples},{r2}\n')
 
         LOGGER.info('save model')
-        model_path = f'model_{epoch}_{r2}.dat'
-        torch.save(net.state_dict(), model_path)
+        model_path = f'model_{epoch+1+last_epoch}.dat'
+
+        torch.save({
+            'epoch': epoch+1+last_epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss,
+            }, model_path)
+
+        if r2 > 10:
+            LOGGER.debug('r2 too big, quitting')
+            break
         LOGGER.info('run again')
-    LOGGER.info('build prediction')
-    predicted_biomass_raster_path = f'{epoch}_{val_loss}.tif'
-    predict_worker = threading.Thread(
-        target=model_predict,
-        args=(
-            net, lulc_raster_input, forest_mask_raster_path,
-            predictor_list,
-            predicted_biomass_raster_path))
-
-    predict_worker.start()
-    predict_worker.join()
     return model_path
-
 
 
 if __name__ == '__main__':

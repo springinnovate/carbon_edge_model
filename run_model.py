@@ -26,11 +26,11 @@ from ray.tune import CLIReporter
 from ray.tune.schedulers import ASHAScheduler
 from sklearn.model_selection import train_test_split
 import sklearn.preprocessing
+from download_data import NeuralNetwork
+
 torch.autograd.set_detect_anomaly(True)
 
 gdal.SetCacheMax(2**27)
-torch.set_num_threads(multiprocessing.cpu_count())
-torch.set_num_interop_threads(multiprocessing.cpu_count())
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -147,27 +147,6 @@ PREDICTOR_LIST = [
     ('tri_10sec_compressed_wgs84__md5_258ad3123f05bc140eadd6246f6a078e.tif', None),
     ('wind_speed_10sec_compressed_wgs84__md5_7c5acc948ac0ff492f3d148ffc277908.tif', None),
 ]
-
-
-class NeuralNetwork(torch.nn.Module):
-    def __init__(self, M, l1):
-        super(NeuralNetwork, self).__init__()
-        self.flatten = torch.nn.Flatten()
-        self.linear_relu_stack = torch.nn.Sequential(
-            torch.nn.Linear(M, l1),
-            torch.nn.LeakyReLU(),
-            torch.nn.Linear(l1, l1),
-            #torch.nn.LeakyReLU(),
-            #torch.nn.Linear(l1, l1),
-            nn.Dropout(0.2),
-            torch.nn.LeakyReLU(),
-            torch.nn.Linear(l1, 1)
-        )
-
-    def forward(self, x):
-        x = self.flatten(x)
-        logits = self.linear_relu_stack(x)
-        return logits
 
 
 def download_data(task_graph, bounding_box):
@@ -559,8 +538,15 @@ def model_predict(
     forest_raster = gdal.OpenEx(forest_mask_raster_path, gdal.OF_RASTER)
     forest_band = forest_raster.GetRasterBand(1)
 
+    last_time = time.time()
+    n_pixels = forest_band.XSize * forest_band.YSize
+    current_pixels = 0
     for offset_dict in pygeoprocessing.iterblocks(
             (lulc_raster_path, 1), offset_only=True):
+        current_pixels += offset_dict['win_xsize']*offset_dict['win_ysize']
+        if time.time() - last_time > 10:
+            LOGGER.info(f'{100*current_pixels/n_pixels}% complete')
+            last_time = time.time()
         forest_array = forest_band.ReadAsArray(**offset_dict)
         valid_mask = (forest_array == 1)
         x_vector = None
@@ -619,7 +605,7 @@ def prep_data(task_graph, raster_lookup_path):
 def main():
     parser = argparse.ArgumentParser(description='Run CE model')
     parser.add_argument('lulc_raster_input', help='Path to lulc raster to model')
-    parser.add_argument('model_path', help='path to pytorch model')
+    parser.add_argument('--model_path', default='./models/model_400.dat', help='path to pytorch model')
     args = parser.parse_args()
 
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count())
@@ -646,8 +632,9 @@ def main():
     task_graph = None
 
     LOGGER.debug(f'n pre {len(aligned_predictor_list)}')
-    model = NeuralNetwork(len(convolution_raster_list)+len(aligned_predictor_list), 100)
-    model.load_state_dict(torch.load(args.model_path))
+    model = NeuralNetwork(len(convolution_raster_list)+len(aligned_predictor_list))
+    checkpoint = torch.load(args.model_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
     predicted_biomass_raster_path = (
