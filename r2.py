@@ -45,8 +45,8 @@ def main():
     ax = fig.add_subplot(1, 1, 1)
     ax.scatter(valid_b[index], valid_a[index], s=1, alpha=1)
     ax.plot(numpy.arange(max_val), numpy.arange(max_val), linewidth=0.5, c='b')
-    ax.set_xlim([50, max_val])
-    ax.set_ylim([50, max_val])
+    ax.set_xlim([0, max_val])
+    ax.set_ylim([0, max_val])
     plt.show()
 
     #heatmap, xedges, yedges = numpy.histogram2d(valid_b, valid_a, bins=50)

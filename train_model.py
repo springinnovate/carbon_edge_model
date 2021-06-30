@@ -20,12 +20,7 @@ import numpy
 import scipy
 import taskgraph
 import torch
-from torch import nn
-from ray import tune
-from ray.tune import CLIReporter
-from ray.tune.schedulers import ASHAScheduler
 from sklearn.model_selection import train_test_split
-import sklearn.preprocessing
 from sklearn.metrics import r2_score
 torch.autograd.set_detect_anomaly(True)
 
@@ -416,6 +411,8 @@ def sample_data(
                 x_vector = numpy.array(local_x_list)
             else:
                 local_x_vector = numpy.array(local_x_list)
+                # THE LAST ELEMENT IS THE FLOW ACCUMULATION THAT I WANT LOGGED
+                local_x_vector[:, -1] = numpy.log(1+local_x_vector[:, -1])
                 x_vector = numpy.append(x_vector, local_x_vector, axis=1)
             y_list.extend(
                 list((response_array[valid_time_array])[sample_mask]))
@@ -654,12 +651,15 @@ def main():
     y_tensor = torch.from_numpy(y_vector)
 
     LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
-    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor, )
+    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
 
     n_predictors = x_vector.shape[1]
+    model = NeuralNetwork(n_predictors)
     loss_fn = torch.nn.L1Loss(reduction='sum')
+    optimizer = torch.optim.RMSprop(
+        model.parameters(), lr=args.learning_rate, momentum=0.9)
     train_cifar(
-        args.learning_rate, loss_fn, n_predictors, x_vector.shape[0], ds,
+        optimizer, loss_fn, x_vector.shape[0], ds,
         args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
 
     LOGGER.debug('all done')
@@ -681,12 +681,8 @@ def r2_loss(output, target):
 
 
 def train_cifar(
-        learning_rate, loss_fn, n_predictors, n_samples, ds, n_epochs,
+        loss_fn, optimizer, n_samples, ds, n_epochs,
         batch_size, checkpoint_epoch=None):
-    model = NeuralNetwork(n_predictors)
-    optimizer = torch.optim.RMSprop(
-        model.parameters(), lr=learning_rate, momentum=0.9)
-
     last_epoch = 0
     if checkpoint_epoch:
         model_path = f'model_{checkpoint_epoch}.dat'
