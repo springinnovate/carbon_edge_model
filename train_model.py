@@ -156,9 +156,9 @@ class NeuralNetwork(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(l1, l1),
             torch.nn.ReLU(),
-            torch.nn.Dropout(p=0.1),
             torch.nn.Linear(l1, 1),
-            torch.nn.ReLU(),
+            torch.nn.Dropout(p=0.1),
+            #torch.nn.ReLU(),
         )
 
     def forward(self, x):
