@@ -612,8 +612,9 @@ def prep_data(task_graph, raster_lookup_path):
 
 def init_weights(m):
     if type(m) == torch.nn.Linear:
-        torch.nn.init.xavier_uniform_(m.weight, gain=torch.nn.init.calculate_gain('relu'))
-        #m.bias.data.fill_(0.01)
+        m.weight.data.fill_(0.1)
+        #torch.nn.init.xavier_uniform_(m.weight, gain=torch.nn.init.calculate_gain('relu'))
+        m.bias.data.fill_(0.01)
 
 
 def main():
