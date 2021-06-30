@@ -655,7 +655,7 @@ def main():
 
     n_predictors = x_vector.shape[1]
     model = NeuralNetwork(n_predictors)
-    loss_fn = torch.nn.L1Loss(reduction='sum')
+    loss_fn = torch.nn.MSELoss(reduction='sum')
     optimizer = torch.optim.RMSprop(
         model.parameters(), lr=args.learning_rate, momentum=0.9)
     train_cifar(
