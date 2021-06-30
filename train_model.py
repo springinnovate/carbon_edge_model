@@ -673,7 +673,7 @@ def main():
     n_predictors = x_vector.shape[1]
     model = NeuralNetwork(n_predictors)
     loss_fn = torch.nn.L1Loss(reduction='sum')
-    loss_fn = torch.nn.MSELoss(reduction='sum')
+    loss_fn = torch.nn.MSELoss(reduction='mean')
     #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
     optimizer = torch.optim.RMSprop(
         model.parameters(), lr=args.learning_rate, momentum=args.momentum)
