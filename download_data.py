@@ -619,7 +619,6 @@ def prep_data(task_graph, raster_lookup_path):
 
 def main():
     parser = argparse.ArgumentParser(description='download data')
-    parser.add_argument('lulc_raster_input', help='Path to lulc raster to model')
     parser.add_argument('n_epochs', type=int, help='number of iterations to run trainer')
     parser.add_argument('batch_size', type=int, help='number of iterations to run trainer')
     parser.add_argument('learning_rate', type=float, help='learning rate of initial epoch')
@@ -643,15 +642,6 @@ def main():
         target_path_list=['sample.gpkg'],
         task_name='sample data')
 
-    LOGGER.info('align input slices')
-    local_workspace = os.path.join(
-        WORKSPACE_DIR,
-        os.path.basename(os.path.splitext(args.lulc_raster_input)[0]))
-    aligned_predictor_list = align_predictors(
-        task_graph, args.lulc_raster_input, raster_lookup['predictor'],
-        local_workspace)
-    forest_mask_raster_path, convolution_raster_list, edge_effect_index = mask_lulc(
-        task_graph, args.lulc_raster_input, local_workspace)
     task_graph.join()
     task_graph.close()
     task_graph = None
@@ -666,17 +656,11 @@ def main():
     LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
     ds = torch.utils.data.TensorDataset(x_tensor, y_tensor, )
 
-    config = {
-        "l1": 100,
-        "lr": args.learning_rate,
-    }
-
     n_predictors = x_vector.shape[1]
     loss_fn = torch.nn.L1Loss(reduction='sum')
     train_cifar(
-        config, loss_fn, n_predictors, x_vector.shape[0], ds, args.n_epochs,
-        args.batch_size, args.lulc_raster_input, forest_mask_raster_path,
-        aligned_predictor_list+convolution_raster_list, args.last_epoch)
+        args.learning_rate, loss_fn, n_predictors, x_vector.shape[0], ds,
+        args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
 
     LOGGER.debug('all done')
 
@@ -697,11 +681,11 @@ def r2_loss(output, target):
 
 
 def train_cifar(
-        config, loss_fn, n_predictors, n_samples, ds, n_epochs, batch_size,
-        lulc_raster_input, forest_mask_raster_path, predictor_list, checkpoint_epoch=None):
+        learning_rate, loss_fn, n_predictors, n_samples, ds, n_epochs,
+        batch_size, checkpoint_epoch=None):
     model = NeuralNetwork(n_predictors)
     optimizer = torch.optim.RMSprop(
-        model.parameters(), lr=config["lr"], momentum=0.9)
+        model.parameters(), lr=learning_rate, momentum=0.9)
 
     last_epoch = 0
     if checkpoint_epoch:
