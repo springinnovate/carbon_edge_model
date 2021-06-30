@@ -662,9 +662,9 @@ def main():
     deviations = x_tensor.std(1, keepdim=True)
     x_tensor = (x_tensor - means) / deviations
 
-    # means = y_tensor.mean(1, keepdim=True)
-    # deviations = y_tensor.std(1, keepdim=True)
-    # y_tensor = (y_tensor - means) / deviations
+    means = y_tensor.mean(1, keepdim=True)
+    deviations = y_tensor.std(1, keepdim=True)
+    y_tensor = (y_tensor - means) / deviations
 
     LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
     ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
@@ -690,11 +690,15 @@ def _sub_op(array_a, array_b, nodata_a, nodata_b):
 
 
 def r2_loss(output, target):
-    target_mean = torch.mean(target)
-    ss_tot = torch.sum((target - target_mean) ** 2)
-    ss_res = torch.sum((target - output) ** 2)
-    r2 = 1-abs(ss_res / ss_tot)
-    return r2
+    try:
+        target_mean = torch.mean(target)
+        ss_tot = torch.sum((target - target_mean) ** 2)
+        ss_res = torch.sum((target - output) ** 2)
+        r2 = 1-abs(ss_res / ss_tot)
+        return r2
+    except:
+        LOGGER.exception('bad stuff in r2')
+        return -100
 
 
 def train_cifar(
