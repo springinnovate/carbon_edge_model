@@ -148,17 +148,19 @@ PREDICTOR_LIST = [
 
 class NeuralNetwork(torch.nn.Module):
     def __init__(self, M):
-        l1 = 100
+        l1 = 200
         super(NeuralNetwork, self).__init__()
         self.flatten = torch.nn.Flatten()
         self.linear_relu_stack = torch.nn.Sequential(
             torch.nn.Linear(M, l1),
-            torch.nn.ReLU6(),
+            torch.nn.ReLU(),
             torch.nn.Linear(l1, l1),
-            torch.nn.ReLU6(),
+            torch.nn.ReLU(),
+            torch.nn.Linear(l1, l1),
+            torch.nn.ReLU(),
             torch.nn.Linear(l1, 1),
             #torch.nn.Dropout(p=0.1),
-            torch.nn.ReLU6(),
+            torch.nn.ReLU(),
         )
 
     def forward(self, x):
