@@ -653,10 +653,14 @@ def main():
     if numpy.any(x_vector[:, -1] < 0):
         LOGGER.warn(f'these are negative: {x_vector[x_vector[:, -1]<0, -1]}')
     x_vector[:, -1] = numpy.log(1+x_vector[:, -1])
-    x_vector = x_vector / 100
     y_vector = numpy.expand_dims(y_vector, axis=1)
     x_tensor = torch.from_numpy(x_vector)
     y_tensor = torch.from_numpy(y_vector)
+
+    means = x_tensor.mean(1, keepdim=True)
+    deviations = x_tensor.std(1, keepdim=True)
+
+    x_tensor = (x_tensor - means) / deviations
 
     LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
     ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
