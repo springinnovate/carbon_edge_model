@@ -412,10 +412,10 @@ def sample_data(
             else:
                 local_x_vector = numpy.array(local_x_list)
                 # THE LAST ELEMENT IS THE FLOW ACCUMULATION THAT I WANT LOGGED
-                if numpy.any(local_x_vector[:, -1] < 0):
-                    LOGGER.warn(f'these are negative: {local_x_vector[local_x_vector[:, -1]<0, -1]}')
-                local_x_vector[:, -1] = numpy.log(1+local_x_vector[:, -1])
                 x_vector = numpy.append(x_vector, local_x_vector, axis=1)
+            if numpy.any(x_vector[:, -1] < 0):
+                LOGGER.warn(f'these are negative: {x_vector[x_vector[:, -1]<0, -1]}')
+            local_x_vector[:, -1] = numpy.log(1+local_x_vector[:, -1])
             y_list.extend(
                 list((response_array[valid_time_array])[sample_mask]))
 
