@@ -621,6 +621,7 @@ def main():
     parser.add_argument('n_epochs', type=int, help='number of iterations to run trainer')
     parser.add_argument('batch_size', type=int, help='number of iterations to run trainer')
     parser.add_argument('learning_rate', type=float, help='learning rate of initial epoch')
+    parser.add_argument('--momentum', type=float, help='momentum, default 0.9', default=0.9)
     parser.add_argument('--last_epoch', help='last epoch to pick up at')
     args = parser.parse_args()
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 5.0)
@@ -665,7 +666,7 @@ def main():
     loss_fn = torch.nn.L1Loss(reduction='sum')
     #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
     optimizer = torch.optim.RMSprop(
-        model.parameters(), lr=args.learning_rate, momentum=0.9)
+        model.parameters(), lr=args.learning_rate, momentum=args.momentum)
     train_cifar(
         model, loss_fn, optimizer, x_vector.shape[0], ds,
         args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
