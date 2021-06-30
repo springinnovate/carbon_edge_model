@@ -149,7 +149,6 @@ PREDICTOR_LIST = [
 class NeuralNetwork(torch.nn.Module):
     def __init__(self, M):
         l1 = 100
-        #do = .5
         super(NeuralNetwork, self).__init__()
         self.flatten = torch.nn.Flatten()
         self.linear_relu_stack = torch.nn.Sequential(
@@ -157,7 +156,8 @@ class NeuralNetwork(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(l1, l1),
             torch.nn.ReLU(),
-            torch.nn.Linear(l1, 1)
+            torch.nn.Linear(l1, 1),
+            torch.nn.ReLU(),
         )
 
     def forward(self, x):
@@ -325,10 +325,6 @@ def sample_data(
     # build up an array of predictor stack
     response_raster = gdal.OpenEx(predictor_lookup['response'], gdal.OF_RASTER)
     raster_list.append(response_raster)
-    # if response_raster.RasterCount != len(time_predictor_lookup):
-    #     raise ValueError(
-    #         f'expected {response_raster.RasterCount} time elements but only '
-    #         f'got {len(time_predictor_lookup)}')
 
     y_list = []
     x_vector = None
@@ -415,9 +411,6 @@ def sample_data(
                 x_vector = numpy.append(x_vector, local_x_vector, axis=1)
             y_list.extend(
                 list((response_array[valid_time_array])[sample_mask]))
-        if numpy.any(x_vector[:, -1] < 0):
-            LOGGER.warn(f'these are negative: {x_vector[x_vector[:, -1]<0, -1]}')
-        x_vector[:, -1] = numpy.log(1+x_vector[:, -1])
 
         i += 1
     y_vector = numpy.array(y_list)
@@ -647,6 +640,11 @@ def main():
 
     LOGGER.info('get x/y training vector...')
     x_vector, y_vector = sample_data_task.get()
+
+    # TAKE THE LOG OF THE FLOW ACCUMULATION VALUE
+    if numpy.any(x_vector[:, -1] < 0):
+        LOGGER.warn(f'these are negative: {x_vector[x_vector[:, -1]<0, -1]}')
+    x_vector[:, -1] = numpy.log(1+x_vector[:, -1])
 
     y_vector = numpy.expand_dims(y_vector, axis=1)
     x_tensor = torch.from_numpy(x_vector)
