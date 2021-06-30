@@ -610,6 +610,12 @@ def prep_data(task_graph, raster_lookup_path):
             raster_lookup_file)
 
 
+def init_weights(m):
+    if type(m) == torch.nn.Linear:
+        torch.nn.init.xavier_uniform(m.weight)
+        m.bias.data.fill_(0.01)
+
+
 def main():
     parser = argparse.ArgumentParser(description='download data')
     parser.add_argument('n_epochs', type=int, help='number of iterations to run trainer')
@@ -693,6 +699,8 @@ def train_cifar(
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         last_epoch = checkpoint['epoch']
         loss = checkpoint['loss']
+    else:
+        model.apply(init_weights)
 
     train_indexes, test_indexes = train_test_split(
         list(range(n_samples)), test_size=.2)
