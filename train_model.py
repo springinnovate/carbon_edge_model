@@ -667,7 +667,7 @@ def main():
 
     n_predictors = x_vector.shape[1]
     model = NeuralNetwork(n_predictors)
-    loss_fn = torch.nn.L1Loss(reduction='mean')
+    loss_fn = torch.nn.L1Loss(reduction='sum')
     #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
     optimizer = torch.optim.RMSprop(
         model.parameters(), lr=args.learning_rate, momentum=args.momentum)
@@ -703,7 +703,7 @@ def train_cifar(
         model.load_state_dict(checkpoint['model_state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         last_epoch = checkpoint['epoch']
-        loss = checkpoint['loss']
+        #loss = checkpoint['loss']
     else:
         model.apply(init_weights)
 
