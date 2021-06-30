@@ -662,8 +662,8 @@ def main():
     deviations = x_tensor.std(1, keepdim=True)
     x_tensor = (x_tensor - means) / deviations
 
-    means = y_tensor.mean(1, keepdim=True)
-    deviations = y_tensor.std(1, keepdim=True)
+    means = y_tensor.mean(0, keepdim=True)
+    deviations = y_tensor.std(0, keepdim=True)
     LOGGER.debug(f'y means {means} y dev {deviations}')
     y_tensor = (y_tensor - means) / deviations
 
