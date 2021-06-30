@@ -768,13 +768,13 @@ def train_cifar(
 
         print("[%d] \n training loss: %.3f \n validation loss: %.3f" % (
             epoch + 1 + last_epoch,
-            running_loss/n_train_samples, val_loss/n_test_samples))
+            running_loss, val_loss))
         r2 = r2_sum / val_steps
         print(f'r^2: {r2}')
         print(f'max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
 
         with open(loss_csv_path, 'a') as csv_file:
-            csv_file.write(f'{epoch+1+last_epoch},{running_loss/n_train_samples},{val_loss/n_test_samples},{r2}\n')
+            csv_file.write(f'{epoch+1+last_epoch},{running_loss},{val_loss},{r2}\n')
 
         LOGGER.info('save model')
         model_path = f'model_{epoch+1+last_epoch}.dat'
