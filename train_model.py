@@ -761,7 +761,7 @@ def train_cifar(
                 outputs = model(predictor_t)
                 val_loss += loss_fn(outputs, response_t).item()
                 r2_sum += r2_loss(outputs, response_t)
-                r2 = r2_score(outputs, response_t)
+                r2 = r2_loss(outputs, response_t)
                 val_steps += 1
 
         print("[%d] \n training loss: %.3f \n validation loss: %.3f" % (
