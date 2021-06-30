@@ -659,7 +659,7 @@ def main():
     optimizer = torch.optim.RMSprop(
         model.parameters(), lr=args.learning_rate, momentum=0.9)
     train_cifar(
-        optimizer, loss_fn, x_vector.shape[0], ds,
+        model, optimizer, loss_fn, x_vector.shape[0], ds,
         args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
 
     LOGGER.debug('all done')
@@ -681,7 +681,7 @@ def r2_loss(output, target):
 
 
 def train_cifar(
-        loss_fn, optimizer, n_samples, ds, n_epochs,
+        model, loss_fn, optimizer, n_samples, ds, n_epochs,
         batch_size, checkpoint_epoch=None):
     last_epoch = 0
     if checkpoint_epoch:
