@@ -655,7 +655,7 @@ def main():
 
     n_predictors = x_vector.shape[1]
     model = NeuralNetwork(n_predictors)
-    loss_fn = torch.nn.HuberLoss(reduction='mean')
+    loss_fn = torch.nn.SmoothL1Loss(reduction='mean')
     optimizer = torch.optim.RMSprop(
         model.parameters(), lr=args.learning_rate, momentum=0.9)
     train_cifar(
