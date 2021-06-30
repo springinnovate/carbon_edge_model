@@ -153,12 +153,12 @@ class NeuralNetwork(torch.nn.Module):
         self.flatten = torch.nn.Flatten()
         self.linear_relu_stack = torch.nn.Sequential(
             torch.nn.Linear(M, l1),
-            torch.nn.ReLU(),
+            torch.nn.ReLU6(),
             torch.nn.Linear(l1, l1),
-            torch.nn.ReLU(),
+            torch.nn.ReLU6(),
             torch.nn.Linear(l1, 1),
             #torch.nn.Dropout(p=0.1),
-            torch.nn.ReLU(),
+            torch.nn.ReLU6(),
         )
 
     def forward(self, x):
