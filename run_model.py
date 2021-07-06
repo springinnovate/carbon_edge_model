@@ -446,16 +446,16 @@ def run_model(lulc_raster_path, model_path):
     LOGGER.info('model data with input lulc')
     local_workspace = os.path.join(
         WORKSPACE_DIR,
-        os.path.basename(os.path.splitext(lulc_raster_input)[0]))
+        os.path.basename(os.path.splitext(lulc_raster_path)[0]))
     LOGGER.info('fetch predictors')
     predictor_list = download_data(task_graph, BOUNDING_BOX)
-    LOGGER.info(f'align predictors to {lulc_raster_input}')
+    LOGGER.info(f'align predictors to {lulc_raster_path}')
     aligned_predictor_list = align_predictors(
-        task_graph, lulc_raster_input, predictor_list,
+        task_graph, lulc_raster_path, predictor_list,
         local_workspace)
     LOGGER.info('mask forest and build convolutions')
     forest_mask_raster_path, convolution_raster_list, edge_effect_index = mask_lulc(
-        task_graph, lulc_raster_input, local_workspace)
+        task_graph, lulc_raster_path, local_workspace)
     task_graph.join()
     task_graph.close()
     task_graph = None
@@ -470,10 +470,10 @@ def run_model(lulc_raster_path, model_path):
     model.eval()
 
     predicted_biomass_raster_path = (
-        f'modeled_biomass_{os.path.basename(lulc_raster_input)}')
+        f'modeled_biomass_{os.path.basename(lulc_raster_path)}')
     LOGGER.info('predict biomass to {predicted_biomass_raster_path}')
     model_predict(
-        model, lulc_raster_input, forest_mask_raster_path,
+        model, lulc_raster_path, forest_mask_raster_path,
         aligned_predictor_list+convolution_raster_list,
         predicted_biomass_raster_path)
     LOGGER.debug('all done')
