@@ -1,10 +1,9 @@
-"""Script to calculate ESA/restoration optimization."""
+"""Compare ESA vs DNN modeling."""
 import collections
 import glob
 import os
 import logging
 import multiprocessing
-import pickle
 import re
 import shutil
 import sys
@@ -16,9 +15,9 @@ import taskgraph
 import tempfile
 
 import carbon_edge_model
-import carbon_model_data
 from utils.density_per_ha_to_total_per_pixel import \
     density_per_ha_to_total_per_pixel
+from train_model import make_kernel_raster
 
 gdal.SetCacheMax(2**27)
 
@@ -43,7 +42,7 @@ def _mkdir(dir_path):
     return dir_path
 
 
-WORKSPACE_DIR = _mkdir('./esa_restoration_optimization')
+WORKSPACE_DIR = _mkdir('./ipcc_vs_dnn_optimization')
 CHURN_DIR = _mkdir(os.path.join(WORKSPACE_DIR, 'churn'))
 BIOMASS_RASTER_DIR = _mkdir(
     os.path.join(WORKSPACE_DIR, 'biomass_rasters'))
@@ -53,29 +52,27 @@ OPTIMIZATION_WORKSPACE = _mkdir(
     os.path.join(WORKSPACE_DIR, 'optimization_workspaces'))
 NEW_FOREST_MASK_DIR = _mkdir(
     os.path.join(WORKSPACE_DIR, 'new_forest_masks'))
-MODELED_VS_IPCC_DIR = _mkdir(
-    os.path.join(WORKSPACE_DIR, 'modeled_vs_ipcc'))
+IPCC_VS_DNN_DIR = _mkdir(
+    os.path.join(WORKSPACE_DIR, 'ipcc_vs_dnn'))
 
-MODEL_PATH = './models/carbon_model_lsvr_poly_2_90000_pts.mod'
-LOGGER.info(f'load the biomass model at {MODEL_PATH}')
-with open(MODEL_PATH, 'rb') as MODEL_FILE:
-    BIOMASS_MODEL = pickle.load(MODEL_FILE)
+MODEL_PATH = './models/model_400.dat'
+BASE_DATA_DIR = 'workspace/ecoshard'
 
 # *** DATA SECTION ***
 # There are two landcover configurations, ESA and restoration of ESA
 BASE_LULC_RASTER_PATH = os.path.join(
-    carbon_model_data.BASE_DATA_DIR,
-    'ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif') #'esa_brazil_clip.tif') #
+    BASE_DATA_DIR,
+    'ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif')
 ESA_RESTORATION_SCENARIO_RASTER_PATH = os.path.join(
-    carbon_model_data.BASE_DATA_DIR,
-    'restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif') # 'esa_restoration_brazil_clip.tif')
+    BASE_DATA_DIR,
+    'restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif')
 
 # These are used in combination with an ESA landcover map to calculate carbon
 CARBON_ZONES_VECTOR_PATH = os.path.join(
-    carbon_model_data.BASE_DATA_DIR,
+    BASE_DATA_DIR,
     'carbon_zones_md5_aa16830f64d1ef66ebdf2552fb8a9c0d.gpkg')
 IPCC_CARBON_TABLE_PATH = os.path.join(
-    carbon_model_data.BASE_DATA_DIR,
+    BASE_DATA_DIR,
     'IPCC_carbon_table_md5_a91f7ade46871575861005764d85cfa7.csv')
 
 # Constants useful for code readability
@@ -233,7 +230,7 @@ def _create_marginal_value_layer(
         mask_gf_path = os.path.join(churn_dir, 'gf.tif')
         if os.path.exists(mask_gf_path):
             os.remove(mask_gf_path)
-        carbon_model_data.make_kernel_raster(
+        make_kernel_raster(
             gaussian_blur_pixel_radius, kernel_raster_path)
         pygeoprocessing.convolve_2d(
             (diff_raster_path, 1), (kernel_raster_path, 1), mask_gf_path,
@@ -314,7 +311,7 @@ def _calculate_new_forest(
 def _calculate_modeled_biomass(
         esa_landcover_raster_path, churn_dir,
         target_biomass_raster_path, n_workers=-1,
-        base_data_dir=carbon_model_data.BASE_DATA_DIR):
+        base_data_dir=BASE_DATA_DIR):
     """Calculate modeled biomass for given landcover.
 
     Args:
@@ -454,7 +451,7 @@ def _calculate_ipcc_biomass(
 def _calculate_modeled_biomass_from_mask(
         base_lulc_raster_path, new_forest_mask_raster_path,
         target_biomass_raster_path, n_workers=-1,
-        base_data_dir=carbon_model_data.BASE_DATA_DIR):
+        base_data_dir=BASE_DATA_DIR):
     """Calculate new biomass raster from base layer and new forest mask.
 
     Args:
@@ -674,7 +671,7 @@ def main():
         ipcc_biomass_raster_path, ipcc_task = \
             optimization_biomass_area_path_task_dict[IPCC_MODE][mask_area]
         modeled_vs_ipcc_optimal_biomass_diff_raster_path = os.path.join(
-            MODELED_VS_IPCC_DIR,
+            IPCC_VS_DNN_DIR,
             f'modeled_vs_ipcc_diff_{mask_area}_ha.tif')
         diff_task = task_graph.add_task(
             func=_diff_rasters,
@@ -700,9 +697,9 @@ def main():
         LOGGER.info(
             'subtract modeled and ipcc from base modeled to get the gain')
         modeled_vs_base_biomass_diff_raster_path = os.path.join(
-            MODELED_VS_IPCC_DIR, f'modeled_vs_base_{mask_area}_ha.tif')
+            IPCC_VS_DNN_DIR, f'modeled_vs_base_{mask_area}_ha.tif')
         ipcc_vs_base_biomass_diff_raster_path = os.path.join(
-            MODELED_VS_IPCC_DIR, f'ipcc_vs_base_{mask_area}_ha.tif')
+            IPCC_VS_DNN_DIR, f'ipcc_vs_base_{mask_area}_ha.tif')
         modeled_base_biomass_raster_path = (
             modeled_biomass_raster_task_dict[MODELED_MODE][BASE_SCENARIO][0])
         for modeled_path, target_diff_path, base_modeled_task, mode in [

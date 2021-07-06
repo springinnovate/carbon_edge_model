@@ -441,30 +441,21 @@ def model_predict(
     predicted_biomass_raster = None
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Run Carbon Edge Model')
-    parser.add_argument(
-        'lulc_raster_input', help='Path to lulc raster to predict biomass')
-    parser.add_argument(
-        '--model_path',
-        default='./models/model_400.dat', help='path to pretrained model')
-    args = parser.parse_args()
-
+def run_model(lulc_raster_path, model_path):
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count())
-
     LOGGER.info('model data with input lulc')
     local_workspace = os.path.join(
         WORKSPACE_DIR,
-        os.path.basename(os.path.splitext(args.lulc_raster_input)[0]))
+        os.path.basename(os.path.splitext(lulc_raster_input)[0]))
     LOGGER.info('fetch predictors')
     predictor_list = download_data(task_graph, BOUNDING_BOX)
-    LOGGER.info(f'align predictors to {args.lulc_raster_input}')
+    LOGGER.info(f'align predictors to {lulc_raster_input}')
     aligned_predictor_list = align_predictors(
-        task_graph, args.lulc_raster_input, predictor_list,
+        task_graph, lulc_raster_input, predictor_list,
         local_workspace)
     LOGGER.info('mask forest and build convolutions')
     forest_mask_raster_path, convolution_raster_list, edge_effect_index = mask_lulc(
-        task_graph, args.lulc_raster_input, local_workspace)
+        task_graph, lulc_raster_input, local_workspace)
     task_graph.join()
     task_graph.close()
     task_graph = None
@@ -474,18 +465,29 @@ def main():
         f'{len(convolution_raster_list)} convolutions')
     model = NeuralNetwork(
         len(convolution_raster_list)+len(aligned_predictor_list))
-    checkpoint = torch.load(args.model_path)
+    checkpoint = torch.load(model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
     predicted_biomass_raster_path = (
-        f'modeled_biomass_{os.path.basename(args.lulc_raster_input)}')
+        f'modeled_biomass_{os.path.basename(lulc_raster_input)}')
     LOGGER.info('predict biomass to {predicted_biomass_raster_path}')
     model_predict(
-        model, args.lulc_raster_input, forest_mask_raster_path,
+        model, lulc_raster_input, forest_mask_raster_path,
         aligned_predictor_list+convolution_raster_list,
         predicted_biomass_raster_path)
     LOGGER.debug('all done')
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Run Carbon Edge Model')
+    parser.add_argument(
+        'lulc_raster_input', help='Path to lulc raster to predict biomass')
+    parser.add_argument(
+        '--model_path',
+        default='./models/model_400.dat', help='path to pretrained model')
+    args = parser.parse_args()
+    run_model(args.lulc_raster_input, args.model_path)
 
 
 if __name__ == '__main__':
