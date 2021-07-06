@@ -18,6 +18,12 @@ import scipy
 import taskgraph
 import torch
 from train_model import NeuralNetwork
+from train_model import PREDICTOR_LIST
+from train_model import URL_PREFIX
+from train_model import MASK_TYPES
+from train_model import CELL_SIZE
+from train_model import PROJECTION_WKT
+from train_model import EXPECTED_MAX_EDGE_EFFECT_KM_LIST
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -30,180 +36,49 @@ logging.basicConfig(
 logging.getLogger('taskgraph').setLevel(logging.WARN)
 LOGGER = logging.getLogger(__name__)
 
-#BOUNDING_BOX = [-64, -4, -55, 3]
 BOUNDING_BOX = [-179, -60, 179, 60]
 
 WORKSPACE_DIR = 'workspace'
 ECOSHARD_DIR = os.path.join(WORKSPACE_DIR, 'ecoshard')
-ALIGN_DIR = os.path.join(WORKSPACE_DIR, f'align{"_".join([str(v) for v in BOUNDING_BOX])}')
-CHURN_DIR = os.path.join(WORKSPACE_DIR, f'churn{"_".join([str(v) for v in BOUNDING_BOX])}')
+ALIGN_DIR = os.path.join(
+    WORKSPACE_DIR, f'align{"_".join([str(v) for v in BOUNDING_BOX])}')
+CHURN_DIR = os.path.join(
+    WORKSPACE_DIR, f'churn{"_".join([str(v) for v in BOUNDING_BOX])}')
 for dir_path in [WORKSPACE_DIR, ECOSHARD_DIR, ALIGN_DIR, CHURN_DIR]:
     os.makedirs(dir_path, exist_ok=True)
-RASTER_LOOKUP_PATH = os.path.join(WORKSPACE_DIR, f'raster_lookup{"_".join([str(v) for v in BOUNDING_BOX])}.dat')
-
-URL_PREFIX = (
-    'https://storage.googleapis.com/ecoshard-root/global_carbon_regression_2/'
-    'inputs/')
-
-RESPONSE_RASTER_FILENAME = 'baccini_carbon_data_2003_2014_compressed_md5_11d1455ee8f091bf4be12c4f7ff9451b.tif'
-
-MASK_TYPES = [
-    ('cropland', esa_to_carbon_model_landcover_types.CROPLAND_LULC_CODES),
-    ('urban', esa_to_carbon_model_landcover_types.URBAN_LULC_CODES),
-    ('forest', esa_to_carbon_model_landcover_types.FOREST_CODES)]
-
-EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [1.0, 3.0, 10.0]
-
-CELL_SIZE = (0.004, -0.004)  # in degrees
-PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
-SAMPLE_RATE = 0.0001
-
-MAX_TIME_INDEX = 11
-
-LULC_TIME_LIST = [
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2003-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2004-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2005-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2006-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2007-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2008-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2009-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2010-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2011-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2012-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2013-v2.0.7_smooth_compressed.tif', None),
-    ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif', None)]
-
-PREDICTOR_LIST = [
-    ('accessibility_to_cities_2015_30sec_compressed_wgs84__md5_a6a8ffcb6c1025c131f7663b80b3c9a7.tif', -9999),
-    ('altitude_10sec_compressed_wgs84__md5_bfa771b1aef1b18e48962c315e5ba5fc.tif', None),
-    ('bio_01_30sec_compressed_wgs84__md5_3f851546237e282124eb97b479c779f4.tif', -9999),
-    ('bio_02_30sec_compressed_wgs84__md5_7ad508baff5bbd8b2e7991451938a5a7.tif', -9999),
-    ('bio_03_30sec_compressed_wgs84__md5_a2de2d38c1f8b51f9d24f7a3a1e5f142.tif', -9999),
-    ('bio_04_30sec_compressed_wgs84__md5_94cfca6af74ffe52316a02b454ba151b.tif', -9999),
-    ('bio_05_30sec_compressed_wgs84__md5_bdd225e46613405c80a7ebf7e3b77249.tif', -9999),
-    ('bio_06_30sec_compressed_wgs84__md5_ef252a4335eafb7fe7b4dc696d5a70e3.tif', -9999),
-    ('bio_07_30sec_compressed_wgs84__md5_1db9a6cdce4b3bd26d79559acd2bc525.tif', -9999),
-    ('bio_08_30sec_compressed_wgs84__md5_baf898dd624cfc9415092d7f37ae44ff.tif', -9999),
-    ('bio_09_30sec_compressed_wgs84__md5_180c820aae826529bfc824b458165eee.tif', -9999),
-    ('bio_10_30sec_compressed_wgs84__md5_d720d781970e165a40a1934adf69c80e.tif', -9999),
-    ('bio_11_30sec_compressed_wgs84__md5_f48a251c54582c22d9eb5d2158618bbe.tif', -9999),
-    ('bio_12_30sec_compressed_wgs84__md5_23cb55c3acc544e5a941df795fcb2024.tif', -9999),
-    ('bio_13_30sec_compressed_wgs84__md5_b004ebe58d50841859ea485c06f55bf6.tif', -9999),
-    ('bio_14_30sec_compressed_wgs84__md5_7cb680af66ff6c676441a382519f0dc2.tif', -9999),
-    ('bio_15_30sec_compressed_wgs84__md5_edc8e5af802448651534b7a0bd7113ac.tif', -9999),
-    ('bio_16_30sec_compressed_wgs84__md5_a9e737a926f1f916746d8ce429c06fad.tif', -9999),
-    ('bio_17_30sec_compressed_wgs84__md5_0bc4db0e10829cd4027b91b7bbfc560f.tif', -9999),
-    ('bio_18_30sec_compressed_wgs84__md5_76cf3d38eb72286ba3d5de5a48bfadd4.tif', -9999),
-    ('bio_19_30sec_compressed_wgs84__md5_a91b8b766ed45cb60f97e25bcac0f5d2.tif', -9999),
-    ('cec_0-5cm_mean_compressed_wgs84__md5_b3b4285906c65db596a014d0c8a927dd.tif', None),
-    ('cec_0-5cm_uncertainty_compressed_wgs84__md5_f0f4eb245fd2cc4d5a12bd5f37189b53.tif', None),
-    ('cec_5-15cm_mean_compressed_wgs84__md5_55c4d960ca9006ba22c6d761d552c82f.tif', None),
-    ('cec_5-15cm_uncertainty_compressed_wgs84__md5_880eac199a7992f61da6c35c56576202.tif', None),
-    ('cfvo_0-5cm_mean_compressed_wgs84__md5_7abefac8143a706b66a1b7743ae3cba1.tif', None),
-    ('cfvo_0-5cm_uncertainty_compressed_wgs84__md5_3d6b883fba1d26a6473f4219009298bb.tif', None),
-    ('cfvo_5-15cm_mean_compressed_wgs84__md5_ae36d799053697a167d114ae7821f5da.tif', None),
-    ('cfvo_5-15cm_uncertainty_compressed_wgs84__md5_1f2749cd35adc8eb1c86a67cbe42aebf.tif', None),
-    ('clay_0-5cm_mean_compressed_wgs84__md5_9da9d4017b691bc75c407773269e2aa3.tif', None),
-    ('clay_0-5cm_uncertainty_compressed_wgs84__md5_f38eb273cb55147c11b48226400ae79a.tif', None),
-    ('clay_5-15cm_mean_compressed_wgs84__md5_c136adb39b7e1910949b749fcc16943e.tif', None),
-    ('clay_5-15cm_uncertainty_compressed_wgs84__md5_0acc36c723aa35b3478f95f708372cc7.tif', None),
-    ('hillshade_10sec_compressed_wgs84__md5_192a760d053db91fc9e32df199358b54.tif', None),
-    ('night_lights_10sec_compressed_wgs84__md5_54e040d93463a2918a82019a0d2757a3.tif', None),
-    ('night_lights_5min_compressed_wgs84__md5_e36f1044d45374c335240777a2b94426.tif', None),
-    ('nitrogen_0-5cm_mean_compressed_wgs84__md5_6adecc8d790ccca6057a902e2ddd0472.tif', None),
-    ('nitrogen_0-5cm_uncertainty_compressed_wgs84__md5_4425b4bd9eeba0ad8a1092d9c3e62187.tif', None),
-    ('nitrogen_10sec_compressed_wgs84__md5_1aed297ef68f15049bbd987f9e98d03d.tif', None),
-    ('nitrogen_5-15cm_mean_compressed_wgs84__md5_9487bc9d293effeb4565e256ed6e0393.tif', None),
-    ('nitrogen_5-15cm_uncertainty_compressed_wgs84__md5_2de5e9d6c3e078756a59ac90e3850b2b.tif', None),
-    ('phh2o_0-5cm_mean_compressed_wgs84__md5_00ab8e945d4f7fbbd0bddec1cb8f620f.tif', None),
-    ('phh2o_0-5cm_uncertainty_compressed_wgs84__md5_8090910adde390949004f30089c3ae49.tif', None),
-    ('phh2o_5-15cm_mean_compressed_wgs84__md5_9b187a088ecb955642b9a86d56f969ad.tif', None),
-    ('phh2o_5-15cm_uncertainty_compressed_wgs84__md5_6809da4b13ebbc747750691afb01a119.tif', None),
-    ('sand_0-5cm_mean_compressed_wgs84__md5_6c73d897cdef7fde657386af201a368d.tif', None),
-    ('sand_0-5cm_uncertainty_compressed_wgs84__md5_efd87fd2062e8276148154c4a59c9b25.tif', None),
-    ('sand_5-15cm_uncertainty_compressed_wgs84__md5_03bc79e2bfd770a82c6d15e36a65fb5c.tif', None),
-    ('silt_0-5cm_mean_compressed_wgs84__md5_1d141933d8d109df25c73bd1dcb9d67c.tif', None),
-    ('silt_0-5cm_uncertainty_compressed_wgs84__md5_ac5ec50cbc3b9396cf11e4e431b508a9.tif', None),
-    ('silt_5-15cm_mean_compressed_wgs84__md5_d0abb0769ebd015fdc12b50b20f8c51e.tif', None),
-    ('silt_5-15cm_uncertainty_compressed_wgs84__md5_cc125c85815db0d1f66b315014907047.tif', None),
-    ('slope_10sec_compressed_wgs84__md5_e2bdd42cb724893ce8b08c6680d1eeaf.tif', None),
-    ('soc_0-5cm_mean_compressed_wgs84__md5_b5be42d9d0ecafaaad7cc592dcfe829b.tif', None),
-    ('soc_0-5cm_uncertainty_compressed_wgs84__md5_33c1a8c3100db465c761a9d7f4e86bb9.tif', None),
-    ('soc_5-15cm_mean_compressed_wgs84__md5_4c489f6132cc76c6d634181c25d22d19.tif', None),
-    ('tri_10sec_compressed_wgs84__md5_258ad3123f05bc140eadd6246f6a078e.tif', None),
-    ('wind_speed_10sec_compressed_wgs84__md5_7c5acc948ac0ff492f3d148ffc277908.tif', None),
-]
+RASTER_LOOKUP_PATH = os.path.join(
+    WORKSPACE_DIR, f'raster_lookup{"_".join([str(v) for v in BOUNDING_BOX])}.dat')
 
 
 def download_data(task_graph, bounding_box):
     """Download the whole data stack."""
     # First download the response raster to align all the rest
     LOGGER.info(f'download data and clip to {bounding_box}')
-    response_url = URL_PREFIX + RESPONSE_RASTER_FILENAME
-    response_path = os.path.join(ECOSHARD_DIR, RESPONSE_RASTER_FILENAME)
-    LOGGER.debug(f'download {response_url} to {response_path}')
-    download_task = task_graph.add_task(
-        func=ecoshard.download_url,
-        args=(response_url, response_path),
-        target_path_list=[response_path],
-        task_name=f'download {response_path}')
-    aligned_path = os.path.join(ALIGN_DIR, RESPONSE_RASTER_FILENAME)
-    align_task = task_graph.add_task(
-        func=pygeoprocessing.warp_raster,
-        args=(response_path, CELL_SIZE, aligned_path, 'near'),
-        kwargs={
-            'target_bb': BOUNDING_BOX,
-            'target_projection_wkt': PROJECTION_WKT,
-            'working_dir': WORKSPACE_DIR},
-        dependent_task_list=[download_task],
-        target_path_list=[aligned_path],
-        task_name=f'align {aligned_path}')
-    raster_lookup = collections.defaultdict(list)
-    raster_lookup['response'] = aligned_path
-
     # download the rest and align to response
-    download_project_list = []
-    for raster_list, raster_type in [
-            (LULC_TIME_LIST, 'lulc_time_list'),
-            (TIME_PREDICTOR_LIST, 'time_predictor'),
-            (PREDICTOR_LIST, 'predictor')]:
-        for payload in raster_list:
-            if isinstance(payload, list):
-                # list of timesteps, keep the list structure
-                raster_lookup[raster_type].append([])
-                for filename, nodata in payload:
-                    aligned_path = os.path.join(ALIGN_DIR, filename)
-                    raster_lookup[raster_type][-1].append(
-                        (aligned_path, nodata))
-                    download_project_list.append(filename)
-            elif isinstance(payload, tuple):
-                # it's a path/nodata tuple
-                filename, nodata = payload
-                aligned_path = os.path.join(ALIGN_DIR, filename)
-                download_project_list.append(filename)
-                raster_lookup[raster_type].append((aligned_path, nodata))
-
-        for filename in download_project_list:
-            url = URL_PREFIX + filename
-            ecoshard_path = os.path.join(ECOSHARD_DIR, filename)
-            download_task = task_graph.add_task(
-                func=ecoshard.download_url,
-                args=(url, ecoshard_path),
-                target_path_list=[ecoshard_path],
-                task_name=f'download {ecoshard_path}')
-            aligned_path = os.path.join(ALIGN_DIR, filename)
-            _ = task_graph.add_task(
-                func=pygeoprocessing.warp_raster,
-                args=(ecoshard_path, CELL_SIZE, aligned_path, 'near'),
-                kwargs={
-                    'target_bb': BOUNDING_BOX,
-                    'target_projection_wkt': PROJECTION_WKT,
-                    'working_dir': WORKSPACE_DIR},
-                dependent_task_list=[download_task],
-                target_path_list=[aligned_path],
-                task_name=f'align {aligned_path}')
-    return raster_lookup
+    aligned_predictor_list = []
+    for filename, nodata in PREDICTOR_LIST:
+        # it's a path/nodata tuple
+        aligned_path = os.path.join(ALIGN_DIR, filename)
+        aligned_predictor_list.append((aligned_path, nodata))
+        url = URL_PREFIX + filename
+        ecoshard_path = os.path.join(ECOSHARD_DIR, filename)
+        download_task = task_graph.add_task(
+            func=ecoshard.download_url,
+            args=(url, ecoshard_path),
+            target_path_list=[ecoshard_path],
+            task_name=f'download {ecoshard_path}')
+        aligned_path = os.path.join(ALIGN_DIR, filename)
+        _ = task_graph.add_task(
+            func=pygeoprocessing.warp_raster,
+            args=(ecoshard_path, CELL_SIZE, aligned_path, 'near'),
+            kwargs={
+                'target_bb': BOUNDING_BOX,
+                'target_projection_wkt': PROJECTION_WKT,
+                'working_dir': WORKSPACE_DIR},
+            dependent_task_list=[download_task],
+            target_path_list=[aligned_path],
+            task_name=f'align {aligned_path}')
+    return aligned_predictor_list
 
 
 def sample_data(
@@ -566,69 +441,50 @@ def model_predict(
     predicted_biomass_raster = None
 
 
-def prep_data(task_graph, raster_lookup_path):
-    """Download and convolve global data."""
-    raster_lookup = download_data(task_graph, BOUNDING_BOX)
-    task_graph.join()
-    # raster lookup has 'predictor' and 'time_predictor' lists
-    time_domain_convolution_raster_list = []
-    forest_mask_raster_path_list = []
-    for lulc_path, _ in raster_lookup['lulc_time_list']:
-        LOGGER.debug(f'mask {lulc_path}')
-        forest_mask_raster_path, convolution_raster_list, edge_effect_index = mask_lulc(
-            task_graph, lulc_path, CHURN_DIR)
-        time_domain_convolution_raster_list.append(convolution_raster_list)
-        forest_mask_raster_path_list.append(forest_mask_raster_path)
-    for time_domain_list in zip(*time_domain_convolution_raster_list):
-        raster_lookup['time_predictor'].append(list(time_domain_list))
-    raster_lookup['edge_effect_index'] = (
-        edge_effect_index+len(raster_lookup['predictor']))
-    with open(raster_lookup_path, 'wb') as raster_lookup_file:
-        pickle.dump(
-            (forest_mask_raster_path_list, raster_lookup),
-            raster_lookup_file)
-
-
 def main():
-    parser = argparse.ArgumentParser(description='Run CE model')
-    parser.add_argument('lulc_raster_input', help='Path to lulc raster to model')
-    parser.add_argument('--model_path', default='./models/model_400.dat', help='path to pytorch model')
+    parser = argparse.ArgumentParser(description='Run Carbon Edge Model')
+    parser.add_argument(
+        'lulc_raster_input', help='Path to lulc raster to predict biomass')
+    parser.add_argument(
+        '--model_path',
+        default='./models/model_400.dat', help='path to pretrained model')
     args = parser.parse_args()
 
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count())
 
-    if not os.path.exists(RASTER_LOOKUP_PATH):
-        LOGGER.info('prep data...')
-        prep_data(task_graph, RASTER_LOOKUP_PATH)
-        task_graph.join()
-    with open(RASTER_LOOKUP_PATH, 'rb') as raster_lookup_file:
-        forest_mask_raster_path_list, raster_lookup = pickle.load(
-            raster_lookup_file)
-
-    LOGGER.info('align input slices')
+    LOGGER.info('model data with input lulc')
     local_workspace = os.path.join(
         WORKSPACE_DIR,
         os.path.basename(os.path.splitext(args.lulc_raster_input)[0]))
+    LOGGER.info('fetch predictors')
+    predictor_list = download_data(task_graph, BOUNDING_BOX)
+    LOGGER.info(f'align predictors to {args.lulc_raster_input}')
     aligned_predictor_list = align_predictors(
-        task_graph, args.lulc_raster_input, raster_lookup['predictor'],
+        task_graph, args.lulc_raster_input, predictor_list,
         local_workspace)
+    LOGGER.info('mask forest and build convolutions')
     forest_mask_raster_path, convolution_raster_list, edge_effect_index = mask_lulc(
         task_graph, args.lulc_raster_input, local_workspace)
     task_graph.join()
     task_graph.close()
     task_graph = None
 
-    LOGGER.debug(f'n pre {len(aligned_predictor_list)}')
-    model = NeuralNetwork(len(convolution_raster_list)+len(aligned_predictor_list))
+    LOGGER.info(
+        f'load model {len(aligned_predictor_list)} predictors '
+        f'{len(convolution_raster_list)} convolutions')
+    model = NeuralNetwork(
+        len(convolution_raster_list)+len(aligned_predictor_list))
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
     predicted_biomass_raster_path = (
         f'modeled_biomass_{os.path.basename(args.lulc_raster_input)}.tif')
+    LOGGER.info('predict biomass to {predicted_biomass_raster_path}')
     model_predict(
         model, args.lulc_raster_input, forest_mask_raster_path,
-        aligned_predictor_list+convolution_raster_list, predicted_biomass_raster_path)
+        aligned_predictor_list+convolution_raster_list,
+        predicted_biomass_raster_path)
     LOGGER.debug('all done')
 
 

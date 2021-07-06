@@ -142,13 +142,12 @@ PREDICTOR_LIST = [
     ('soc_5-15cm_mean_compressed_wgs84__md5_4c489f6132cc76c6d634181c25d22d19.tif', None),
     ('tri_10sec_compressed_wgs84__md5_258ad3123f05bc140eadd6246f6a078e.tif', None),
     ('wind_speed_10sec_compressed_wgs84__md5_7c5acc948ac0ff492f3d148ffc277908.tif', None),
-    ('global_fa_compressed_overviews_md5_c4cd993cc28aadbab573d0f0b15cfcd0.tif', None),
 ]
 
 
 class NeuralNetwork(torch.nn.Module):
     def __init__(self, M):
-        l1 = 200
+        l1 = 100
         super(NeuralNetwork, self).__init__()
         self.flatten = torch.nn.Flatten()
         self.linear_relu_stack = torch.nn.Sequential(
