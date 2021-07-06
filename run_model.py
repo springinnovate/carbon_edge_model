@@ -1,6 +1,4 @@
-"""Script to download everything needed to train the models."""
-from datetime import datetime
-import itertools
+"""Run Carbon Edge NN model."""
 import argparse
 import os
 import collections
@@ -8,7 +6,6 @@ import multiprocessing
 import pickle
 import time
 import logging
-import threading
 
 from osgeo import gdal
 from osgeo import osr
@@ -20,13 +17,7 @@ import numpy
 import scipy
 import taskgraph
 import torch
-from torch import nn
-from ray import tune
-from ray.tune import CLIReporter
-from ray.tune.schedulers import ASHAScheduler
-from sklearn.model_selection import train_test_split
-import sklearn.preprocessing
-from download_data import NeuralNetwork
+from train_model import NeuralNetwork
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -68,10 +59,6 @@ PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
 SAMPLE_RATE = 0.0001
 
 MAX_TIME_INDEX = 11
-
-TIME_PREDICTOR_LIST = [
-    #('baccini_carbon_error_compressed_wgs84__md5_77ea391e63c137b80727a00e4945642f.tif', None),
-]
 
 LULC_TIME_LIST = [
     ('ESACCI-LC-L4-LCCS-Map-300m-P1Y-2003-v2.0.7_smooth_compressed.tif', None),
