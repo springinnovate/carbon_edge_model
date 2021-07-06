@@ -479,7 +479,7 @@ def main():
     model.eval()
 
     predicted_biomass_raster_path = (
-        f'modeled_biomass_{os.path.basename(args.lulc_raster_input)}.tif')
+        f'modeled_biomass_{os.path.basename(args.lulc_raster_input)}')
     LOGGER.info('predict biomass to {predicted_biomass_raster_path}')
     model_predict(
         model, args.lulc_raster_input, forest_mask_raster_path,
