@@ -201,7 +201,7 @@ def model_predict(
     n_pixels = forest_band.XSize * forest_band.YSize
     current_pixels = 0
     for offset_dict in pygeoprocessing.iterblocks(
-            (lulc_raster_path, 1), offset_only=True):
+            (lulc_raster_path, 1), offset_only=True, largest_block=2**26):
         current_pixels += offset_dict['win_xsize']*offset_dict['win_ysize']
         if time.time() - last_time > 10:
             LOGGER.info(f'{100*current_pixels/n_pixels}% complete')
@@ -269,7 +269,7 @@ def run_model(lulc_raster_path, model_path, target_biomass_path):
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
-    LOGGER.info('predict biomass to {predicted_biomass_raster_path}')
+    LOGGER.info(f'predict biomass to {predicted_biomass_raster_path}')
     model_predict(
         model, lulc_raster_path, forest_mask_raster_path,
         aligned_predictor_list+convolution_raster_list,

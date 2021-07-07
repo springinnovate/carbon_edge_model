@@ -415,7 +415,7 @@ def _calculate_modeled_biomass_from_mask(
         task_name=f'replace by mask to {converted_lulc_raster_path}')
 
     # calculate biomass for that raster
-    task_graph.add_task(
+    model_task = task_graph.add_task(
         func=dnn_model.run_model,
         args=(
             converted_lulc_raster_path,
@@ -424,7 +424,7 @@ def _calculate_modeled_biomass_from_mask(
         target_path_list=[target_biomass_raster_path],
         task_name=(
             f'calculated modeled biomass for {target_biomass_raster_path}'))
-
+    model_task.join()
     task_graph.close()
     task_graph.join()
     # shutil.rmtree(churn_dir)
@@ -474,6 +474,7 @@ def main():
                 modeled_biomass_raster_path),
             target_path_list=[modeled_biomass_raster_path],
             task_name=f'calculate biomass {MODELED_MODE} for {scenario_id}')
+        biomass_model_task.join()
 
         modeled_biomass_raster_task_dict[MODELED_MODE][scenario_id] = \
             (modeled_biomass_raster_path, biomass_model_task)
