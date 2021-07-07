@@ -10,6 +10,7 @@ import pygeoprocessing
 import numpy
 import taskgraph
 import torch
+import train_model
 from train_model import NeuralNetwork
 from train_model import PREDICTOR_LIST
 from train_model import URL_PREFIX
@@ -17,9 +18,6 @@ from train_model import MASK_TYPES
 from train_model import CELL_SIZE
 from train_model import PROJECTION_WKT
 from train_model import EXPECTED_MAX_EDGE_EFFECT_KM_LIST
-import train_model
-
-torch.autograd.set_detect_anomaly(True)
 
 gdal.SetCacheMax(2**27)
 logging.basicConfig(
@@ -149,7 +147,9 @@ def align_predictors(
         task_graph, lulc_raster_base_path, predictor_list, workspace_dir):
     """Align all the predictors to lulc."""
     lulc_raster_info = pygeoprocessing.get_raster_info(lulc_raster_base_path)
-    aligned_dir = os.path.join(workspace_dir, 'aligned')
+    aligned_dir = os.path.join(
+        workspace_dir, 'aligned',
+        os.path.basename(os.path.splitext(lulc_raster_base_path)[0]))
     os.makedirs(aligned_dir, exist_ok=True)
     aligned_predictor_list = []
     for predictor_raster_path, nodata in predictor_list:
@@ -239,7 +239,7 @@ def model_predict(
     predicted_biomass_raster = None
 
 
-def run_model(lulc_raster_path, model_path):
+def run_model(lulc_raster_path, model_path, target_biomass_path):
     """Run DNN carbon edge model."""
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count())
     LOGGER.info('model data with input lulc')
@@ -269,11 +269,9 @@ def run_model(lulc_raster_path, model_path):
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
-    predicted_biomass_raster_path = (
-        f'modeled_biomass_{os.path.basename(lulc_raster_path)}')
     LOGGER.info('predict biomass to {predicted_biomass_raster_path}')
     model_predict(
         model, lulc_raster_path, forest_mask_raster_path,
         aligned_predictor_list+convolution_raster_list,
-        predicted_biomass_raster_path)
+        target_biomass_path)
     LOGGER.debug('all done')

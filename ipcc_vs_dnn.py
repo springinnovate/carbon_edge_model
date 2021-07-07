@@ -14,7 +14,7 @@ import pygeoprocessing
 import taskgraph
 import tempfile
 
-import carbon_edge_model
+import dnn_model
 from utils.density_per_ha_to_total_per_pixel import \
     density_per_ha_to_total_per_pixel
 from train_model import make_kernel_raster
@@ -308,75 +308,6 @@ def _calculate_new_forest(
         _mask_new_forest, new_forest_mask_raster_path, gdal.GDT_Byte, None)
 
 
-def _calculate_modeled_biomass(
-        esa_landcover_raster_path, churn_dir,
-        target_biomass_raster_path, n_workers=-1,
-        base_data_dir=BASE_DATA_DIR):
-    """Calculate modeled biomass for given landcover.
-
-    Args:
-        esa_landcover_raster_path (str): path to ESA landcover raster.
-        churn_dir (str): path to use for temporary files.
-        target_biomass_raster_path (str): path to raster to create target
-            biomass (not biomass per ha).
-        n_workers (int): number of workers to allocate to processing.
-
-    Return:
-        None
-    """
-    CROPLAND_LULC_CODES = range(10, 41)
-    URBAN_LULC_CODES = (190,)
-    FOREST_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
-
-    MASK_TYPES = [
-        (1, CROPLAND_LULC_CODES),
-        (2, URBAN_LULC_CODES),
-        (3, FOREST_CODES)]
-    OTHER_TYPE = 4
-    # 1: cropland
-    # 2: urban
-    # 3: forest
-    # 4: other
-
-    def _reclassify_esa_vals_op(array):
-        """Remap values from ESA codes to basic MASK_TYPES."""
-        result = numpy.empty(array.shape, dtype=numpy.uint8)
-        result[:] = OTHER_TYPE  # default is '4 -- other'
-        for mask_id, code_list in MASK_TYPES:
-            mask_array = numpy.in1d(array, code_list).reshape(result.shape)
-            result[mask_array] = mask_id
-        return result
-
-    LOGGER.info(
-        f'create landcover type mask from ESA {esa_landcover_raster_path}')
-    landcover_type_mask_raster_path = os.path.join(
-        churn_dir, f'''landcover_type_mask_{
-            _raw_basename(esa_landcover_raster_path)}.tif''')
-    pygeoprocessing.raster_calculator(
-        [(esa_landcover_raster_path, 1)], _reclassify_esa_vals_op,
-        landcover_type_mask_raster_path, gdal.GDT_Byte, None)
-
-    LOGGER.info(f"prep data for modeled biomass {esa_landcover_raster_path}")
-    task_graph = taskgraph.TaskGraph(churn_dir, n_workers, 15.0)
-    convolution_file_paths = carbon_edge_model.warp_and_gaussian_filter_data(
-        landcover_type_mask_raster_path, base_data_dir, churn_dir,
-        task_graph)
-    task_graph.join()
-    task_graph.close()
-    task_graph = None
-
-    LOGGER.info('evaluate carbon model')
-    total_biomass_per_ha_raster_path = \
-        carbon_edge_model.evaluate_model_with_landcover(
-            BIOMASS_MODEL, landcover_type_mask_raster_path,
-            convolution_file_paths,
-            churn_dir, churn_dir, n_workers, '')
-
-    density_per_ha_to_total_per_pixel(
-        total_biomass_per_ha_raster_path, 1.0,
-        target_biomass_raster_path)
-
-
 def _calculate_ipcc_biomass(
         landcover_raster_path, churn_dir, target_biomass_raster_path):
     """Calculate IPCC method for biomass for given landcover.
@@ -402,7 +333,7 @@ def _calculate_ipcc_biomass(
         return result
 
     def _parse_carbon_lulc_table(ipcc_carbon_table_path):
-        """Custom func to parse out the IPCC carbon table by zone and lulc."""
+        """Parse out the IPCC carbon table by zone and lulc."""
         with open(IPCC_CARBON_TABLE_PATH, 'r') as carbon_table_file:
             header_line = carbon_table_file.readline()
             lulc_code_list = [
@@ -450,8 +381,7 @@ def _calculate_ipcc_biomass(
 
 def _calculate_modeled_biomass_from_mask(
         base_lulc_raster_path, new_forest_mask_raster_path,
-        target_biomass_raster_path, n_workers=-1,
-        base_data_dir=BASE_DATA_DIR):
+        target_biomass_raster_path):
     """Calculate new biomass raster from base layer and new forest mask.
 
     Args:
@@ -486,13 +416,10 @@ def _calculate_modeled_biomass_from_mask(
 
     # calculate biomass for that raster
     task_graph.add_task(
-        func=_calculate_modeled_biomass,
+        func=dnn_model.run_model,
         args=(
             converted_lulc_raster_path,
-            churn_dir, target_biomass_raster_path),
-        kwargs={
-            'n_workers': n_workers,
-            'base_data_dir': base_data_dir},
+            MODEL_PATH, target_biomass_raster_path),
         dependent_task_list=[replace_value_by_mask_task],
         target_path_list=[target_biomass_raster_path],
         task_name=(
@@ -532,8 +459,6 @@ def main():
         # create churn directory and id for modeled biomass.
         base_landcover_id = os.path.basename(
             os.path.splitext(landcover_raster_path)[0])
-        biomass_churn_dir = _mkdir(os.path.join(
-            CHURN_DIR, f'churn_{base_landcover_id}_{MODELED_MODE}'))
 
         # calculated modeled biomass
         LOGGER.info(
@@ -543,9 +468,9 @@ def main():
             BIOMASS_RASTER_DIR,
             f'biomass_{MODELED_MODE}_{scenario_id}.tif')
         biomass_model_task = task_graph.add_task(
-            func=_calculate_modeled_biomass,
+            func=dnn_model.run_model,
             args=(
-                landcover_raster_path, biomass_churn_dir,
+                landcover_raster_path, MODEL_PATH,
                 modeled_biomass_raster_path),
             target_path_list=[modeled_biomass_raster_path],
             task_name=f'calculate biomass {MODELED_MODE} for {scenario_id}')
