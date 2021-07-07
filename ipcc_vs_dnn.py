@@ -432,8 +432,7 @@ def _calculate_modeled_biomass_from_mask(
 
 def main():
     """Entry point."""
-    task_graph = taskgraph.TaskGraph(
-        WORKSPACE_DIR, multiprocessing.cpu_count(), 15.0)
+    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1)
 
     unique_scenario_id = f'''{
         _raw_basename(BASE_LULC_RASTER_PATH)}_{

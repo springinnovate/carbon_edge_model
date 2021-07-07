@@ -1,8 +1,9 @@
 """Run Carbon Edge NN model."""
+import concurrent
 import os
 import multiprocessing
-import time
 import logging
+import time
 
 from osgeo import gdal
 import ecoshard
@@ -11,6 +12,7 @@ import numpy
 import taskgraph
 import torch
 import train_model
+from torch import multiprocessing as mp
 from train_model import NeuralNetwork
 from train_model import PREDICTOR_LIST
 from train_model import URL_PREFIX
@@ -19,7 +21,10 @@ from train_model import CELL_SIZE
 from train_model import PROJECTION_WKT
 from train_model import EXPECTED_MAX_EDGE_EFFECT_KM_LIST
 
-gdal.SetCacheMax(2**27)
+torch.autograd.set_detect_anomaly(True)
+mp.set_sharing_strategy('file_system')
+
+gdal.SetCacheMax(2**30)
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -173,7 +178,7 @@ def align_predictors(
 
 
 def model_predict(
-            model, lulc_raster_path, forest_mask_raster_path,
+            model_path, lulc_raster_path, forest_mask_raster_path,
             aligned_predictor_list, predicted_biomass_raster_path):
     """Predict biomass given predictors."""
     pygeoprocessing.new_raster_from_base(
@@ -200,41 +205,68 @@ def model_predict(
     last_time = time.time()
     n_pixels = forest_band.XSize * forest_band.YSize
     current_pixels = 0
-    for offset_dict in pygeoprocessing.iterblocks(
-            (lulc_raster_path, 1), offset_only=True, largest_block=2**26):
-        current_pixels += offset_dict['win_xsize']*offset_dict['win_ysize']
-        if time.time() - last_time > 10:
-            LOGGER.info(f'{100*current_pixels/n_pixels}% complete')
-            last_time = time.time()
-        forest_array = forest_band.ReadAsArray(**offset_dict)
-        valid_mask = (forest_array == 1)
-        x_vector = None
-        array_list = []
-        for band, nodata in predictor_band_nodata_list:
-            array = band.ReadAsArray(**offset_dict)
-            if nodata is None:
-                nodata = band.GetNoDataValue()
-            if nodata is not None:
-                valid_mask &= array != nodata
-            array_list.append(array)
-        if not numpy.any(valid_mask):
-            continue
-        for array in array_list:
-            if x_vector is None:
-                x_vector = array[valid_mask].astype(numpy.float32)
-                x_vector = numpy.reshape(x_vector, (-1, x_vector.size))
-            else:
-                valid_array = array[valid_mask].astype(numpy.float32)
-                valid_array = numpy.reshape(
-                    valid_array, (-1, valid_array.size))
-                x_vector = numpy.append(x_vector, valid_array, axis=0)
-        y_vector = model(torch.from_numpy(x_vector.T))
-        result = numpy.full(forest_array.shape, -1)
-        result[valid_mask] = (y_vector.detach().numpy()).flatten()
-        predicted_biomass_band.WriteArray(
-            result,
-            xoff=offset_dict['xoff'],
-            yoff=offset_dict['yoff'])
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for offset_dict in pygeoprocessing.iterblocks(
+                (lulc_raster_path, 1), offset_only=True):
+            current_pixels += offset_dict['win_xsize']*offset_dict['win_ysize']
+            if time.time() - last_time > 10:
+                LOGGER.info(f'{100*current_pixels/n_pixels:.2f}% complete')
+                last_time = time.time()
+            forest_reader = executor.submit(
+                forest_band.ReadAsArray, **offset_dict)
+
+            valid_mask = (forest_reader.result() == 1)
+            if not numpy.any(valid_mask):
+                continue
+            array_readers = [
+                (executor.submit(band.ReadAsArray, **offset_dict), nodata)
+                for band, nodata in predictor_band_nodata_list]
+
+            x_vector = None
+            array_list = []
+            for reader, nodata in array_readers:
+                array = reader.result()
+                if nodata is not None:
+                    valid_mask &= (array != nodata) & (numpy.isfinite(array))
+                array_list.append(array)
+
+            # ## OLD
+            # forest_array = forest_band.ReadAsArray(**offset_dict)
+            # valid_mask = (forest_array == 1)
+            # x_vector = None
+            # array_list = []
+            # for band, nodata in predictor_band_nodata_list:
+            #     array = band.ReadAsArray(**offset_dict)
+            #     if nodata is None:
+            #         nodata = band.GetNoDataValue()
+            #     if nodata is not None:
+            #         valid_mask &= array != nodata
+            #     array_list.append(array)
+            if not numpy.any(valid_mask):
+                continue
+            for array in array_list:
+                if x_vector is None:
+                    x_vector = array[valid_mask].astype(numpy.float32)
+                    x_vector = numpy.reshape(x_vector, (-1, x_vector.size))
+                else:
+                    valid_array = array[valid_mask].astype(numpy.float32)
+                    valid_array = numpy.reshape(
+                        valid_array, (-1, valid_array.size))
+                    x_vector = numpy.append(x_vector, valid_array, axis=0)
+            #y_vector = model(torch.from_numpy(x_vector.T))
+            model = NeuralNetwork(len(array_list))
+            checkpoint = torch.load(model_path)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            #model.eval()
+            x_tensor = torch.from_numpy(x_vector.T)
+            y_vector = model(x_tensor)
+            model = None
+            result = numpy.full(valid_mask.shape, -1)
+            result[valid_mask] = (y_vector.detach().numpy()).flatten()
+            predicted_biomass_band.WriteArray(
+                result,
+                xoff=offset_dict['xoff'],
+                yoff=offset_dict['yoff'])
     predicted_biomass_band = None
     predicted_biomass_raster = None
 
@@ -263,15 +295,10 @@ def run_model(lulc_raster_path, model_path, target_biomass_path):
     LOGGER.info(
         f'load model {len(aligned_predictor_list)} predictors '
         f'{len(convolution_raster_list)} convolutions')
-    model = NeuralNetwork(
-        len(convolution_raster_list)+len(aligned_predictor_list))
-    checkpoint = torch.load(model_path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
 
-    LOGGER.info(f'predict biomass to {predicted_biomass_raster_path}')
+    LOGGER.info(f'predict biomass to {target_biomass_path}')
     model_predict(
-        model, lulc_raster_path, forest_mask_raster_path,
+        model_path, lulc_raster_path, forest_mask_raster_path,
         aligned_predictor_list+convolution_raster_list,
         target_biomass_path)
     LOGGER.debug('all done')
