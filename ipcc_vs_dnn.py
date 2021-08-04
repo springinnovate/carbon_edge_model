@@ -3,14 +3,13 @@ import collections
 import glob
 import os
 import logging
-import multiprocessing
 import re
 import shutil
 import sys
 
 from osgeo import gdal
 import numpy
-import pygeoprocessing
+import ecoshard.geoprocessing
 import taskgraph
 import tempfile
 
@@ -98,9 +97,9 @@ def _raw_basename(file_path):
 
 def _sum_raster(raster_path):
     """Return sum of non-nodata values in ``raster_path``."""
-    nodata = pygeoprocessing.get_raster_info(raster_path)['nodata'][0]
+    nodata = ecoshard.geoprocessing.get_raster_info(raster_path)['nodata'][0]
     running_sum = 0.0
-    for _, raster_block in pygeoprocessing.iterblocks((raster_path, 1)):
+    for _, raster_block in ecoshard.geoprocessing.iterblocks((raster_path, 1)):
         running_sum += numpy.sum(
             raster_block[~numpy.isclose(raster_block, nodata)])
     return running_sum
@@ -123,8 +122,8 @@ def _replace_value_by_mask(
     Returns:
         None
     """
-    base_info = pygeoprocessing.get_raster_info(base_raster_path)
-    pygeoprocessing.new_raster_from_base(
+    base_info = ecoshard.geoprocessing.get_raster_info(base_raster_path)
+    ecoshard.geoprocessing.new_raster_from_base(
         base_raster_path, target_replacement_raster_path,
         base_info['datatype'], base_info['nodata'])
     target_raster = gdal.OpenEx(
@@ -134,7 +133,7 @@ def _replace_value_by_mask(
         replacement_mask_raster_path, gdal.OF_RASTER | gdal.GA_Update)
     mask_band = mask_raster.GetRasterBand(1)
 
-    for offset_dict, base_block in pygeoprocessing.iterblocks(
+    for offset_dict, base_block in ecoshard.geoprocessing.iterblocks(
             (base_raster_path, 1)):
         mask_block = mask_band.ReadAsArray(**offset_dict)
         base_block[mask_block == 1] = replacement_value
@@ -172,7 +171,7 @@ def _greedy_select_pixels_to_area(
     pixel_area_in_ha_raster_path = os.path.join(
         workspace_dir, f'pixel_area_in_ha_{raster_id}.tif')
 
-    pygeoprocessing.new_raster_from_base(
+    ecoshard.geoprocessing.new_raster_from_base(
         base_value_raster_path, all_ones_raster_path, gdal.GDT_Byte,
         [None], fill_value_list=[1])
 
@@ -183,9 +182,11 @@ def _greedy_select_pixels_to_area(
     LOGGER.info(
         f'calculating greedy pixels for value raster {base_value_raster_path} '
         f'and area {pixel_area_in_ha_raster_path}')
-    pygeoprocessing.greedy_pixel_pick_by_area(
+    ecoshard.geoprocessing.greedy_pixel_pick_by_area(
         (base_value_raster_path, 1), (pixel_area_in_ha_raster_path, 1),
-        workspace_dir, area_ha_to_step_report_list)
+        area_ha_to_step_report_list, workspace_dir)
+    LOGGER.debug(
+        f'done with greedy pixels for value raster {base_value_raster_path}')
 
 
 def _create_marginal_value_layer(
@@ -208,7 +209,7 @@ def _create_marginal_value_layer(
     Returns:
         None
     """
-    raster_info = pygeoprocessing.get_raster_info(future_raster_path)
+    raster_info = ecoshard.geoprocessing.get_raster_info(future_raster_path)
     nodata = raster_info['nodata'][0]
 
     def _diff_op(a_array, b_array):
@@ -220,7 +221,7 @@ def _create_marginal_value_layer(
 
     churn_dir = tempfile.mkdtemp(dir=os.path.dirname(target_raster_path))
     diff_raster_path = os.path.join(churn_dir, 'diff.tif')
-    pygeoprocessing.raster_calculator(
+    ecoshard.geoprocessing.raster_calculator(
         [(future_raster_path, 1), (base_raster_path, 1)], _diff_op,
         diff_raster_path, raster_info['datatype'], nodata)
 
@@ -232,7 +233,7 @@ def _create_marginal_value_layer(
             os.remove(mask_gf_path)
         make_kernel_raster(
             gaussian_blur_pixel_radius, kernel_raster_path)
-        pygeoprocessing.convolve_2d(
+        ecoshard.geoprocessing.convolve_2d(
             (diff_raster_path, 1), (kernel_raster_path, 1), mask_gf_path,
             ignore_nodata_and_edges=False, mask_nodata=True,
             target_nodata=0.0)
@@ -246,7 +247,7 @@ def _create_marginal_value_layer(
         result[zero_mask] = 0
         return result
 
-    pygeoprocessing.raster_calculator(
+    ecoshard.geoprocessing.raster_calculator(
         [(mask_gf_path, 1), (mask_raster_path, 1)], _mask_op,
         target_raster_path, raster_info['datatype'], nodata)
 
@@ -265,7 +266,7 @@ def _diff_rasters(
     Returns:
         None
     """
-    raster_info = pygeoprocessing.get_raster_info(a_raster_path)
+    raster_info = ecoshard.geoprocessing.get_raster_info(a_raster_path)
     nodata = raster_info['nodata'][0]
 
     def _diff_op(a_array, b_array):
@@ -275,7 +276,7 @@ def _diff_rasters(
         result[valid_mask] -= b_array[valid_mask]
         return result
 
-    pygeoprocessing.raster_calculator(
+    ecoshard.geoprocessing.raster_calculator(
         [(a_raster_path, 1), (b_raster_path, 1)], _diff_op,
         target_diff_raster_path, raster_info['datatype'], nodata)
 
@@ -303,7 +304,7 @@ def _calculate_new_forest(
         result[:] = future_forest & ~base_forest
         return result
 
-    pygeoprocessing.raster_calculator(
+    ecoshard.geoprocessing.raster_calculator(
         [(base_lulc_raster_path, 1), (future_lulc_raster_path, 1)],
         _mask_new_forest, new_forest_mask_raster_path, gdal.GDT_Byte, None)
 
@@ -357,10 +358,10 @@ def _calculate_ipcc_biomass(
     LOGGER.info(
         f'rasterize carbon zones of {landcover_raster_path} to '
         f'{rasterized_zones_raster_path}')
-    pygeoprocessing.new_raster_from_base(
+    ecoshard.geoprocessing.new_raster_from_base(
         landcover_raster_path, rasterized_zones_raster_path, gdal.GDT_Int32,
         [-1])
-    pygeoprocessing.rasterize(
+    ecoshard.geoprocessing.rasterize(
         CARBON_ZONES_VECTOR_PATH, rasterized_zones_raster_path,
         option_list=['ATTRIBUTE=CODE'])
 
@@ -368,7 +369,7 @@ def _calculate_ipcc_biomass(
         IPCC_CARBON_TABLE_PATH)
 
     biomass_per_ha_raster_path = os.path.join(churn_dir, 'biomass_per_ha.tif')
-    pygeoprocessing.raster_calculator(
+    ecoshard.geoprocessing.raster_calculator(
         [(landcover_raster_path, 1), (rasterized_zones_raster_path, 1),
          (zone_lucode_to_carbon_map, 'raw')],
         _ipcc_carbon_op, biomass_per_ha_raster_path,
