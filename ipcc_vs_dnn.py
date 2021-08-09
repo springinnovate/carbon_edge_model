@@ -24,8 +24,7 @@ logging.basicConfig(
     level=logging.DEBUG,
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
-        ' [%(funcName)s:%(lineno)d] %(message)s'),
-    stream=sys.stdout)
+        ' [%(funcName)s:%(lineno)d] %(message)s'))
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('taskgraph').setLevel(logging.DEBUG)
@@ -92,7 +91,7 @@ MARGINAL_VALUE_PIXEL_BLUR = 16
 
 def _raw_basename(file_path):
     """Return just the filename without extension."""
-    return os.path.basename(os.path.splitext(file_path)[0])
+    return os.path.basename(os.path.splitext(file_path)[0])[-20:]
 
 
 def _sum_raster(raster_path):
