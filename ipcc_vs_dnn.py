@@ -181,7 +181,7 @@ def _greedy_select_pixels_to_area(
     LOGGER.info(
         f'calculating greedy pixels for value raster {base_value_raster_path} '
         f'and area {pixel_area_in_ha_raster_path}')
-    ecoshard.geoprocessing.greedy_pixel_pick_by_area(
+    ecoshard.geoprocessing.greedy_pixel_pick_by_area_v2(
         (base_value_raster_path, 1), (pixel_area_in_ha_raster_path, 1),
         area_ha_to_step_report_list, workspace_dir)
     LOGGER.debug(
@@ -537,7 +537,7 @@ def main():
             args=(
                 marginal_value_biomass_raster, optimization_dir,
                 AREA_REPORT_STEP_LIST),
-            target_path_list=[os.path.join(optimization_dir, 'results.csv')],
+            target_path_list=[os.path.join(optimization_dir, f'marginal_value_biomass_{model_mode}_greedy_pick.csv')],
             dependent_task_list=[marginal_value_task],
             transient_run=True,
             task_name=f'optimize on {marginal_value_biomass_raster}')
