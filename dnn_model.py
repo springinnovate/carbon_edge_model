@@ -271,9 +271,13 @@ def model_predict(
     predicted_biomass_raster = None
 
 
-def run_model(lulc_raster_path, model_path, target_biomass_path):
+def run_model(
+        lulc_raster_path, model_path, target_biomass_path, base_task_graph=None):
     """Run DNN carbon edge model."""
-    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count())
+    if base_task_graph is None:
+        task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count())
+    else:
+        task_graph = base_task_graph
     LOGGER.info('model data with input lulc')
     local_workspace = os.path.join(
         WORKSPACE_DIR,
@@ -288,17 +292,26 @@ def run_model(lulc_raster_path, model_path, target_biomass_path):
     payload = mask_lulc(task_graph, lulc_raster_path, local_workspace)
     forest_mask_raster_path, convolution_raster_list, edge_effect_index = \
         payload
-    task_graph.join()
-    task_graph.close()
-    task_graph = None
 
     LOGGER.info(
         f'load model {len(aligned_predictor_list)} predictors '
         f'{len(convolution_raster_list)} convolutions')
 
     LOGGER.info(f'predict biomass to {target_biomass_path}')
-    model_predict(
-        model_path, lulc_raster_path, forest_mask_raster_path,
-        aligned_predictor_list+convolution_raster_list,
-        target_biomass_path)
-    LOGGER.debug('all done')
+    task_graph.join()
+    predict_task = task_graph.add_task(
+        func=model_predict,
+        args=(
+            model_path, lulc_raster_path, forest_mask_raster_path,
+            aligned_predictor_list+convolution_raster_list,
+            target_biomass_path),
+        target_path_list=[target_biomass_path],
+        task_name=f'predict carbon DNN to {target_biomass_path}')
+
+    if base_task_graph is not None:
+        return predict_task
+
+    task_graph.join()
+    task_graph.close()
+    task_graph = None
+    LOGGER.debug(f'all done DNN for {target_biomass_path}')
