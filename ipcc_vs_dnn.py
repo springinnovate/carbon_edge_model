@@ -417,7 +417,7 @@ def _calculate_modeled_biomass_from_mask(
     # calculate biomass for that raster
     model_task = dnn_model.run_model(
         converted_lulc_raster_path,
-        MODEL_PATH, target_biomass_raster_path, task_graph=task_graph)
+        MODEL_PATH, target_biomass_raster_path, base_task_graph=task_graph)
     return model_task
 
 
