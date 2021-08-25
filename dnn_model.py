@@ -76,6 +76,7 @@ def download_data(task_graph, bounding_box):
             dependent_task_list=[download_task],
             target_path_list=[aligned_path],
             task_name=f'align {aligned_path}')
+    task_graph.join()
     return aligned_predictor_list
 
 

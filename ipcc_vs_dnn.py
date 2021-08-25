@@ -1,8 +1,9 @@
-"""Compare ESA vs DNN modeling."""
+import argparse
 import collections
 import glob
 import os
 import logging
+import multiprocessing
 import re
 import shutil
 
@@ -423,11 +424,24 @@ def _calculate_modeled_biomass_from_mask(
 
 def main():
     """Entry point."""
-    task_graph = taskgraph.TaskGraph(WORKSPACE_DIR, -1)
+    parser = argparse.ArgumentParser(description='Build marginal value map')
+    parser.add_argument(
+        '--bounding_box', type=float, nargs=4, help='xmin, xmax, ymin, ymax')
+    args = parser.parse_args()
+
+    if args.bounding_box:
+        bb_string = f"_{'_'.join([f'{v:.2f}' for v in args.bounding_box])}"
+    else:
+        bb_string = ''
+
+    task_graph = taskgraph.TaskGraph(
+        WORKSPACE_DIR, multiprocessing.cpu_count())
+
+    dnn_model.download_data(task_graph, dnn_model.BOUNDING_BOX)
 
     unique_scenario_id = f'''{
         _raw_basename(BASE_LULC_RASTER_PATH)}_{
-        _raw_basename(ESA_RESTORATION_SCENARIO_RASTER_PATH)}'''
+        _raw_basename(ESA_RESTORATION_SCENARIO_RASTER_PATH)}{bb_string}'''
 
     LOGGER.info(f'calculate new forest mask on {BASE_LULC_RASTER_PATH}')
     new_forest_raster_path = os.path.join(
@@ -460,7 +474,6 @@ def main():
         biomass_model_task = dnn_model.run_model(
             landcover_raster_path, MODEL_PATH,
             modeled_biomass_raster_path, base_task_graph=task_graph)
-        biomass_model_task.join()
 
         modeled_biomass_raster_task_dict[MODELED_MODE][scenario_id] = \
             (modeled_biomass_raster_path, biomass_model_task)
@@ -529,6 +542,10 @@ def main():
             task_name=f'optimize on {marginal_value_biomass_raster}')
         optimization_mode_task_dir_list.append(
             (model_mode, optimization_task, optimization_dir))
+
+        task_graph.join()
+        task_graph.close()
+        return
 
     # indexed by MODELED_MODE vs. IPCC_MODE then by area of the new forest
     optimization_biomass_area_path_task_dict = \
@@ -602,9 +619,9 @@ def main():
 
         LOGGER.info(
             'subtract modeled and ipcc from base modeled to get the gain')
-        modeled_vs_base_biomass_diff_raster_path, dnn_model_task = os.path.join(
+        modeled_vs_base_biomass_diff_raster_path = os.path.join(
             IPCC_VS_DNN_DIR, f'modeled_vs_base_{mask_area}_ha.tif')
-        ipcc_vs_base_biomass_diff_raster_path, ipcc_model_task = os.path.join(
+        ipcc_vs_base_biomass_diff_raster_path = os.path.join(
             IPCC_VS_DNN_DIR, f'ipcc_vs_base_{mask_area}_ha.tif')
         modeled_base_biomass_raster_path = (
             modeled_biomass_raster_task_dict[MODELED_MODE][BASE_SCENARIO][0])
