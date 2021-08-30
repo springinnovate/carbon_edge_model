@@ -22,6 +22,7 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('matplotlib').setLevel(logging.WARN)
 logging.getLogger('fiona').setLevel(logging.WARN)
 
+from shapely.prepared import prep
 import shapely
 import geopandas
 from osgeo import gdal
@@ -598,8 +599,8 @@ def init_weights(m):
 
 
 def generate_sample_points(
-        raster_path_list, target_vector_path, holdback_prop,
-        n_points):
+        raster_path_list, sample_polygon_path, target_vector_path,
+        holdback_prop, n_points):
     """Create random sample points that are in bounds of the rasters.
 
     Args:
@@ -620,6 +621,54 @@ def generate_sample_points(
         ``None``
     """
     # include the vector bounding box information to make a global list
+    print('read file')
+    df = geopandas.read_file(sample_polygon_path)
+    geom = df['geometry']
+    print('union')
+    final_geom = geom.unary_union
+    print('prep')
+    final_geom_prep = prep(final_geom)
+    x_min, y_min, x_max, y_max = final_geom.bounds
+
+    x = numpy.random.uniform(x_min, x_max, n_points)
+    y = numpy.random.uniform(y_min, y_max, n_points)
+
+    box_width = holdback_prop*(x_max-x_min)
+    box_height = holdback_prop*(y_max-y_min)
+
+    holdback_box_edge = min(box_width, box_height)
+
+    print('filter')
+    gdf_points = geopandas.GeoSeries(geopandas.points_from_xy(x, y))
+    gdf_points = geopandas.GeoSeries(filter(final_geom_prep.contains, gdf_points))
+
+    for point in gdf_points:
+        holdback_bounds = shapely.geometry.box(
+            point.x-holdback_box_edge*1.5, point.y-holdback_box_edge*1.5,
+            point.x+holdback_box_edge*1.5, point.y+holdback_box_edge*1.5,
+            )
+        if final_geom_prep.contains(holdback_bounds):
+            break
+        LOGGER.warn(f'skipping point {point} as a holdback bound')
+
+    holdback_box = shapely.geometry.box(
+        point.x-holdback_box_edge*0.5, point.y-holdback_box_edge*0.5,
+        point.x+holdback_box_edge*0.5, point.y+holdback_box_edge*0.5,)
+
+    holdback_points = geopandas.GeoSeries(
+        filter(holdback_box.contains, gdf_points))
+
+    filtered_gdf_points = geopandas.GeoSeries(
+        filter(lambda x: not holdback_bounds.contains(x), gdf_points))
+
+    print('plot')
+    fig, ax = plt.subplots(figsize=(12, 10))
+    df.plot(ax=ax, color='gray')
+    filtered_gdf_points.plot(ax=ax, color='blue', markersize=1)
+    holdback_points.plot(ax=ax, color='yellow', markersize=1)
+    plt.show()
+    return
+
     wgs84srs = osr.SpatialReference()
     wgs84srs.ImportFromWkt(osr.SRS_WKT_WGS84_LAT_LONG)
     bounding_box_list = [
@@ -776,8 +825,11 @@ def main():
     LOGGER.debug(response_raster_path_list)
 
     target_vector_path = 'samples.gpkg'
+
+    sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
     generate_sample_points(
         predictor_raster_path_list+response_raster_path_list,
+        sample_polygon_path,
         target_vector_path, args.holdback_prop, args.n_samples)
     return
 
