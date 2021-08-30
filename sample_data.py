@@ -600,7 +600,7 @@ def init_weights(m):
 
 def generate_sample_points(
         raster_path_list, sample_polygon_path, target_vector_path,
-        holdback_prop, n_points):
+        holdback_prop, n_points, country_filter_list=None):
     """Create random sample points that are in bounds of the rasters.
 
     Args:
@@ -623,6 +623,10 @@ def generate_sample_points(
     # include the vector bounding box information to make a global list
     print('read file')
     df = geopandas.read_file(sample_polygon_path)
+
+    if country_filter_list:
+        df = df[df['iso3'].isin(country_filter_list)]
+
     geom = df['geometry']
     print('union')
     final_geom = geom.unary_union
@@ -644,8 +648,8 @@ def generate_sample_points(
 
     for point in gdf_points:
         holdback_bounds = shapely.geometry.box(
-            point.x-holdback_box_edge*1.5, point.y-holdback_box_edge*1.5,
-            point.x+holdback_box_edge*1.5, point.y+holdback_box_edge*1.5,
+            point.x-holdback_box_edge, point.y-holdback_box_edge,
+            point.x+holdback_box_edge, point.y+holdback_box_edge,
             )
         if final_geom_prep.contains(holdback_bounds):
             break
@@ -664,8 +668,8 @@ def generate_sample_points(
     print('plot')
     fig, ax = plt.subplots(figsize=(12, 10))
     df.plot(ax=ax, color='gray')
-    filtered_gdf_points.plot(ax=ax, color='blue', markersize=1)
-    holdback_points.plot(ax=ax, color='yellow', markersize=1)
+    filtered_gdf_points.plot(ax=ax, color='blue', markersize=0.5)
+    holdback_points.plot(ax=ax, color='yellow', markersize=0.5)
     plt.show()
     return
 
@@ -802,6 +806,7 @@ def main():
     parser.add_argument('--responses', type=str, nargs='+', help='path/pattern to list of response rasters', required=True)
     parser.add_argument('--holdback_prop', type=float, help='path/pattern to list of response rasters', required=True)
     parser.add_argument('--n_samples', type=int, help='number of point samples', required=True)
+    parser.add_argument('--iso_names', type=str, nargs='+', help='set of countries to allow, default is all')
     args = parser.parse_args()
 
     predictor_raster_path_list = []
@@ -830,7 +835,7 @@ def main():
     generate_sample_points(
         predictor_raster_path_list+response_raster_path_list,
         sample_polygon_path,
-        target_vector_path, args.holdback_prop, args.n_samples)
+        target_vector_path, args.holdback_prop, args.n_samples, args.iso_names)
     return
 
 
