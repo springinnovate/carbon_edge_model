@@ -665,138 +665,8 @@ def generate_sample_points(
     filtered_gdf_points = geopandas.GeoSeries(
         filter(lambda x: not holdback_bounds.contains(x), gdf_points))
 
-    print('plot')
-    fig, ax = plt.subplots(figsize=(12, 10))
-    df.plot(ax=ax, color='gray')
-    filtered_gdf_points.plot(ax=ax, color='blue', markersize=0.5)
-    holdback_points.plot(ax=ax, color='yellow', markersize=0.5)
-    plt.show()
-    return
+    return filtered_gdf_points, holdback_points
 
-    wgs84srs = osr.SpatialReference()
-    wgs84srs.ImportFromWkt(osr.SRS_WKT_WGS84_LAT_LONG)
-    bounding_box_list = [
-        geoprocessing.get_raster_info(path)['bounding_box']
-        for path in raster_path_list]
-
-    bounding_box_list = []
-    for raster_path in raster_path_list:
-        raster_info = geoprocessing.get_raster_info(raster_path)
-        local_srs = osr.SpatialReference()
-        local_srs.ImportFromWkt(raster_info['projection_wkt'])
-        if not local_srs.IsSame(wgs84srs):
-            raise ValueError(
-                f'{raster_path} not in wgs84 projection: '
-                f'{local_srs.ExportToWkt()}')
-        bounding_box_list.append(raster_info['bounding_box'])
-
-    target_bounding_box = geoprocessing.merge_bounding_box_list(
-        bounding_box_list, 'intersection')
-
-    width = target_bounding_box[2]-target_bounding_box[0]
-    height = target_bounding_box[3]-target_bounding_box[1]
-
-    holdback_length = numpy.sqrt(width*height*holdback_prop)
-
-    holdback_window_size = holdback_length*3
-
-    LOGGER.debug(f'{width} {height} {holdback_prop} {holdback_length} {holdback_window_size}')
-
-    if holdback_window_size > width or holdback_window_size > height:
-        raise ValueError(
-            f'holdback is larger than width or height {holdback_window_size} '
-            f'vs {width} or {height}')
-
-    # TODO find the corner of the holdback window in coordinate space then turn to proportional space (0..1) for sampling
-
-    holdback_x_pos = numpy.random.random()*(width-holdback_window_size)+target_bounding_box[0]+holdback_length
-    holdback_y_pos = numpy.random.random()*(height-holdback_window_size)+target_bounding_box[1]+holdback_length
-
-    sample_space = (
-        (target_bounding_box[0], target_bounding_box[1]) + (
-            numpy.random.random((n_points, 2)))*(width, height))
-
-    gpkg_driver = gdal.GetDriverByName('GPKG')
-
-    holdback_vector = gpkg_driver.Create(
-        'holdback.gpkg', 0, 0, 0, gdal.GDT_Unknown)
-    holdback_layer = holdback_vector.CreateLayer(
-        'holdback', wgs84srs, ogr.wkbPolygon)
-
-    holdback_box = shapely.geometry.box(
-        holdback_x_pos,
-        holdback_y_pos,
-        holdback_x_pos+holdback_length,
-        holdback_y_pos+holdback_length)
-
-    holdback_poly_gdf = geopandas.GeoDataFrame(geometry=[holdback_box])
-
-    holdback_feature = ogr.Feature(holdback_layer.GetLayerDefn())
-    holdback_ring = ogr.Geometry(ogr.wkbLinearRing)
-    holdback_ring.AddPoint(holdback_x_pos, holdback_y_pos)
-    holdback_ring.AddPoint(holdback_x_pos+holdback_length, holdback_y_pos)
-    holdback_ring.AddPoint(holdback_x_pos+holdback_length, holdback_y_pos+holdback_length)
-    holdback_ring.AddPoint(holdback_x_pos, holdback_y_pos+holdback_length)
-
-    holdback_poly = ogr.Geometry(ogr.wkbPolygon)
-    holdback_poly.AddGeometry(holdback_ring)
-
-    holdback_feature.SetGeometry(holdback_poly)
-    holdback_layer.CreateFeature(holdback_feature)
-    holdback_layer = None
-    holdback_vector = None
-
-    outside_mask = (
-        (sample_space[:, 0] < holdback_x_pos-holdback_length) |
-        (sample_space[:, 0] > holdback_x_pos+holdback_length*2) |
-        (sample_space[:, 1] < holdback_y_pos-holdback_length) |
-        (sample_space[:, 1] > holdback_y_pos+holdback_length*2))
-    outside_space = sample_space[outside_mask]
-    sample_points = geopandas.points_from_xy(outside_space[:,0], outside_space[:,1])
-
-    inside_mask = (
-        (sample_space[:, 0] > holdback_x_pos) &
-        (sample_space[:, 0] < holdback_x_pos+holdback_length) &
-        (sample_space[:, 1] > holdback_y_pos) &
-        (sample_space[:, 1] < holdback_y_pos+holdback_length))
-    holdback_space = sample_space[inside_mask]
-    holdback_points = geopandas.points_from_xy(holdback_space[:,0], holdback_space[:,1])
-
-    print((holdback_window_size*3)**2)
-    print(width*height)
-
-    fig, ax = plt.subplots(figsize=(12, 10))
-
-    sample_gdf = geopandas.GeoDataFrame(geometry=sample_points)
-    sample_gdf.plot(ax=ax, markersize=30, alpha=0.1, color='red')
-    sample_gdf.plot(ax=ax, markersize=0.1, color='red')
-
-    holdback_gdf = geopandas.GeoDataFrame(geometry=holdback_points)
-    holdback_gdf.plot(ax=ax, markersize=30, alpha=0.1, color='blue')
-    holdback_gdf.plot(ax=ax, markersize=0.1, color='blue')
-
-    holdback_poly_gdf.plot(ax=ax, alpha=0.3, color='blue')
-
-    plt.show()
-
-    sample_point_vector = gpkg_driver.Create(
-        target_vector_path, 0, 0, 0, gdal.GDT_Unknown)
-    sample_point_layer = sample_point_vector.CreateLayer(
-        'sample_points', wgs84srs, ogr.wkbPoint)
-    sample_point_layer.CreateField(ogr.FieldDefn("holdback", ogr.OFTInteger))
-    sample_point_layer.StartTransaction()
-    for x, y in sample_space:
-        sample_point = ogr.Feature(sample_point_layer.GetLayerDefn())
-        sample_geom = ogr.Geometry(ogr.wkbPoint)
-        sample_geom.AddPoint(x, y)
-        sample_point.SetGeometry(sample_geom)
-        sample_point_layer.CreateFeature(sample_point)
-
-    sample_point_layer.CommitTransaction()
-    sample_point_layer = None
-    sample_point_vector = None
-
-    return
 
 
 def main():
@@ -832,10 +702,17 @@ def main():
     target_vector_path = 'samples.gpkg'
 
     sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
-    generate_sample_points(
+    filtered_gdf_points, holdback_points = generate_sample_points(
         predictor_raster_path_list+response_raster_path_list,
         sample_polygon_path,
         target_vector_path, args.holdback_prop, args.n_samples, args.iso_names)
+
+    print('plot')
+    fig, ax = plt.subplots(figsize=(12, 10))
+    filtered_gdf_points.plot(ax=ax, color='blue', markersize=0.5)
+    holdback_points.plot(ax=ax, color='yellow', markersize=0.5)
+    plt.show()
+
     return
 
 
