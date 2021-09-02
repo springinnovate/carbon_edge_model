@@ -619,57 +619,6 @@ def init_weights(m):
         m.bias.data.fill_(0.01)
 
 
-def main():
-    parser = argparse.ArgumentParser(description='DNN model trainer')
-    parser.add_argument('geopandas_data', type=str, help='path to geopandas structure to train on')
-    parser.add_argument('n_epochs', type=int, help='number of iterations to run trainer')
-    parser.add_argument('batch_size', type=int, help='number of iterations to run trainer')
-    parser.add_argument('learning_rate', type=float, help='learning rate of initial epoch')
-    parser.add_argument('--momentum', type=float, help='momentum, default 0.9', default=0.9)
-    parser.add_argument('--last_epoch', help='last epoch to pick up at')
-    args = parser.parse_args()
-
-    gdf = geopandas.read_file(args.geopandas_data)
-    print(gdf)
-    return
-
-    LOGGER.info('get x/y training vector...')
-    x_vector, y_vector = sample_data_task.get()
-
-    # TAKE THE LOG OF THE FLOW ACCUMULATION VALUE
-    if numpy.any(x_vector[:, -1] < 0):
-        LOGGER.warn(f'these are negative: {x_vector[x_vector[:, -1]<0, -1]}')
-    x_vector[:, -1] = numpy.log(1+x_vector[:, -1])
-    y_vector = numpy.expand_dims(y_vector, axis=1)
-    x_tensor = torch.from_numpy(x_vector)
-    y_tensor = torch.from_numpy(y_vector)
-
-    means = x_tensor.mean(1, keepdim=True)
-    deviations = x_tensor.std(1, keepdim=True)
-    x_tensor = (x_tensor - means) / deviations
-
-    means = y_tensor.mean(0, keepdim=True)
-    deviations = y_tensor.std(0, keepdim=True)
-    LOGGER.debug(f'y means {means} y dev {deviations}')
-    y_tensor = (y_tensor - means) / deviations
-
-    LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
-    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
-
-    n_predictors = x_vector.shape[1]
-    model = NeuralNetwork(n_predictors)
-    loss_fn = torch.nn.L1Loss(reduction='sum')
-    #loss_fn = torch.nn.MSELoss(reduction='mean')
-    #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
-    optimizer = torch.optim.RMSprop(
-        model.parameters(), lr=args.learning_rate, momentum=args.momentum)
-    train_cifar(
-        model, loss_fn, optimizer, x_vector.shape[0], ds,
-        args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
-
-    LOGGER.debug('all done')
-
-
 def _sub_op(array_a, array_b, nodata_a, nodata_b):
     result = numpy.full(array_a.shape, nodata_a, dtype=numpy.float32)
     valid_mask = (array_a != nodata_a) & (array_b != nodata_b)
@@ -777,6 +726,40 @@ def train_cifar(
             break
         LOGGER.info('run again')
     return model_path
+
+
+def main():
+    parser = argparse.ArgumentParser(description='DNN model trainer')
+    parser.add_argument('geopandas_data', type=str, help='path to geopandas structure to train on')
+    parser.add_argument('n_epochs', type=int, help='number of iterations to run trainer')
+    parser.add_argument('batch_size', type=int, help='number of iterations to run trainer')
+    parser.add_argument('learning_rate', type=float, help='learning rate of initial epoch')
+    parser.add_argument('--momentum', type=float, help='momentum, default 0.9', default=0.9)
+    parser.add_argument('--last_epoch', help='last epoch to pick up at')
+    args = parser.parse_args()
+
+    gdf = geopandas.read_file(args.geopandas_data)
+
+    y_tensor = torch.from_numpy(numpy.array(gdf['full_baccini_band12'], dtype=numpy.float32))
+    x_tensor = torch.from_numpy(numpy.array([gdf['geometry'].x, gdf['geometry'].y], dtype=numpy.float32).T)
+
+    LOGGER.info('get x/y training vector...')
+
+    LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
+    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
+
+    n_predictors = x_tensor.shape[1]
+    model = NeuralNetwork(n_predictors)
+    loss_fn = torch.nn.L1Loss(reduction='sum')
+    #loss_fn = torch.nn.MSELoss(reduction='mean')
+    #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
+    optimizer = torch.optim.RMSprop(
+        model.parameters(), lr=args.learning_rate, momentum=args.momentum)
+    train_cifar(
+        model, loss_fn, optimizer, x_tensor.shape[0], ds,
+        args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
+
+    LOGGER.debug('all done')
 
 
 if __name__ == '__main__':
