@@ -256,7 +256,7 @@ def sample_data(raster_path_list, gdf_points):
     # sample each raster by its block range so long as its within the
     # bounding box, this is complicated but it saves us from randomly reading
     # all across the raster
-
+    last_time = time.time()
     for raster_path in raster_path_list:
         raster_info = geoprocessing.get_raster_info(raster_path)
         basename = os.path.basename(os.path.splitext(raster_path)[0])
@@ -266,8 +266,15 @@ def sample_data(raster_path_list, gdf_points):
         raster = gdal.OpenEx(raster_path)
         band = raster.GetRasterBand(1)
         LOGGER.debug(f'processing {basename}')
+        n_total = raster_info['raster_size'][0]*raster_info['raster_size'][1]
+        n_processed = 0
         for offset_dict in geoprocessing.iterblocks(
-                (raster_path, 1), offset_only=True, largest_block=2**18):
+                (raster_path, 1), offset_only=True, largest_block=2**20):
+            if time.time()-last_time > 5:
+                LOGGER.debug(
+                    f'{n_processed/n_total*100:.2f}% complete for {basename} {n_processed} {n_total}')
+                last_time = time.time()
+            n_processed += offset_dict['win_xsize']*offset_dict['win_ysize']
             local_bb = (
                 gdal.ApplyGeoTransform(
                     gt, offset_dict['xoff'], offset_dict['yoff']) +
@@ -739,6 +746,9 @@ def generate_sample_points(
 
     geom = df['geometry']
     print('union')
+
+    # TODO: add the raster bounds in here
+
     final_geom = geom.unary_union
     print('prep')
     final_geom_prep = prep(final_geom)
@@ -752,9 +762,9 @@ def generate_sample_points(
 
     holdback_box_edge = min(box_width, box_height)
 
-    print('filter')
-    gdf_points = geopandas.GeoSeries(geopandas.points_from_xy(x, y))
-    gdf_points = geopandas.GeoSeries(filter(final_geom_prep.contains, gdf_points))
+    print('filter by allowed area')
+    gdf_points = geopandas.GeoSeries(filter(
+        final_geom_prep.contains, geopandas.points_from_xy(x, y)))
 
     for point in gdf_points:
         holdback_bounds = shapely.geometry.box(
@@ -765,18 +775,20 @@ def generate_sample_points(
             break
         LOGGER.warn(f'skipping point {point} as a holdback bound')
 
+    filtered_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
+        filter(lambda x: not holdback_bounds.contains(x), gdf_points)))
+    filtered_gdf['holdback'] = False
+
     holdback_box = shapely.geometry.box(
         point.x-holdback_box_edge*0.5, point.y-holdback_box_edge*0.5,
         point.x+holdback_box_edge*0.5, point.y+holdback_box_edge*0.5,)
 
     holdback_points = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(holdback_box.contains, gdf_points)))
-
-    filtered_gdf_points = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
-        filter(lambda x: not holdback_bounds.contains(x), gdf_points)))
-
-    return filtered_gdf_points, holdback_points
-
+    LOGGER.debug(f'holdbackpoints: {holdback_points}')
+    holdback_points['holdback'] = True
+    filtered_gdf = filtered_gdf.append(holdback_points)
+    return filtered_gdf
 
 
 def _sub_op(array_a, array_b, nodata_a, nodata_b):
@@ -923,27 +935,35 @@ def main():
     target_vector_path = 'samples.gpkg'
 
     sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
-    filtered_gdf_points, holdback_points = generate_sample_points(
+    filtered_gdf_points = generate_sample_points(
         predictor_raster_path_list+response_raster_path_list,
         sample_polygon_path,
         target_vector_path, args.holdback_prop, args.n_samples, args.iso_names)
+
+    print('plot')
+    LOGGER.debug(f" all {filtered_gdf_points}")
+    LOGGER.debug(f" non holdback {filtered_gdf_points[filtered_gdf_points['holdback'] == False]}")
+    LOGGER.debug(f" holdback {filtered_gdf_points[filtered_gdf_points['holdback'] == True]}")
+
+    fig, ax = plt.subplots(figsize=(12, 10))
+    v = filtered_gdf_points[filtered_gdf_points['holdback']==False]
+    v.plot(ax=ax, color='blue', markersize=2.5)
+
+    w = filtered_gdf_points[filtered_gdf_points['holdback']==True]
+    print(w)
+    w.plot(ax=ax, color='green', markersize=2.5)
 
     LOGGER.info('sample data...')
     sample_df = sample_data(
         predictor_raster_path_list+response_raster_path_list,
         filtered_gdf_points)
 
-    print('plot')
-    fig, ax = plt.subplots(figsize=(12, 10))
-    filtered_gdf_points.plot(ax=ax, color='blue', markersize=0.5)
-    holdback_points.plot(ax=ax, color='yellow', markersize=0.5)
 
     min_size = min(sample_df['full_baccini_band12'])
     max_size = max(sample_df['full_baccini_band12'])
 
-    sample_df.to_file("sample_points.gpkg", driver="GPKG")
-    sample_df.plot(ax=ax, color='blue', markersize=10*(sample_df['full_baccini_band12']-min_size)/(max_size-min_size))
-
+    #sample_df.to_file("sample_points.gpkg", driver="GPKG")
+    #sample_df.plot(ax=ax, color='blue', markersize=10*(sample_df['full_baccini_band12']-min_size)/(max_size-min_size))
 
     plt.show()
 
