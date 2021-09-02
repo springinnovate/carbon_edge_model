@@ -9,7 +9,6 @@ import pickle
 import time
 import logging
 import threading
-import glob
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -18,26 +17,26 @@ logging.basicConfig(
         ' [%(funcName)s:%(lineno)d] %(message)s'))
 logging.getLogger('taskgraph').setLevel(logging.WARN)
 LOGGER = logging.getLogger(__name__)
-
-logging.getLogger('matplotlib').setLevel(logging.WARN)
 logging.getLogger('fiona').setLevel(logging.WARN)
 
-
-from shapely.prepared import prep
-import shapely
-import geopandas
 from osgeo import gdal
 from osgeo import osr
 from osgeo import ogr
 from utils import esa_to_carbon_model_landcover_types
 import ecoshard
-from ecoshard import geoprocessing
+import pygeoprocessing
+import geopandas
 import numpy
 import scipy
 import taskgraph
-import matplotlib.pyplot as plt
+import torch
+from sklearn.model_selection import train_test_split
+torch.autograd.set_detect_anomaly(True)
 
 gdal.SetCacheMax(2**27)
+torch.set_num_threads(multiprocessing.cpu_count())
+torch.set_num_interop_threads(multiprocessing.cpu_count())
+
 
 #BOUNDING_BOX = [-64, -4, -55, 3]
 BOUNDING_BOX = [-179, -60, 179, 60]
@@ -149,6 +148,27 @@ PREDICTOR_LIST = [
 ]
 
 
+class NeuralNetwork(torch.nn.Module):
+    def __init__(self, M):
+        l1 = 100
+        super(NeuralNetwork, self).__init__()
+        self.flatten = torch.nn.Flatten()
+        self.linear_relu_stack = torch.nn.Sequential(
+            torch.nn.Linear(M, l1),
+            torch.nn.ReLU(),
+            torch.nn.Linear(l1, l1),
+            torch.nn.ReLU(),
+            torch.nn.Linear(l1, 1),
+            #torch.nn.Dropout(p=0.1),
+            torch.nn.ReLU(),
+        )
+
+    def forward(self, x):
+        x = self.flatten(x)
+        logits = self.linear_relu_stack(x)
+        return logits
+
+
 def download_data(task_graph, bounding_box):
     """Download the whole data stack."""
     # First download the response raster to align all the rest
@@ -219,113 +239,7 @@ def download_data(task_graph, bounding_box):
     return raster_lookup
 
 
-def sample_data(raster_path_list, gdf_points):
-    """Sample raster paths given the points.
-
-    Args:
-        raster_path_list (list): path to a set of rasters
-        gdf_points (geopandas Frame): points in lat/lng to sample
-
-    Return:
-        a geopandas frame with columns defined by the basenames of the
-        rasters in ``raster_path_list`` and geometry by ``gdf_points``
-        so long as the ``gdf_points`` lies in the bounding box of the rasters.
-    """
-    raster_bounding_box_list = []
-    basename_list = []
-    nodata_list = []
-    # find lat/lng bounding box
-    for raster_path in raster_path_list:
-        raster_info = geoprocessing.get_raster_info(raster_path)
-        raster_bounding_box_list.append(
-            geoprocessing.transform_bounding_box(
-                raster_info['bounding_box'],
-                raster_info['projection_wkt'], osr.SRS_WKT_WGS84_LAT_LONG))
-        basename_list.append(
-            os.path.basename(os.path.splitext(raster_path)[0]))
-        nodata_list.append(raster_info['nodata'][0])
-    target_bb_wgs84 = geoprocessing.merge_bounding_box_list(
-        raster_bounding_box_list, 'intersection')
-    target_box_wgs84 = shapely.geometry.box(
-        target_bb_wgs84[0],
-        target_bb_wgs84[1],
-        target_bb_wgs84[2],
-        target_bb_wgs84[3])
-    LOGGER.debug(f'target_bb_wgs84 {target_bb_wgs84}')
-
-    # sample each raster by its block range so long as its within the
-    # bounding box, this is complicated but it saves us from randomly reading
-    # all across the raster
-
-    for raster_path in raster_path_list:
-        raster_info = geoprocessing.get_raster_info(raster_path)
-        basename = os.path.basename(os.path.splitext(raster_path)[0])
-        gdf_points[basename] = raster_info['nodata'][0]
-        gt = raster_info['geotransform']
-        inv_gt = gdal.InvGeoTransform(gt)
-        raster = gdal.OpenEx(raster_path)
-        band = raster.GetRasterBand(1)
-        LOGGER.debug(f'processing {basename}')
-        for offset_dict in geoprocessing.iterblocks(
-                (raster_path, 1), offset_only=True, largest_block=2**18):
-            local_bb = (
-                gdal.ApplyGeoTransform(
-                    gt, offset_dict['xoff'], offset_dict['yoff']) +
-                gdal.ApplyGeoTransform(
-                    gt, offset_dict['xoff']+offset_dict['win_xsize'],
-                    offset_dict['yoff']+offset_dict['win_ysize']))
-
-            local_bb_wgs84 = geoprocessing.transform_bounding_box(
-                local_bb,
-                raster_info['projection_wkt'], osr.SRS_WKT_WGS84_LAT_LONG)
-
-            local_box_wgs84 = shapely.geometry.box(
-                local_bb_wgs84[0],
-                local_bb_wgs84[1],
-                local_bb_wgs84[2],
-                local_bb_wgs84[3])
-
-            # intersect local bb with target_bb
-            intersect_box_wgs84 = local_box_wgs84.intersection(target_box_wgs84)
-
-            if intersect_box_wgs84.area == 0:
-                continue
-
-            gdf_intersect_box = geopandas.GeoDataFrame(
-                geometry=[intersect_box_wgs84])
-
-            # select points out of gdf_points that intersect with local bb
-            local_points = geopandas.sjoin(
-                gdf_points, gdf_intersect_box, op='within')
-
-            if len(local_points) == 0:
-                continue
-
-            local_coords = numpy.array([
-                gdal.ApplyGeoTransform(inv_gt, point.x, point.y)
-                for point in local_points['geometry']], dtype=int)
-            local_coords = (local_coords - [
-                offset_dict['xoff'], offset_dict['yoff']]).T
-
-            #LOGGER.debug(f'local_coords: {local_coords}')
-            local_points[basename] = (
-                band.ReadAsArray(**offset_dict).T)[
-                    local_coords[0, :], local_coords[1, :]]
-
-            #print(f'pre: {local_points}')
-            gdf_points.update(local_points)
-            local_points = geopandas.sjoin(
-                gdf_points, gdf_intersect_box, op='within')
-
-            #print(f'post: {local_points}')
-            #print(f'***target box wgs84: {target_box_wgs84}\n\tbase local bb: {local_box_wgs84}\n\tintersect box: {gdf_intersect_box["geometry"][0].wkt}\n\tlocal points: {local_points}\n\tlocal coords: {local_coords}')
-
-            #print(gdf_points[local_points])
-            # iterate over those points and project to local x/y coordinates
-    return gdf_points
-
-
-def __sample_data_old(
+def sample_data(
         time_domain_mask_list, predictor_lookup, sample_rate, edge_index,
         sample_point_vector_path):
     """Sample data stack.
@@ -675,11 +589,8 @@ def model_predict(
     predicted_biomass_raster = None
 
 
-def prep_data(
-        task_graph, predictor_raster_path_list, response_raster_path_list,
-        raster_lookup_path):
-    """Align global data."""
-
+def prep_data(task_graph, raster_lookup_path):
+    """Download and convolve global data."""
     raster_lookup = download_data(task_graph, BOUNDING_BOX)
     task_graph.join()
     # raster lookup has 'predictor' and 'time_predictor' lists
@@ -708,75 +619,55 @@ def init_weights(m):
         m.bias.data.fill_(0.01)
 
 
-def generate_sample_points(
-        raster_path_list, sample_polygon_path, target_vector_path,
-        holdback_prop, n_points, country_filter_list=None):
-    """Create random sample points that are in bounds of the rasters.
+def main():
+    parser = argparse.ArgumentParser(description='DNN model trainer')
+    parser.add_argument('geopandas_data', type=str, help='path to geopandas structure to train on')
+    parser.add_argument('n_epochs', type=int, help='number of iterations to run trainer')
+    parser.add_argument('batch_size', type=int, help='number of iterations to run trainer')
+    parser.add_argument('learning_rate', type=float, help='learning rate of initial epoch')
+    parser.add_argument('--momentum', type=float, help='momentum, default 0.9', default=0.9)
+    parser.add_argument('--last_epoch', help='last epoch to pick up at')
+    args = parser.parse_args()
 
-    Args:
-        raster_path_list (list): list of raster paths which are in WGS84
-            projection.
-        target_vector_path (str): path to target vector in projection of the
-            first raster path with sample points.
-        holdback_prop (float): between 0..1 representing what proportion of
-            the window should be used for holdback, creates two sets
-                * base sample
-                * holdback sample
+    gdf = geopandas.read_file(args.geopandas_data)
+    print(gdf)
+    return
 
-            any points that lie within a holdback_prop's buffer around
-            the window are thrown out.
-        n_points (int): number of samples.
+    LOGGER.info('get x/y training vector...')
+    x_vector, y_vector = sample_data_task.get()
 
-    Return:
-        GeoSeries of sample and holdback points
-    """
-    # include the vector bounding box information to make a global list
-    print('read file')
-    df = geopandas.read_file(sample_polygon_path)
+    # TAKE THE LOG OF THE FLOW ACCUMULATION VALUE
+    if numpy.any(x_vector[:, -1] < 0):
+        LOGGER.warn(f'these are negative: {x_vector[x_vector[:, -1]<0, -1]}')
+    x_vector[:, -1] = numpy.log(1+x_vector[:, -1])
+    y_vector = numpy.expand_dims(y_vector, axis=1)
+    x_tensor = torch.from_numpy(x_vector)
+    y_tensor = torch.from_numpy(y_vector)
 
-    if country_filter_list:
-        df = df[df['iso3'].isin(country_filter_list)]
+    means = x_tensor.mean(1, keepdim=True)
+    deviations = x_tensor.std(1, keepdim=True)
+    x_tensor = (x_tensor - means) / deviations
 
-    geom = df['geometry']
-    print('union')
-    final_geom = geom.unary_union
-    print('prep')
-    final_geom_prep = prep(final_geom)
-    x_min, y_min, x_max, y_max = final_geom.bounds
+    means = y_tensor.mean(0, keepdim=True)
+    deviations = y_tensor.std(0, keepdim=True)
+    LOGGER.debug(f'y means {means} y dev {deviations}')
+    y_tensor = (y_tensor - means) / deviations
 
-    x = numpy.random.uniform(x_min, x_max, n_points)
-    y = numpy.random.uniform(y_min, y_max, n_points)
+    LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
+    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
 
-    box_width = holdback_prop*(x_max-x_min)
-    box_height = holdback_prop*(y_max-y_min)
+    n_predictors = x_vector.shape[1]
+    model = NeuralNetwork(n_predictors)
+    loss_fn = torch.nn.L1Loss(reduction='sum')
+    #loss_fn = torch.nn.MSELoss(reduction='mean')
+    #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
+    optimizer = torch.optim.RMSprop(
+        model.parameters(), lr=args.learning_rate, momentum=args.momentum)
+    train_cifar(
+        model, loss_fn, optimizer, x_vector.shape[0], ds,
+        args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
 
-    holdback_box_edge = min(box_width, box_height)
-
-    print('filter')
-    gdf_points = geopandas.GeoSeries(geopandas.points_from_xy(x, y))
-    gdf_points = geopandas.GeoSeries(filter(final_geom_prep.contains, gdf_points))
-
-    for point in gdf_points:
-        holdback_bounds = shapely.geometry.box(
-            point.x-holdback_box_edge, point.y-holdback_box_edge,
-            point.x+holdback_box_edge, point.y+holdback_box_edge,
-            )
-        if final_geom_prep.contains(holdback_bounds):
-            break
-        LOGGER.warn(f'skipping point {point} as a holdback bound')
-
-    holdback_box = shapely.geometry.box(
-        point.x-holdback_box_edge*0.5, point.y-holdback_box_edge*0.5,
-        point.x+holdback_box_edge*0.5, point.y+holdback_box_edge*0.5,)
-
-    holdback_points = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
-        filter(holdback_box.contains, gdf_points)))
-
-    filtered_gdf_points = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
-        filter(lambda x: not holdback_bounds.contains(x), gdf_points)))
-
-    return filtered_gdf_points, holdback_points
-
+    LOGGER.debug('all done')
 
 
 def _sub_op(array_a, array_b, nodata_a, nodata_b):
@@ -886,119 +777,6 @@ def train_cifar(
             break
         LOGGER.info('run again')
     return model_path
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description='create spatial samples of data on a global scale')
-    parser.add_argument('--predictors', type=str, nargs='+', help='path/pattern to list of predictor rasters', required=True)
-    parser.add_argument('--responses', type=str, nargs='+', help='path/pattern to list of response rasters', required=True)
-    parser.add_argument('--holdback_prop', type=float, help='path/pattern to list of response rasters', required=True)
-    parser.add_argument('--n_samples', type=int, help='number of point samples', required=True)
-    parser.add_argument('--iso_names', type=str, nargs='+', help='set of countries to allow, default is all')
-    args = parser.parse_args()
-
-    predictor_raster_path_list = []
-    response_raster_path_list = []
-
-    for raster_path_list, search_list in [
-            (predictor_raster_path_list, args.predictors),
-            (response_raster_path_list, args.responses)]:
-        for pattern in search_list:
-            file_path_list = list(glob.glob(pattern))
-            if not file_path_list:
-                raise FileNotFoundError(f"{pattern} doesn't match any files")
-            for file_path in file_path_list:
-                if (geoprocessing.get_gis_type(file_path) !=
-                        geoprocessing.RASTER_TYPE):
-                    raise ValueError(
-                        f'{file_path} found at {pattern} is not a raster')
-            raster_path_list.extend(file_path_list)
-
-    LOGGER.debug(predictor_raster_path_list)
-    LOGGER.debug(response_raster_path_list)
-
-    task_graph = taskgraph.TaskGraph('.', -1)
-
-    target_vector_path = 'samples.gpkg'
-
-    sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
-    filtered_gdf_points, holdback_points = generate_sample_points(
-        predictor_raster_path_list+response_raster_path_list,
-        sample_polygon_path,
-        target_vector_path, args.holdback_prop, args.n_samples, args.iso_names)
-
-    LOGGER.info('sample data...')
-    sample_df = sample_data(
-        predictor_raster_path_list+response_raster_path_list,
-        filtered_gdf_points)
-
-    print('plot')
-    fig, ax = plt.subplots(figsize=(12, 10))
-    filtered_gdf_points.plot(ax=ax, color='blue', markersize=0.5)
-    holdback_points.plot(ax=ax, color='yellow', markersize=0.5)
-
-    min_size = min(sample_df['full_baccini_band12'])
-    max_size = max(sample_df['full_baccini_band12'])
-
-    sample_df.to_file("sample_points.gpkg", driver="GPKG")
-    sample_df.plot(ax=ax, color='blue', markersize=10*(sample_df['full_baccini_band12']-min_size)/(max_size-min_size))
-
-
-    plt.show()
-
-    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
-
-    if not os.path.exists(RASTER_LOOKUP_PATH):
-        LOGGER.info('prep data...')
-        prep_data(
-            task_graph, predictor_raster_path_list, response_raster_path_list,
-            RASTER_LOOKUP_PATH)
-        task_graph.join()
-    with open(RASTER_LOOKUP_PATH, 'rb') as raster_lookup_file:
-        forest_mask_raster_path_list, raster_lookup = pickle.load(
-            raster_lookup_file)
-
-
-    task_graph.join()
-    task_graph.close()
-    task_graph = None
-
-    LOGGER.info('get x/y training vector...')
-    x_vector, y_vector = sample_data_task.get()
-
-    # TAKE THE LOG OF THE FLOW ACCUMULATION VALUE
-    if numpy.any(x_vector[:, -1] < 0):
-        LOGGER.warn(f'these are negative: {x_vector[x_vector[:, -1]<0, -1]}')
-    x_vector[:, -1] = numpy.log(1+x_vector[:, -1])
-    y_vector = numpy.expand_dims(y_vector, axis=1)
-    x_tensor = torch.from_numpy(x_vector)
-    y_tensor = torch.from_numpy(y_vector)
-
-    means = x_tensor.mean(1, keepdim=True)
-    deviations = x_tensor.std(1, keepdim=True)
-    x_tensor = (x_tensor - means) / deviations
-
-    means = y_tensor.mean(0, keepdim=True)
-    deviations = y_tensor.std(0, keepdim=True)
-    LOGGER.debug(f'y means {means} y dev {deviations}')
-    y_tensor = (y_tensor - means) / deviations
-
-    LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
-    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
-
-    n_predictors = x_vector.shape[1]
-    model = NeuralNetwork(n_predictors)
-    loss_fn = torch.nn.L1Loss(reduction='sum')
-    #loss_fn = torch.nn.MSELoss(reduction='mean')
-    #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
-    optimizer = torch.optim.RMSprop(
-        model.parameters(), lr=args.learning_rate, momentum=args.momentum)
-    train_cifar(
-        model, loss_fn, optimizer, x_vector.shape[0], ds,
-        args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
-
-    LOGGER.debug('all done')
 
 
 if __name__ == '__main__':
