@@ -1,14 +1,17 @@
 """Script to download everything needed to train the models."""
 from datetime import datetime
-import itertools
 import argparse
-import os
 import collections
-import multiprocessing
-import pickle
-import time
 import logging
+import math
+import multiprocessing
+import os
+import pickle
 import threading
+import time
+
+import matplotlib.pyplot as plt
+import pandas
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -18,6 +21,7 @@ logging.basicConfig(
 logging.getLogger('taskgraph').setLevel(logging.WARN)
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('fiona').setLevel(logging.WARN)
+logging.getLogger('matplotlib.font_manager').setLevel(logging.WARN)
 
 from osgeo import gdal
 from osgeo import osr
@@ -45,7 +49,9 @@ WORKSPACE_DIR = 'workspace'
 ECOSHARD_DIR = os.path.join(WORKSPACE_DIR, 'ecoshard')
 ALIGN_DIR = os.path.join(WORKSPACE_DIR, f'align{"_".join([str(v) for v in BOUNDING_BOX])}')
 CHURN_DIR = os.path.join(WORKSPACE_DIR, f'churn{"_".join([str(v) for v in BOUNDING_BOX])}')
-for dir_path in [WORKSPACE_DIR, ECOSHARD_DIR, ALIGN_DIR, CHURN_DIR]:
+CHECKPOINT_DIR = 'model_checkpoints'
+for dir_path in [
+        WORKSPACE_DIR, ECOSHARD_DIR, ALIGN_DIR, CHURN_DIR, CHECKPOINT_DIR]:
     os.makedirs(dir_path, exist_ok=True)
 RASTER_LOOKUP_PATH = os.path.join(WORKSPACE_DIR, f'raster_lookup{"_".join([str(v) for v in BOUNDING_BOX])}.dat')
 
@@ -626,12 +632,15 @@ def _sub_op(array_a, array_b, nodata_a, nodata_b):
     return result
 
 
-def r2_loss(output, target):
+def r2_loss(x_val, y_val):
     try:
-        target_mean = torch.mean(target)
-        ss_tot = torch.sum((target - target_mean) ** 2)
-        ss_res = torch.sum((target - output) ** 2)
-        r2 = 1-abs(ss_res / ss_tot)
+        x_sum = torch.sum(x_val)
+        y_sum = torch.sum(y_val)
+
+        r2 = (torch.sum(x_val*y_val)-x_sum*y_sum)/(
+            (torch.sum(x_val**2)-x_sum**2) *
+            (torch.sum(y_val**2)-y_sum**2))
+
         return r2
     except:
         LOGGER.exception('bad stuff in r2')
@@ -639,11 +648,12 @@ def r2_loss(output, target):
 
 
 def train_cifar(
-        model, loss_fn, optimizer, n_samples, ds, n_epochs,
+        model, loss_fn, optimizer, n_samples, ds_train, ds_holdback, n_epochs,
         batch_size, checkpoint_epoch=None):
     last_epoch = 0
     if checkpoint_epoch:
-        model_path = f'model_{checkpoint_epoch}.dat'
+        model_path = os.path.join(
+            CHECKPOINT_DIR, f'model_{checkpoint_epoch}.dat')
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint['model_state_dict'])
         #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -652,21 +662,20 @@ def train_cifar(
     else:
         model.apply(init_weights)
 
-    train_indexes, test_indexes = train_test_split(
-        list(range(n_samples)), test_size=.2)
     train_loader = torch.utils.data.DataLoader(
-        ds, batch_size=batch_size,
-        sampler=torch.utils.data.SubsetRandomSampler(train_indexes))
+        ds_train, batch_size=batch_size, shuffle=True)
     val_loader = torch.utils.data.DataLoader(
-        ds, batch_size=batch_size,
-        sampler=torch.utils.data.SubsetRandomSampler(test_indexes))
-    n_train_samples = len(train_indexes)
-    n_test_samples = len(test_indexes)
+        ds_holdback, batch_size=batch_size, shuffle=True)
+
+    n_train_samples = len(ds_train)
+    n_test_samples = len(val_loader)
     print(f'{n_train_samples} samples to train {n_test_samples} samples to validate')
 
-    loss_csv_path = f'{datetime.now().strftime("%H_%M_%S")}.csv'
+    loss_csv_path = os.path.join(
+        CHECKPOINT_DIR, f'{datetime.now().strftime("%H_%M_%S")}.csv')
     with open(loss_csv_path, 'w') as csv_file:
         csv_file.write('epoch,train,val,r2\n')
+    running_loss_list = []
 
     for epoch in range(n_epochs):  # loop over the dataset multiple times
         running_loss = 0.0
@@ -692,27 +701,24 @@ def train_cifar(
         # Validation loss
         val_loss = 0.0
         val_steps = 0
-        r2_sum = 0.0
         for i, (predictor_t, response_t) in enumerate(val_loader, 0):
             with torch.no_grad():
                 outputs = model(predictor_t)
                 val_loss += loss_fn(outputs, response_t).item()
-                r2_sum += r2_loss(outputs, response_t)
-                r2 = r2_loss(outputs, response_t)
+                #r2_sum += r2_loss(outputs, response_t)
                 val_steps += 1
 
         print("[%d] \n training loss: %.3f \n validation loss: %.3f" % (
             epoch + 1 + last_epoch,
-            running_loss, val_loss))
-        r2 = r2_sum / val_steps
-        print(f'r^2: {r2}')
-        print(f'max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
+            running_loss/len(ds_train), val_loss/len(ds_holdback)))
+        running_loss_list.append(running_loss)
 
         with open(loss_csv_path, 'a') as csv_file:
-            csv_file.write(f'{epoch+1+last_epoch},{running_loss},{val_loss},{r2}\n')
+            csv_file.write(f'{epoch+1+last_epoch},{running_loss},{val_loss}\n')
 
         LOGGER.info('save model')
-        model_path = f'model_{epoch+1+last_epoch}.dat'
+        model_path = os.path.join(
+            CHECKPOINT_DIR, f'model_{epoch+1+last_epoch}.dat')
 
         torch.save({
             'epoch': epoch+1+last_epoch,
@@ -721,42 +727,137 @@ def train_cifar(
             'loss': loss,
             }, model_path)
 
-        if r2 > 10:
-            LOGGER.debug('r2 too big, quitting')
-            break
+        #if r2 > 10:
+        #    LOGGER.debug('r2 too big, quitting')
+        #    break
+        train_outputs = model(ds_train[:][0])
+        r2_train = r2_loss(train_outputs, ds_train[:][1])
+
+        val_outputs = model(ds_holdback[:][0])
+        r2_val = r2_loss(val_outputs, ds_holdback[:][1])
+        print(f'r^2 (train): {r2_train:.5f}, r^2 (val): {r2_val:.5f}')
+
+        print(f'max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
         LOGGER.info('run again')
+    fig, ax = plt.subplots(figsize=(12, 10))
+    expected_values = ds_train[:][1].numpy()
+    actual_values = train_outputs.detach().numpy().flatten()
+    sort_index = numpy.argsort(expected_values)
+    sort_index = sort_index[0:int(len(sort_index)*0.99)]
+    print(expected_values.shape)
+    print(actual_values.shape)
+    expected_values = expected_values[sort_index]
+    actual_values = actual_values[sort_index]
+    ax.scatter(expected_values, actual_values, c='b', s=0.25)
+    z = numpy.polyfit(expected_values, actual_values, 1)
+    print(z)
+    trendline_func = numpy.poly1d(z)
+
+    plt.xlabel('expected values')
+    plt.ylabel('actual values')
+    plt.plot(
+        expected_values,
+        trendline_func(expected_values),
+        "r--", linewidth=1.5)
+    plt.title(f'Model Trained with lat/lng coordinates only $R^2={r2_val:.3f}$')
+    max_bound = max(numpy.max(expected_values), numpy.max(actual_values))
+    ax.set_ybound(0, max_bound)
+    ax.set_xbound(0, max_bound)
+    plt.savefig('model.png')
+
+    # plot loss fn
+    ax.clear()
+
+    plt.xlabel('epoch values')
+    plt.ylabel('loss')
+    plt.plot(
+        range(len(running_loss_list)),
+        trendline_func(running_loss_list),
+        "k-", linewidth=1.5)
+    plt.title(f'Loss Function Model Trained with lat/lng coordinates')
+    #max_bound = max(numpy.max(expected_values), numpy.max(actual_values))
+    #ax.set_ybound(0, max_bound)
+    #ax.set_xbound(0, max_bound)
+    plt.savefig('loss.png')
+
+    # plot accuracy
+
+
     return model_path
 
 
 def main():
     parser = argparse.ArgumentParser(description='DNN model trainer')
-    parser.add_argument('geopandas_data', type=str, help='path to geopandas structure to train on')
-    parser.add_argument('n_epochs', type=int, help='number of iterations to run trainer')
-    parser.add_argument('batch_size', type=int, help='number of iterations to run trainer')
-    parser.add_argument('learning_rate', type=float, help='learning rate of initial epoch')
-    parser.add_argument('--momentum', type=float, help='momentum, default 0.9', default=0.9)
+    parser.add_argument('geopandas_data', type=str, help=(
+        'path to geopandas structure to train on'))
+    parser.add_argument('predictor_response_table', type=str, help=(
+        'path to csv table with fields "predictor" and "response", the '
+        'fieldnames underneath are used to sample the geopandas datastructure '
+        'for training'))
+    parser.add_argument('--n_epochs', required=True, type=int, help=(
+        'number of iterations to run trainer'))
+    parser.add_argument('--batch_size', required=True, type=int, help=(
+        'number of iterations to run trainer'))
+    parser.add_argument('--learning_rate', required=True, type=float, help=(
+        'learning rate of initial epoch'))
+    parser.add_argument('--momentum', required=True, type=float, help=(
+        'momentum, default 0.9'), default=0.9)
     parser.add_argument('--last_epoch', help='last epoch to pick up at')
+
+    parser.add_argument('--invalid_values', type=str, nargs='*', help=(
+        'values to mask out of dataframe write as fieldname,value pairs'))
     args = parser.parse_args()
 
+    # load data
     gdf = geopandas.read_file(args.geopandas_data)
+    for invalid_value_tuple in args.invalid_values:
+        key, value = invalid_value_tuple.split(',')
+        gdf = gdf[gdf[key] != float(value)]
+    gdf_train = gdf[gdf['holdback']==False]
 
-    y_tensor = torch.from_numpy(numpy.array(gdf['full_baccini_band12'], dtype=numpy.float32))
-    x_tensor = torch.from_numpy(numpy.array([gdf['geometry'].x, gdf['geometry'].y], dtype=numpy.float32).T)
+    # load predictor/response table
+    predictor_list = []
+    response_list = []
+    predictor_response_table = pandas.read_csv(args.predictor_response_table)
+    for parameter_type, parameter_list in [
+            ('predictor', predictor_list),
+            ('response', response_list)]:
+        for parameter_id in predictor_response_table[parameter_type]:
+            if isinstance(parameter_id, str):
+                if parameter_id == 'geometry.x':
+                    parameter_list.append(gdf_train['geometry'].x)
+                elif parameter_id == 'geometry.y':
+                    parameter_list.append(gdf_train['geometry'].y)
+                else:
+                    parameter_list.append(gdf_train[parameter_id])
+    x_tensor = torch.from_numpy(numpy.array(predictor_list, dtype=numpy.float32).T)
+    y_tensor = torch.from_numpy(numpy.array(response_list, dtype=numpy.float32).T)
+    LOGGER.debug(x_tensor)
+    LOGGER.debug(y_tensor)
+    return
 
+    y_tensor = torch.from_numpy(numpy.array(gdf_train['full_baccini_band12'], dtype=numpy.float32))
+    x_tensor = torch.from_numpy(numpy.array([gdf_train['geometry'].x, gdf_train['geometry'].y], dtype=numpy.float32).T)
     LOGGER.info('get x/y training vector...')
-
     LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
-    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
+    ds_train = torch.utils.data.TensorDataset(x_tensor, y_tensor)
+
+    gdf_holdback = gdf[gdf['holdback'] == True]
+    y_tensor = torch.from_numpy(numpy.array(gdf_holdback['full_baccini_band12'], dtype=numpy.float32))
+    x_tensor = torch.from_numpy(numpy.array([gdf_holdback['geometry'].x, gdf_holdback['geometry'].y], dtype=numpy.float32).T)
+    LOGGER.info('get x/y holdback vector...')
+    LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
+    ds_holdback = torch.utils.data.TensorDataset(x_tensor, y_tensor)
 
     n_predictors = x_tensor.shape[1]
     model = NeuralNetwork(n_predictors)
-    loss_fn = torch.nn.L1Loss(reduction='sum')
-    #loss_fn = torch.nn.MSELoss(reduction='mean')
+    #loss_fn = torch.nn.L1Loss(reduction='sum')
+    loss_fn = torch.nn.MSELoss(reduction='mean')
     #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
     optimizer = torch.optim.RMSprop(
         model.parameters(), lr=args.learning_rate, momentum=args.momentum)
     train_cifar(
-        model, loss_fn, optimizer, x_tensor.shape[0], ds,
+        model, loss_fn, optimizer, x_tensor.shape[0], ds_train, ds_holdback,
         args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
 
     LOGGER.debug('all done')

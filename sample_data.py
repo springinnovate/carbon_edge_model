@@ -219,7 +219,7 @@ def download_data(task_graph, bounding_box):
     return raster_lookup
 
 
-def sample_data(raster_path_list, gdf_points):
+def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
     """Sample raster paths given the points.
 
     Args:
@@ -231,26 +231,6 @@ def sample_data(raster_path_list, gdf_points):
         rasters in ``raster_path_list`` and geometry by ``gdf_points``
         so long as the ``gdf_points`` lies in the bounding box of the rasters.
     """
-    raster_bounding_box_list = []
-    basename_list = []
-    nodata_list = []
-    # find lat/lng bounding box
-    for raster_path in raster_path_list:
-        raster_info = geoprocessing.get_raster_info(raster_path)
-        raster_bounding_box_list.append(
-            geoprocessing.transform_bounding_box(
-                raster_info['bounding_box'],
-                raster_info['projection_wkt'], osr.SRS_WKT_WGS84_LAT_LONG))
-        basename_list.append(
-            os.path.basename(os.path.splitext(raster_path)[0]))
-        nodata_list.append(raster_info['nodata'][0])
-    target_bb_wgs84 = geoprocessing.merge_bounding_box_list(
-        raster_bounding_box_list, 'intersection')
-    target_box_wgs84 = shapely.geometry.box(
-        target_bb_wgs84[0],
-        target_bb_wgs84[1],
-        target_bb_wgs84[2],
-        target_bb_wgs84[3])
     LOGGER.debug(f'target_bb_wgs84 {target_bb_wgs84}')
 
     # sample each raster by its block range so long as its within the
@@ -265,6 +245,7 @@ def sample_data(raster_path_list, gdf_points):
         inv_gt = gdal.InvGeoTransform(gt)
         raster = gdal.OpenEx(raster_path)
         band = raster.GetRasterBand(1)
+        nodata = band.GetNoDataValue()
         LOGGER.debug(f'processing {basename}')
         n_total = raster_info['raster_size'][0]*raster_info['raster_size'][1]
         n_processed = 0
@@ -293,7 +274,7 @@ def sample_data(raster_path_list, gdf_points):
                 local_bb_wgs84[3])
 
             # intersect local bb with target_bb
-            intersect_box_wgs84 = local_box_wgs84.intersection(target_box_wgs84)
+            intersect_box_wgs84 = local_box_wgs84.intersection(target_bb_wgs84)
 
             if intersect_box_wgs84.area == 0:
                 continue
@@ -303,7 +284,11 @@ def sample_data(raster_path_list, gdf_points):
 
             # select points out of gdf_points that intersect with local bb
             local_points = geopandas.sjoin(
-                gdf_points, gdf_intersect_box, op='within')
+                gdf_points, gdf_intersect_box, op='intersects')
+            if not local_points.index.is_unique:
+                local_points = local_points.loc[~local_points.index.duplicated()]
+            assert(local_points.index.is_unique)
+            #LOGGER.debug(f'unique? {local_points.index.is_unique}')
 
             if len(local_points) == 0:
                 continue
@@ -319,16 +304,11 @@ def sample_data(raster_path_list, gdf_points):
                 band.ReadAsArray(**offset_dict).T)[
                     local_coords[0, :], local_coords[1, :]]
 
-            #print(f'pre: {local_points}')
-            gdf_points.update(local_points)
-            local_points = geopandas.sjoin(
-                gdf_points, gdf_intersect_box, op='within')
+            gdf_points.loc[local_points.index] = local_points
+        if nodata is not None:
+            LOGGER.debug(f'removing ndoata {nodata} from {basename}')
+            gdf_points = gdf_points[gdf_points[basename] != nodata]
 
-            #print(f'post: {local_points}')
-            #print(f'***target box wgs84: {target_box_wgs84}\n\tbase local bb: {local_box_wgs84}\n\tintersect box: {gdf_intersect_box["geometry"][0].wkt}\n\tlocal points: {local_points}\n\tlocal coords: {local_coords}')
-
-            #print(gdf_points[local_points])
-            # iterate over those points and project to local x/y coordinates
     return gdf_points
 
 
@@ -716,15 +696,13 @@ def init_weights(m):
 
 
 def generate_sample_points(
-        raster_path_list, sample_polygon_path, target_vector_path,
+        raster_path_list, sample_polygon_path, bounding_box,
         holdback_prop, n_points, country_filter_list=None):
     """Create random sample points that are in bounds of the rasters.
 
     Args:
         raster_path_list (list): list of raster paths which are in WGS84
             projection.
-        target_vector_path (str): path to target vector in projection of the
-            first raster path with sample points.
         holdback_prop (float): between 0..1 representing what proportion of
             the window should be used for holdback, creates two sets
                 * base sample
@@ -744,7 +722,7 @@ def generate_sample_points(
     if country_filter_list:
         df = df[df['iso3'].isin(country_filter_list)]
 
-    geom = df['geometry']
+    geom = df['geometry'].intersection(bounding_box)
     print('union')
 
     # TODO: add the raster bounds in here
@@ -927,6 +905,27 @@ def main():
                         f'{file_path} found at {pattern} is not a raster')
             raster_path_list.extend(file_path_list)
 
+    raster_bounding_box_list = []
+    basename_list = []
+    nodata_list = []
+    # find lat/lng bounding box
+    for raster_path in raster_path_list:
+        raster_info = geoprocessing.get_raster_info(raster_path)
+        raster_bounding_box_list.append(
+            geoprocessing.transform_bounding_box(
+                raster_info['bounding_box'],
+                raster_info['projection_wkt'], osr.SRS_WKT_WGS84_LAT_LONG))
+        basename_list.append(
+            os.path.basename(os.path.splitext(raster_path)[0]))
+        nodata_list.append(raster_info['nodata'][0])
+    target_bb_wgs84 = geoprocessing.merge_bounding_box_list(
+        raster_bounding_box_list, 'intersection')
+    target_box_wgs84 = shapely.geometry.box(
+        target_bb_wgs84[0],
+        target_bb_wgs84[1],
+        target_bb_wgs84[2],
+        target_bb_wgs84[3])
+
     LOGGER.debug(predictor_raster_path_list)
     LOGGER.debug(response_raster_path_list)
 
@@ -937,8 +936,8 @@ def main():
     sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
     filtered_gdf_points = generate_sample_points(
         predictor_raster_path_list+response_raster_path_list,
-        sample_polygon_path,
-        target_vector_path, args.holdback_prop, args.n_samples, args.iso_names)
+        sample_polygon_path, target_box_wgs84,
+        args.holdback_prop, args.n_samples, args.iso_names)
 
     print('plot')
     LOGGER.debug(f" all {filtered_gdf_points}")
@@ -955,14 +954,13 @@ def main():
 
     LOGGER.info('sample data...')
     sample_df = sample_data(
-        predictor_raster_path_list+response_raster_path_list,
-        filtered_gdf_points)
-
+        set(predictor_raster_path_list+response_raster_path_list),
+        filtered_gdf_points, target_box_wgs84)
 
     min_size = min(sample_df['full_baccini_band12'])
     max_size = max(sample_df['full_baccini_band12'])
 
-    #sample_df.to_file("sample_points.gpkg", driver="GPKG")
+    sample_df.to_file(target_vector_path, driver="GPKG")
     #sample_df.plot(ax=ax, color='blue', markersize=10*(sample_df['full_baccini_band12']-min_size)/(max_size-min_size))
 
     plt.show()
