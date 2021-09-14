@@ -12,6 +12,7 @@ import time
 
 import matplotlib.pyplot as plt
 import pandas
+import sklearn.metrics
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -161,12 +162,10 @@ class NeuralNetwork(torch.nn.Module):
         self.flatten = torch.nn.Flatten()
         self.linear_relu_stack = torch.nn.Sequential(
             torch.nn.Linear(M, l1),
-            torch.nn.ReLU(),
             torch.nn.Linear(l1, l1),
-            torch.nn.ReLU(),
+            torch.nn.Linear(l1, l1),
             torch.nn.Linear(l1, 1),
             #torch.nn.Dropout(p=0.1),
-            torch.nn.ReLU(),
         )
 
     def forward(self, x):
@@ -646,9 +645,8 @@ def r2_loss(x_val, y_val):
         LOGGER.exception('bad stuff in r2')
         return -100
 
-
 def train_cifar(
-        model, loss_fn, optimizer, n_samples, ds_train, ds_holdback, n_epochs,
+        model, loss_fn, optimizer, ds_train, ds_holdback, n_epochs,
         batch_size, checkpoint_epoch=None):
     last_epoch = 0
     if checkpoint_epoch:
@@ -656,29 +654,29 @@ def train_cifar(
             CHECKPOINT_DIR, f'model_{checkpoint_epoch}.dat')
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint['model_state_dict'])
-        #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         last_epoch = checkpoint['epoch']
-        #loss = checkpoint['loss']
     else:
         model.apply(init_weights)
 
+    # TODO: split the training data into a validataion set but then also save that last test set
     train_loader = torch.utils.data.DataLoader(
         ds_train, batch_size=batch_size, shuffle=True)
     val_loader = torch.utils.data.DataLoader(
         ds_holdback, batch_size=batch_size, shuffle=True)
 
     n_train_samples = len(ds_train)
-    n_test_samples = len(val_loader)
-    print(f'{n_train_samples} samples to train {n_test_samples} samples to validate')
+    n_validation_samples = len(val_loader)
+    print(f'{n_train_samples} samples to train {n_validation_samples} samples to validate')
 
     loss_csv_path = os.path.join(
         CHECKPOINT_DIR, f'{datetime.now().strftime("%H_%M_%S")}.csv')
     with open(loss_csv_path, 'w') as csv_file:
         csv_file.write('epoch,train,val,r2\n')
-    running_loss_list = []
+    training_loss_list = []
+    validation_loss_list = []
 
     for epoch in range(n_epochs):  # loop over the dataset multiple times
-        running_loss = 0.0
+        training_running_loss = 0.0
         epoch_steps = 0
         for i, (predictor_t, response_t) in enumerate(train_loader):
             # zero the parameter gradients
@@ -686,37 +684,48 @@ def train_cifar(
 
             # forward + backward + optimize
             outputs = model(predictor_t)
-            loss = loss_fn(outputs, response_t)
-
-            loss.backward()
+            training_loss = loss_fn(outputs, response_t)
+            training_loss.backward()
             optimizer.step()
 
             # print statistics
-            running_loss += loss.item()
+            training_running_loss += training_loss.item()
+
             epoch_steps += 1
             if i % 100 == 0:
-                LOGGER.debug(f'[{epoch+1+last_epoch}/{n_epochs+last_epoch}, {i+1}/{n_train_samples/batch_size}]')
+                LOGGER.debug(f'[{epoch+1+last_epoch}/{n_epochs+last_epoch}, {i+1}/{int(numpy.ceil(n_train_samples/batch_size))}]')
 
-        print(f'pre validation max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
+        #print(f'pre validation max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
         # Validation loss
-        val_loss = 0.0
         val_steps = 0
+        max_output_val = None
+        min_output_val = None
+        validation_running_loss = 0.0
         for i, (predictor_t, response_t) in enumerate(val_loader, 0):
             with torch.no_grad():
                 outputs = model(predictor_t)
-                val_loss += loss_fn(outputs, response_t).item()
-                #r2_sum += r2_loss(outputs, response_t)
+                validation_running_loss += loss_fn(outputs, response_t).item()
                 val_steps += 1
+                if max_output_val is None:
+                    #LOGGER.debug(predictor_t.detach())
+                    #LOGGER.debug(outputs.detach())
+                    max_output_val = torch.max(outputs)
+                    min_output_val = torch.min(outputs)
+                else:
+                    max_output_val = max(torch.max(outputs), max_output_val)
+                    min_output_val = min(torch.min(outputs), min_output_val)
 
-        print("[%d] \n training loss: %.3f \n validation loss: %.3f" % (
-            epoch + 1 + last_epoch,
-            running_loss/len(ds_train), val_loss/len(ds_holdback)))
-        running_loss_list.append(running_loss)
+            #print(f'max output val: {max_output_val} min: {min_output_val}')
+
+        #print("[%d] \n training loss: %.3f \n validation loss: %.3f" % (
+        #    epoch + 1 + last_epoch,
+        #    running_loss/len(ds_train), val_loss/len(ds_holdback)))
+        training_loss_list.append(training_running_loss/n_train_samples)
+        validation_loss_list.append(validation_running_loss/n_validation_samples)
 
         with open(loss_csv_path, 'a') as csv_file:
-            csv_file.write(f'{epoch+1+last_epoch},{running_loss},{val_loss}\n')
+            csv_file.write(f'{epoch+1+last_epoch},{training_running_loss},{validation_running_loss}\n')
 
-        LOGGER.info('save model')
         model_path = os.path.join(
             CHECKPOINT_DIR, f'model_{epoch+1+last_epoch}.dat')
 
@@ -724,30 +733,30 @@ def train_cifar(
             'epoch': epoch+1+last_epoch,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss,
+            'loss': training_loss,
             }, model_path)
 
-        #if r2 > 10:
-        #    LOGGER.debug('r2 too big, quitting')
-        #    break
         train_outputs = model(ds_train[:][0])
-        r2_train = r2_loss(train_outputs, ds_train[:][1])
+        r2_train = sklearn.metrics.r2_score(train_outputs.detach(), ds_train[:][1])
 
         val_outputs = model(ds_holdback[:][0])
-        r2_val = r2_loss(val_outputs, ds_holdback[:][1])
+        r2_val = sklearn.metrics.r2_score(val_outputs.detach(), ds_holdback[:][1])
         print(f'r^2 (train): {r2_train:.5f}, r^2 (val): {r2_val:.5f}')
 
-        print(f'max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
-        LOGGER.info('run again')
     fig, ax = plt.subplots(figsize=(12, 10))
-    expected_values = ds_train[:][1].numpy()
+    expected_values = ds_train[:][1].numpy().flatten()
     actual_values = train_outputs.detach().numpy().flatten()
+
+    r2 = sklearn.metrics.r2_score(expected_values, actual_values)
+    LOGGER.debug(f'actual r^2 vals {r2}')
+
     sort_index = numpy.argsort(expected_values)
-    sort_index = sort_index[0:int(len(sort_index)*0.99)]
+    sort_index = sort_index[0:int(len(sort_index)*1)]
+    #expected_values = expected_values[sort_index]
+    #actual_values = actual_values[sort_index]
     print(expected_values.shape)
     print(actual_values.shape)
-    expected_values = expected_values[sort_index]
-    actual_values = actual_values[sort_index]
+    print(actual_values)
     ax.scatter(expected_values, actual_values, c='b', s=0.25)
     z = numpy.polyfit(expected_values, actual_values, 1)
     print(z)
@@ -759,10 +768,11 @@ def train_cifar(
         expected_values,
         trendline_func(expected_values),
         "r--", linewidth=1.5)
-    plt.title(f'Model Trained with lat/lng coordinates only $R^2={r2_val:.3f}$')
+    plt.title(f'Model Trained with lat/lng coordinates only $R^2={r2:.3f}$')
     max_bound = max(numpy.max(expected_values), numpy.max(actual_values))
-    ax.set_ybound(0, max_bound)
-    ax.set_xbound(0, max_bound)
+    min_bound = min(numpy.min(expected_values), numpy.min(actual_values))
+    #ax.set_ybound(min_bound, max_bound)
+    #ax.set_xbound(min_bound, max_bound)
     plt.savefig('model.png')
 
     # plot loss fn
@@ -771,9 +781,14 @@ def train_cifar(
     plt.xlabel('epoch values')
     plt.ylabel('loss')
     plt.plot(
-        range(len(running_loss_list)),
-        trendline_func(running_loss_list),
-        "k-", linewidth=1.5)
+        range(len(training_loss_list)),
+        training_loss_list,
+        "b-", linewidth=1.5, label='training loss')
+    plt.plot(
+        range(len(validation_loss_list)),
+        validation_loss_list,
+        "r-", linewidth=1.5, label='validation loss')
+    ax.legend()
     plt.title(f'Loss Function Model Trained with lat/lng coordinates')
     #max_bound = max(numpy.max(expected_values), numpy.max(actual_values))
     #ax.set_ybound(0, max_bound)
@@ -781,8 +796,11 @@ def train_cifar(
     plt.savefig('loss.png')
 
     # plot accuracy
+    with open('values.csv', 'w') as values_file:
+        for x, y in zip(expected_values, actual_values):
+            values_file.write(f'{x},{y}\n')
 
-
+    print(validation_loss_list)
     return model_path
 
 
@@ -813,52 +831,46 @@ def main():
     for invalid_value_tuple in args.invalid_values:
         key, value = invalid_value_tuple.split(',')
         gdf = gdf[gdf[key] != float(value)]
-    gdf_train = gdf[gdf['holdback']==False]
 
     # load predictor/response table
-    predictor_list = []
-    response_list = []
     predictor_response_table = pandas.read_csv(args.predictor_response_table)
-    for parameter_type, parameter_list in [
-            ('predictor', predictor_list),
-            ('response', response_list)]:
-        for parameter_id in predictor_response_table[parameter_type]:
-            if isinstance(parameter_id, str):
-                if parameter_id == 'geometry.x':
-                    parameter_list.append(gdf_train['geometry'].x)
-                elif parameter_id == 'geometry.y':
-                    parameter_list.append(gdf_train['geometry'].y)
-                else:
-                    parameter_list.append(gdf_train[parameter_id])
-    x_tensor = torch.from_numpy(numpy.array(predictor_list, dtype=numpy.float32).T)
-    y_tensor = torch.from_numpy(numpy.array(response_list, dtype=numpy.float32).T)
-    LOGGER.debug(x_tensor)
-    LOGGER.debug(y_tensor)
-    return
+    dataset_map = {}
+    for train_holdback_type, train_holdback_val in [
+            ('holdback', True), ('train', False)]:
+        predictor_response_map = collections.defaultdict(list)
+        gdf_filtered = gdf[gdf['holdback']==train_holdback_val]
+        for parameter_type in ['predictor', 'response']:
+            for parameter_id in predictor_response_table[parameter_type]:
+                if isinstance(parameter_id, str):
+                    if parameter_id == 'geometry.x':
+                        predictor_response_map[parameter_type].append(
+                            gdf_filtered['geometry'].x)
+                    elif parameter_id == 'geometry.y':
+                        predictor_response_map[parameter_type].append(
+                            gdf_filtered['geometry'].y)
+                    else:
+                        predictor_response_map[parameter_type].append(
+                            gdf_filtered[parameter_id])
 
-    y_tensor = torch.from_numpy(numpy.array(gdf_train['full_baccini_band12'], dtype=numpy.float32))
-    x_tensor = torch.from_numpy(numpy.array([gdf_train['geometry'].x, gdf_train['geometry'].y], dtype=numpy.float32).T)
-    LOGGER.info('get x/y training vector...')
-    LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
-    ds_train = torch.utils.data.TensorDataset(x_tensor, y_tensor)
+        x_tensor = torch.from_numpy(numpy.array(
+            predictor_response_map['predictor'], dtype=numpy.float32).T)
+        y_tensor = torch.from_numpy(numpy.array(
+            predictor_response_map['response'], dtype=numpy.float32).T)
+        dataset_map[train_holdback_type] = torch.utils.data.TensorDataset(
+            x_tensor, y_tensor)
 
-    gdf_holdback = gdf[gdf['holdback'] == True]
-    y_tensor = torch.from_numpy(numpy.array(gdf_holdback['full_baccini_band12'], dtype=numpy.float32))
-    x_tensor = torch.from_numpy(numpy.array([gdf_holdback['geometry'].x, gdf_holdback['geometry'].y], dtype=numpy.float32).T)
-    LOGGER.info('get x/y holdback vector...')
-    LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
-    ds_holdback = torch.utils.data.TensorDataset(x_tensor, y_tensor)
-
-    n_predictors = x_tensor.shape[1]
+    n_predictors = predictor_response_table['predictor'].count()
+    print(n_predictors)
     model = NeuralNetwork(n_predictors)
-    #loss_fn = torch.nn.L1Loss(reduction='sum')
+    #loss_fn = torch.nn.L1Loss(reduction='mean')
     loss_fn = torch.nn.MSELoss(reduction='mean')
     #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
-    optimizer = torch.optim.RMSprop(
-        model.parameters(), lr=args.learning_rate, momentum=args.momentum)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=args.learning_rate)
     train_cifar(
-        model, loss_fn, optimizer, x_tensor.shape[0], ds_train, ds_holdback,
-        args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
+        model, loss_fn, optimizer, dataset_map['train'],
+        dataset_map['holdback'], args.n_epochs, args.batch_size,
+        checkpoint_epoch=args.last_epoch)
 
     LOGGER.debug('all done')
 
