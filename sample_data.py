@@ -688,13 +688,6 @@ def prep_data(
             raster_lookup_file)
 
 
-def init_weights(m):
-    if type(m) == torch.nn.Linear:
-        #m.weight.data.fill_(0.01)
-        torch.nn.init.xavier_uniform_(m.weight, gain=torch.nn.init.calculate_gain('relu'))
-        m.bias.data.fill_(0.01)
-
-
 def generate_sample_points(
         raster_path_list, sample_polygon_path, bounding_box,
         holdback_prop, n_points, country_filter_list=None):
@@ -769,147 +762,33 @@ def generate_sample_points(
     return filtered_gdf
 
 
-def _sub_op(array_a, array_b, nodata_a, nodata_b):
-    result = numpy.full(array_a.shape, nodata_a, dtype=numpy.float32)
-    valid_mask = (array_a != nodata_a) & (array_b != nodata_b)
-    result[valid_mask] = array_a[valid_mask] - array_b[valid_mask]
-    return result
-
-
-def r2_loss(output, target):
-    try:
-        target_mean = torch.mean(target)
-        ss_tot = torch.sum((target - target_mean) ** 2)
-        ss_res = torch.sum((target - output) ** 2)
-        r2 = 1-abs(ss_res / ss_tot)
-        return r2
-    except:
-        LOGGER.exception('bad stuff in r2')
-        return -100
-
-
-def train_cifar(
-        model, loss_fn, optimizer, n_samples, ds, n_epochs,
-        batch_size, checkpoint_epoch=None):
-    last_epoch = 0
-    if checkpoint_epoch:
-        model_path = f'model_{checkpoint_epoch}.dat'
-        checkpoint = torch.load(model_path)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        last_epoch = checkpoint['epoch']
-        #loss = checkpoint['loss']
-    else:
-        model.apply(init_weights)
-
-    train_indexes, test_indexes = train_test_split(
-        list(range(n_samples)), test_size=.2)
-    train_loader = torch.utils.data.DataLoader(
-        ds, batch_size=batch_size,
-        sampler=torch.utils.data.SubsetRandomSampler(train_indexes))
-    val_loader = torch.utils.data.DataLoader(
-        ds, batch_size=batch_size,
-        sampler=torch.utils.data.SubsetRandomSampler(test_indexes))
-    n_train_samples = len(train_indexes)
-    n_test_samples = len(test_indexes)
-    print(f'{n_train_samples} samples to train {n_test_samples} samples to validate')
-
-    loss_csv_path = f'{datetime.now().strftime("%H_%M_%S")}.csv'
-    with open(loss_csv_path, 'w') as csv_file:
-        csv_file.write('epoch,train,val,r2\n')
-
-    for epoch in range(n_epochs):  # loop over the dataset multiple times
-        running_loss = 0.0
-        epoch_steps = 0
-        for i, (predictor_t, response_t) in enumerate(train_loader):
-            # zero the parameter gradients
-            optimizer.zero_grad()
-
-            # forward + backward + optimize
-            outputs = model(predictor_t)
-            loss = loss_fn(outputs, response_t)
-
-            loss.backward()
-            optimizer.step()
-
-            # print statistics
-            running_loss += loss.item()
-            epoch_steps += 1
-            if i % 100 == 0:
-                LOGGER.debug(f'[{epoch+1+last_epoch}/{n_epochs+last_epoch}, {i+1}/{n_train_samples/batch_size}]')
-
-        print(f'pre validation max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
-        # Validation loss
-        val_loss = 0.0
-        val_steps = 0
-        r2_sum = 0.0
-        for i, (predictor_t, response_t) in enumerate(val_loader, 0):
-            with torch.no_grad():
-                outputs = model(predictor_t)
-                val_loss += loss_fn(outputs, response_t).item()
-                r2_sum += r2_loss(outputs, response_t)
-                r2 = r2_loss(outputs, response_t)
-                val_steps += 1
-
-        print("[%d] \n training loss: %.3f \n validation loss: %.3f" % (
-            epoch + 1 + last_epoch,
-            running_loss, val_loss))
-        r2 = r2_sum / val_steps
-        print(f'r^2: {r2}')
-        print(f'max output val: {torch.max(outputs)} min: {torch.min(outputs)}')
-
-        with open(loss_csv_path, 'a') as csv_file:
-            csv_file.write(f'{epoch+1+last_epoch},{running_loss},{val_loss},{r2}\n')
-
-        LOGGER.info('save model')
-        model_path = f'model_{epoch+1+last_epoch}.dat'
-
-        torch.save({
-            'epoch': epoch+1+last_epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss,
-            }, model_path)
-
-        if r2 > 10:
-            LOGGER.debug('r2 too big, quitting')
-            break
-        LOGGER.info('run again')
-    return model_path
-
-
 def main():
     parser = argparse.ArgumentParser(
         description='create spatial samples of data on a global scale')
-    parser.add_argument('--predictors', type=str, nargs='+', help='path/pattern to list of predictor rasters', required=True)
-    parser.add_argument('--responses', type=str, nargs='+', help='path/pattern to list of response rasters', required=True)
+    parser.add_argument('--sample_rasters', type=str, nargs='+', help='path/pattern to list of rasters to sample', required=True)
     parser.add_argument('--holdback_prop', type=float, help='path/pattern to list of response rasters', required=True)
     parser.add_argument('--n_samples', type=int, help='number of point samples', required=True)
     parser.add_argument('--iso_names', type=str, nargs='+', help='set of countries to allow, default is all')
     args = parser.parse_args()
 
-    predictor_raster_path_list = []
-    response_raster_path_list = []
+    raster_path_set = set()
 
-    for raster_path_list, search_list in [
-            (predictor_raster_path_list, args.predictors),
-            (response_raster_path_list, args.responses)]:
-        for pattern in search_list:
-            file_path_list = list(glob.glob(pattern))
-            if not file_path_list:
-                raise FileNotFoundError(f"{pattern} doesn't match any files")
-            for file_path in file_path_list:
-                if (geoprocessing.get_gis_type(file_path) !=
-                        geoprocessing.RASTER_TYPE):
-                    raise ValueError(
-                        f'{file_path} found at {pattern} is not a raster')
-            raster_path_list.extend(file_path_list)
+    for pattern in args.sample_rasters:
+        file_path_list = list(glob.glob(pattern))
+        if not file_path_list:
+            raise FileNotFoundError(f"{pattern} doesn't match any files")
+        for file_path in file_path_list:
+            if (geoprocessing.get_gis_type(file_path) !=
+                    geoprocessing.RASTER_TYPE):
+                raise ValueError(
+                    f'{file_path} found at {pattern} is not a raster')
+        raster_path_set.add(file_path_list)
 
     raster_bounding_box_list = []
     basename_list = []
     nodata_list = []
     # find lat/lng bounding box
-    for raster_path in raster_path_list:
+    for raster_path in raster_path_set:
         raster_info = geoprocessing.get_raster_info(raster_path)
         raster_bounding_box_list.append(
             geoprocessing.transform_bounding_box(
@@ -926,17 +805,11 @@ def main():
         target_bb_wgs84[2],
         target_bb_wgs84[3])
 
-    LOGGER.debug(predictor_raster_path_list)
-    LOGGER.debug(response_raster_path_list)
-
-    task_graph = taskgraph.TaskGraph('.', -1)
-
     target_vector_path = 'samples.gpkg'
 
     sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
     filtered_gdf_points = generate_sample_points(
-        predictor_raster_path_list+response_raster_path_list,
-        sample_polygon_path, target_box_wgs84,
+        raster_path_set, sample_polygon_path, target_box_wgs84,
         args.holdback_prop, args.n_samples, args.iso_names)
 
     print('plot')
@@ -957,64 +830,9 @@ def main():
         set(predictor_raster_path_list+response_raster_path_list),
         filtered_gdf_points, target_box_wgs84)
 
-    min_size = min(sample_df['full_baccini_band12'])
-    max_size = max(sample_df['full_baccini_band12'])
-
     sample_df.to_file(target_vector_path, driver="GPKG")
-    #sample_df.plot(ax=ax, color='blue', markersize=10*(sample_df['full_baccini_band12']-min_size)/(max_size-min_size))
 
     plt.show()
-
-    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
-
-    if not os.path.exists(RASTER_LOOKUP_PATH):
-        LOGGER.info('prep data...')
-        prep_data(
-            task_graph, predictor_raster_path_list, response_raster_path_list,
-            RASTER_LOOKUP_PATH)
-        task_graph.join()
-    with open(RASTER_LOOKUP_PATH, 'rb') as raster_lookup_file:
-        forest_mask_raster_path_list, raster_lookup = pickle.load(
-            raster_lookup_file)
-
-
-    task_graph.join()
-    task_graph.close()
-    task_graph = None
-
-    LOGGER.info('get x/y training vector...')
-    x_vector, y_vector = sample_data_task.get()
-
-    # TAKE THE LOG OF THE FLOW ACCUMULATION VALUE
-    if numpy.any(x_vector[:, -1] < 0):
-        LOGGER.warn(f'these are negative: {x_vector[x_vector[:, -1]<0, -1]}')
-    x_vector[:, -1] = numpy.log(1+x_vector[:, -1])
-    y_vector = numpy.expand_dims(y_vector, axis=1)
-    x_tensor = torch.from_numpy(x_vector)
-    y_tensor = torch.from_numpy(y_vector)
-
-    means = x_tensor.mean(1, keepdim=True)
-    deviations = x_tensor.std(1, keepdim=True)
-    x_tensor = (x_tensor - means) / deviations
-
-    means = y_tensor.mean(0, keepdim=True)
-    deviations = y_tensor.std(0, keepdim=True)
-    LOGGER.debug(f'y means {means} y dev {deviations}')
-    y_tensor = (y_tensor - means) / deviations
-
-    LOGGER.debug(f'{x_tensor.shape} {y_tensor.shape}')
-    ds = torch.utils.data.TensorDataset(x_tensor, y_tensor)
-
-    n_predictors = x_vector.shape[1]
-    model = NeuralNetwork(n_predictors)
-    loss_fn = torch.nn.L1Loss(reduction='sum')
-    #loss_fn = torch.nn.MSELoss(reduction='mean')
-    #loss_fn = lambda x, y: abs(1-r2_loss(x, y))
-    optimizer = torch.optim.RMSprop(
-        model.parameters(), lr=args.learning_rate, momentum=args.momentum)
-    train_cifar(
-        model, loss_fn, optimizer, x_vector.shape[0], ds,
-        args.n_epochs, args.batch_size, checkpoint_epoch=args.last_epoch)
 
     LOGGER.debug('all done')
 
