@@ -1,15 +1,9 @@
 """Script to download everything needed to train the models."""
-from datetime import datetime
-import itertools
 import argparse
-import os
-import collections
-import multiprocessing
-import pickle
-import time
-import logging
-import threading
 import glob
+import logging
+import os
+import time
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -22,20 +16,15 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('matplotlib').setLevel(logging.WARN)
 logging.getLogger('fiona').setLevel(logging.WARN)
 
-
-from shapely.prepared import prep
-import shapely
-import geopandas
+from ecoshard import geoprocessing
 from osgeo import gdal
 from osgeo import osr
-from osgeo import ogr
+from shapely.prepared import prep
 from utils import esa_to_carbon_model_landcover_types
-import ecoshard
-from ecoshard import geoprocessing
-import numpy
-import scipy
-import taskgraph
+import geopandas
 import matplotlib.pyplot as plt
+import numpy
+import shapely
 
 gdal.SetCacheMax(2**27)
 
@@ -231,8 +220,6 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
         if nodata is not None:
             LOGGER.debug(f'removing ndoata {nodata} from {basename}')
             gdf_points = gdf_points[gdf_points[basename] != nodata]
-        # TODO: debugging
-        break
 
     return gdf_points
 
@@ -266,8 +253,6 @@ def generate_sample_points(
 
     geom = df['geometry'].intersection(bounding_box)
     print('union')
-
-    # TODO: add the raster bounds in here
 
     final_geom = geom.unary_union
     print('prep')
@@ -371,8 +356,6 @@ def main():
         LOGGER.info('sample data...')
         sample_df = sample_data(
             raster_path_set, filtered_gdf_points, target_box_wgs84)
-        # TODO: debugging
-        return
         global_sample_df.append(sample_df, ignore_index=True)
         if len(global_sample_df) >= args.n_samples:
             break
