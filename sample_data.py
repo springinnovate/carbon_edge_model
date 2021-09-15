@@ -768,7 +768,9 @@ def main():
     parser.add_argument('--sample_rasters', type=str, nargs='+', help='path/pattern to list of rasters to sample', required=True)
     parser.add_argument('--holdback_prop', type=float, help='path/pattern to list of response rasters', required=True)
     parser.add_argument('--n_samples', type=int, help='number of point samples', required=True)
+    parser.add_argument('--target_gpkg_path', type=str, help='name of target gpkg point samplefile', required=True)
     parser.add_argument('--iso_names', type=str, nargs='+', help='set of countries to allow, default is all')
+
     args = parser.parse_args()
 
     raster_path_set = set()
@@ -782,7 +784,7 @@ def main():
                     geoprocessing.RASTER_TYPE):
                 raise ValueError(
                     f'{file_path} found at {pattern} is not a raster')
-        raster_path_set.add(file_path_list)
+        raster_path_set.update(file_path_list)
 
     raster_bounding_box_list = []
     basename_list = []
@@ -805,18 +807,38 @@ def main():
         target_bb_wgs84[2],
         target_bb_wgs84[3])
 
-    target_vector_path = 'samples.gpkg'
-
     sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
-    filtered_gdf_points = generate_sample_points(
-        raster_path_set, sample_polygon_path, target_box_wgs84,
-        args.holdback_prop, args.n_samples, args.iso_names)
+
+    global_sample_df = geopandas.GeoDataFrame()
+
+    # used to scale how many points are sampled with how many are dropped for nodata
+    oversample_rate = 2.0
+    n_points_to_sample = oversample_rate * args.n_samples
+    while True:
+        filtered_gdf_points = generate_sample_points(
+            raster_path_set, sample_polygon_path, target_box_wgs84,
+            args.holdback_prop, n_points_to_sample, args.iso_names)
+
+        LOGGER.info('sample data...')
+        sample_df = sample_data(
+            raster_path_set, filtered_gdf_points, target_box_wgs84)
+        global_sample_df.append(sample_df)
+        if len(global_sample_df) >= args.n_samples:
+            break
+        else:
+            # sample more points but at a rate that's inversely proportional to
+            # how many were dropped from the last sample
+            oversample_rate *= n_points_to_sample / len(sample_df)
+            n_points_to_sample = oversample_rate * (
+                args.n_samples - len(global_sample_df))
+            LOGGER.debug(f'sampling {n_points_to_sample} more points')
+
+        sample_df.to_file(args.target_gpkg_path, driver="GPKG")
 
     print('plot')
     LOGGER.debug(f" all {filtered_gdf_points}")
     LOGGER.debug(f" non holdback {filtered_gdf_points[filtered_gdf_points['holdback'] == False]}")
     LOGGER.debug(f" holdback {filtered_gdf_points[filtered_gdf_points['holdback'] == True]}")
-
     fig, ax = plt.subplots(figsize=(12, 10))
     v = filtered_gdf_points[filtered_gdf_points['holdback']==False]
     v.plot(ax=ax, color='blue', markersize=2.5)
@@ -824,14 +846,6 @@ def main():
     w = filtered_gdf_points[filtered_gdf_points['holdback']==True]
     print(w)
     w.plot(ax=ax, color='green', markersize=2.5)
-
-    LOGGER.info('sample data...')
-    sample_df = sample_data(
-        set(predictor_raster_path_list+response_raster_path_list),
-        filtered_gdf_points, target_box_wgs84)
-
-    sample_df.to_file(target_vector_path, driver="GPKG")
-
     plt.show()
 
     LOGGER.debug('all done')
