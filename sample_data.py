@@ -138,7 +138,6 @@ PREDICTOR_LIST = [
 ]
 
 
-@profile
 def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
     """Sample raster paths given the points.
 
@@ -220,6 +219,7 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
         if nodata is not None:
             LOGGER.debug(f'removing ndoata {nodata} from {basename}')
             gdf_points = gdf_points[gdf_points[basename] != nodata]
+        break
 
     return gdf_points
 
@@ -349,6 +349,7 @@ def main():
     oversample_rate = 2.0
     n_points_to_sample = int(oversample_rate * args.n_samples)
     while True:
+        LOGGER.debug(f'sampling {n_points_to_sample} points {len(global_sample_df)} of {args.n_samples} sampled so far')
         filtered_gdf_points = generate_sample_points(
             raster_path_set, sample_polygon_path, target_box_wgs84,
             args.holdback_prop, n_points_to_sample, args.iso_names)
@@ -356,6 +357,9 @@ def main():
         LOGGER.info('sample data...')
         sample_df = sample_data(
             raster_path_set, filtered_gdf_points, target_box_wgs84)
+        if len(sample_df) == 0:
+            LOGGER.warn('no valid points came out, trying again')
+            continue
         global_sample_df.append(sample_df, ignore_index=True)
         if len(global_sample_df) >= args.n_samples:
             break
