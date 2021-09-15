@@ -813,7 +813,7 @@ def main():
 
     # used to scale how many points are sampled with how many are dropped for nodata
     oversample_rate = 2.0
-    n_points_to_sample = oversample_rate * args.n_samples
+    n_points_to_sample = int(oversample_rate * args.n_samples)
     while True:
         filtered_gdf_points = generate_sample_points(
             raster_path_set, sample_polygon_path, target_box_wgs84,
@@ -829,8 +829,8 @@ def main():
             # sample more points but at a rate that's inversely proportional to
             # how many were dropped from the last sample
             oversample_rate *= n_points_to_sample / len(sample_df)
-            n_points_to_sample = oversample_rate * (
-                args.n_samples - len(global_sample_df))
+            n_points_to_sample = int(oversample_rate * (
+                args.n_samples - len(global_sample_df)))
             LOGGER.debug(f'sampling {n_points_to_sample} more points')
 
         sample_df.to_file(args.target_gpkg_path, driver="GPKG")
