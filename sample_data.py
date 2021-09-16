@@ -138,6 +138,7 @@ PREDICTOR_LIST = [
 ]
 
 
+@profile
 def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
     """Sample raster paths given the points.
 
@@ -202,23 +203,35 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
                 local_bb_wgs84[0]:local_bb_wgs84[2],
                 local_bb_wgs84[1]:local_bb_wgs84[3],
                 ]
-
             if len(local_points) == 0:
                 continue
 
             local_coords = numpy.array([
                 gdal.ApplyGeoTransform(inv_gt, point.x, point.y)
                 for point in local_points['geometry']], dtype=int)
+            min_x = min(local_coords[:, 0])
+            min_y = min(local_coords[:, 1])
+            max_x = max(local_coords[:, 0])
+            max_y = max(local_coords[:, 1])
+            local_window = {
+                'xoff': min_x,
+                'yoff': min_y,
+                'win_xsize': max_x-min_x,
+                'win_ysize': max_y-min_y,
+            }
             local_coords = (local_coords - [
-                offset_dict['xoff'], offset_dict['yoff']]).T
+                local_window['xoff'], local_window['yoff']]).T
 
-            (gdf_points.loc[local_points.index])[basename] = (
+            raster_data = (
                 band.ReadAsArray(**offset_dict).T)[
                     local_coords[0, :], local_coords[1, :]]
+            gdf_points.loc[local_points.index, basename] = raster_data
 
         if nodata is not None:
             LOGGER.debug(f'removing ndoata {nodata} from {basename}')
+            LOGGER.debug(f'before: {gdf_points}')
             gdf_points = gdf_points[gdf_points[basename] != nodata]
+            LOGGER.debug(f'after: {gdf_points}')
         break
 
     return gdf_points
@@ -278,7 +291,7 @@ def generate_sample_points(
             )
         if final_geom_prep.contains(holdback_bounds):
             break
-        LOGGER.warn(f'skipping point {point} as a holdback bound')
+        LOGGER.warning(f'skipping point {point} as a holdback bound')
 
     filtered_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(lambda x: not holdback_bounds.contains(x), gdf_points)))
@@ -370,6 +383,7 @@ def main():
             n_points_to_sample = int(oversample_rate * (
                 args.n_samples - len(global_sample_df)))
             LOGGER.debug(f'sampling {n_points_to_sample} more points')
+        return
 
         sample_df.to_file(args.target_gpkg_path, driver="GPKG")
 
