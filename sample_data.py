@@ -198,7 +198,6 @@ def generate_sample_points(
             )
         if final_geom_prep.contains(holdback_bounds):
             break
-        LOGGER.warning(f'skipping point {point} as a holdback bound')
 
     filtered_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(lambda x: not holdback_bounds.contains(x), gdf_points)))
