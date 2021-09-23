@@ -18,6 +18,7 @@ from ray.tune.schedulers import ASHAScheduler
 from ray.tune import CLIReporter
 import sklearn.metrics
 
+
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -83,15 +84,14 @@ MAX_TIME_INDEX = 11
 
 class NeuralNetwork(torch.nn.Module):
     """Flexible neural net."""
-    def __init__(self, M, l1, l2):
+    def __init__(self, M, l1, n_layers):
         super(NeuralNetwork, self).__init__()
         self.flatten = torch.nn.Flatten()
-        self.linear_relu_stack = torch.nn.Sequential(
-            torch.nn.Linear(M, int(l1)),
-            torch.nn.Linear(int(l1), int(l2)),
-            torch.nn.Linear(int(l2), 1),
-            #torch.nn.Dropout(p=0.1),
-        )
+        layer_list = [torch.nn.Linear(M, int(l1))]
+        for _ in range(n_layers-1):
+            layer_list.append(torch.nn.Linear(int(l1), int(l1)))
+        layer_list.append(torch.nn.Linear(int(l1), 1))
+        self.linear_relu_stack = torch.nn.Sequential(*layer_list)
 
     def forward(self, x):
         x = self.flatten(x)
@@ -237,12 +237,16 @@ def load_data(
 
 def train_cifar_ray(
         config, n_predictors, trainset, testset, n_epochs, working_dir,
-        checkpoint_dir=None, ):
-    model = NeuralNetwork(n_predictors, config["l1"], config["l2"])
+        checkpoint_dir=None):
+    figure_prefix = f'{config["l1"]}_{config["layers"]}_{config["lr"]}'
+    fig_dir = os.path.join(working_dir, 'figdir', figure_prefix)
+    os.makedirs(fig_dir, exist_ok=True)
+
+    model = NeuralNetwork(n_predictors, config["l1"], config["layers"])
     device = 'cpu'
     model.to(device)
 
-    loss_fn = torch.nn.MSELoss(reduction='mean')
+    loss_fn = torch.nn.MSELoss(reduction='sum')
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config["lr"])
 
@@ -265,16 +269,20 @@ def train_cifar_ray(
         batch_size=int(config["batch_size"]),
         shuffle=True)
 
+    test_loader = torch.utils.data.DataLoader(
+        testset,
+        batch_size=int(config["batch_size"]),
+        shuffle=True)
+
     last_epoch = 0
     n_train_samples = len(train_loader)
 
     training_loss_list = []
     validation_loss_list = []
-
+    test_loss_list = []
     for epoch in range(n_epochs):  # loop over the dataset multiple times
-        training_running_loss = 0.0
-        epoch_steps = 0
 
+        training_running_loss = 0.0
         for i, (predictor_t, response_t) in enumerate(train_loader):
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -288,52 +296,61 @@ def train_cifar_ray(
             # print statistics
             training_running_loss += training_loss.item()
 
-            epoch_steps += 1
             if i % 100 == 0:
                 LOGGER.debug(f'[{epoch+1+last_epoch}/{n_epochs+last_epoch}, {i+1}/{int(numpy.ceil(n_train_samples/config["batch_size"]))}]')
+        optimizer.zero_grad()
 
-        training_loss_list.append(training_running_loss/epoch_steps)
+        training_loss_list.append(training_running_loss/len(train_loader))
 
         # Validation loss
         val_loss = 0.0
-        val_steps = 0
         for i, (predictor_t, response_t) in enumerate(val_loader):
-            with torch.no_grad():
-                outputs = model(predictor_t)
-                loss = loss_fn(outputs, response_t)
-                val_loss += loss.cpu().numpy()
-                val_steps += 1
+            outputs = model(predictor_t)
+            loss = loss_fn(outputs, response_t)
+            val_loss += loss.item()
+        validation_loss_list.append(val_loss/len(val_loader))
 
-        validation_loss_list.append(val_loss/val_steps)
+        # test loss
+        test_loss = 0.0
+        for i, (predictor_t, response_t) in enumerate(test_loader):
+            outputs = model(predictor_t)
+            loss = loss_fn(outputs, response_t)
+            test_loss += loss.item()
+        test_loss_list.append(test_loss/len(test_loader))
 
         with ray.tune.checkpoint_dir(epoch) as checkpoint_dir:
             path = os.path.join(checkpoint_dir, "checkpoint")
             torch.save((model.state_dict(), optimizer.state_dict()), path)
 
-        outputs = model(trainset[:][0])
-        ray.tune.report(
-            loss=(val_loss / val_steps),
-            r2=sklearn.metrics.r2_score(outputs.detach(), trainset[:][1]))
-        #ray.tune.report(r2=sklearn.metrics.r2_score(outputs.detach(), trainset[:][1]))
-
-        figure_prefix = os.path.join(
-            working_dir, 'figdir',
-            f'{config["l1"]}_{config["l2"]}_{config["lr"]}')
-
         expected_values = trainset[:][1].numpy().flatten()
-        actual_values = outputs.detach().numpy().flatten()
+
+        train_outputs = model(trainset[:][0])
+        actual_values = train_outputs.detach().numpy().flatten()
+
+        expected_test_values = testset[:][1].numpy().flatten()
+        test_outputs = model(testset[:][0])
+        test_values = test_outputs.detach().numpy().flatten()
+
+        ray.tune.report(
+            loss=(val_loss / len(val_loader)),
+            r2_valiation=sklearn.metrics.r2_score(train_outputs.detach(), trainset[:][1]),
+            r2_test=sklearn.metrics.r2_score(test_outputs, expected_test_values))
 
         plot_metrics(
-            figure_prefix,
-            expected_values, actual_values, training_loss_list,
-            validation_loss_list)
+            fig_dir,
+            expected_values, actual_values, expected_test_values, test_values, training_loss_list,
+            validation_loss_list, test_loss_list)
+        weight_file_path = f'./weights/{figure_prefix}.txt'
+        os.makedirs(os.path.dirname(weight_file_path), exist_ok=True)
+        pandas.DataFrame(model.linear_relu_stack[0].weight.detach().numpy()).to_csv(weight_file_path)
+
     print("Finished Training")
 
 
 def plot_metrics(
         figure_prefix,
-        expected_values, actual_values, training_loss_list,
-        validation_loss_list):
+        expected_values, actual_values, expected_test_values, test_values, training_loss_list,
+        validation_loss_list, test_loss_list):
     # plot model correlation graph
     fig, ax = plt.subplots(figsize=(12, 10))
 
@@ -347,29 +364,33 @@ def plot_metrics(
     z = numpy.polyfit(expected_values, actual_values, 1)
     trendline_func = numpy.poly1d(z)
 
-    r2 = sklearn.metrics.r2_score(actual_values, expected_values)
+    r2_train = sklearn.metrics.r2_score(actual_values, expected_values)
+    r2_test = sklearn.metrics.r2_score(test_values, expected_test_values)
 
     ax1.set_xlabel('expected values')
     ax1.set_ylabel('actual values')
-    ax1.set_ylim(-100, 200)
     ax1.plot(
         expected_values,
         trendline_func(expected_values),
         "r--", linewidth=1.5)
-    ax1.set_title(f'$R^2={r2:.3f}$')
+    ax1.set_title(f'$(train) R^2={r2_train:.3f}; (test) R^2={r2_test:.3f}$')
 
     ax2.set_xlabel('epoch values')
     ax2.set_ylabel('loss')
-    ax2.plot(
+    ax2.semilogy(
         range(len(training_loss_list)),
         training_loss_list,
         "b-", linewidth=1.5, label='training loss')
-    ax2.plot(
-        range(len(validation_loss_list)),
+    ax2.semilogy(
+        numpy.array(range(len(validation_loss_list)))-0.5,
         validation_loss_list,
         "r-", linewidth=1.5, label='validation loss')
+    #ax2.semilogy(
+    #    numpy.array(range(len(test_loss_list)))-0.5,
+    #    test_loss_list,
+    #    "g-", linewidth=1.5, label='test loss')
     ax2.legend()
-    ax2.set_title(f'Loss Function Model Trained with lat/lng coordinates')
+    ax2.set_title(f'Loss Function Model')
     plt.savefig(f'{figure_prefix}_model_loss_{len(validation_loss_list):02d}.png')
     plt.close()
 
@@ -418,10 +439,11 @@ def main():
     config = {
         #"l1": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
         #"l2": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
-        "l1": ray.tune.loguniform(0.1*n_predictors, 10*n_predictors),
-        "l2": ray.tune.loguniform(0.1*n_predictors, 10*n_predictors),
-        "lr": ray.tune.loguniform(args.learning_rate*1e-2, args.learning_rate*1e2),
-        "batch_size": ray.tune.choice([1000, 500, 250, 100])
+        "l1": ray.tune.quniform(n_predictors//2, 3*n_predictors, 1),
+        #"l2": ray.tune.quniform(n_predictors//2, 3*n_predictors//2, 1),
+        'layers': ray.tune.choice([1, 2, 3, 4]),
+        "lr": ray.tune.uniform(args.learning_rate*1e-2, args.learning_rate*1e2),
+        "batch_size": ray.tune.qloguniform(10, 10000, 1)
     }
     scheduler = ASHAScheduler(
         metric="loss",
@@ -442,7 +464,8 @@ def main():
         config=config,
         num_samples=args.num_samples,
         scheduler=scheduler,
-        progress_reporter=reporter)
+        progress_reporter=reporter,
+        local_dir='ray_results')
 
     best_trial = result.get_best_trial("loss", "min", "last")
     print("Best trial config: {}".format(best_trial.config))
