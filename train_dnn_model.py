@@ -84,13 +84,17 @@ MAX_TIME_INDEX = 11
 
 class NeuralNetwork(torch.nn.Module):
     """Flexible neural net."""
-    def __init__(self, M, l1, n_layers):
+    def __init__(self, M, l1, n_layers, batch_norm):
         super(NeuralNetwork, self).__init__()
         self.flatten = torch.nn.Flatten()
-        layer_list = [torch.nn.Linear(M, int(l1))]
+        layer_list = list()
+        if batch_norm:
+            layer_list.append(torch.nn.BatchNorm1d(M))
+        layer_list.append(torch.nn.Linear(M, int(l1)))
         for _ in range(n_layers-1):
             layer_list.append(torch.nn.Linear(int(l1), int(l1)))
         layer_list.append(torch.nn.Linear(int(l1), 1))
+        layer_list.append(torch.nn.ReLU())
         self.linear_relu_stack = torch.nn.Sequential(*layer_list)
 
     def forward(self, x):
@@ -211,6 +215,27 @@ def load_data(
             ('holdback', True), ('train', False)]:
         predictor_response_map = collections.defaultdict(list)
         gdf_filtered = gdf[gdf['holdback']==train_holdback_val]
+
+        # restrict based on "include"
+        index_filter_series = None
+        for index, row in predictor_response_table[~predictor_response_table['include'].isnull()].iterrows():
+            column_id = row['predictor']
+            if column_id is None:
+                column_id = row['response']
+            LOGGER.debug(f'column id to filter: {column_id}')
+            LOGGER.debug(f"going to drop value {row['include']} from column {column_id}")
+
+            drop_indexes = (gdf_filtered[column_id]==float(row['include']))
+            if index_filter_series is None:
+                index_filter_series = drop_indexes
+            else:
+                index_filter_series &= drop_indexes
+
+            LOGGER.debug(index_filter_series)
+        LOGGER.debug(index_filter_series)
+        gdf_filtered = gdf_filtered[index_filter_series]
+        LOGGER.debug(f'cleaned:\n{gdf_filtered}\n')
+
         for parameter_type in ['predictor', 'response']:
             for parameter_id in predictor_response_table[parameter_type]:
                 if isinstance(parameter_id, str):
@@ -240,15 +265,20 @@ def train_cifar_ray(
         checkpoint_dir=None):
     figure_prefix = f'{config["l1"]}_{config["layers"]}_{config["lr"]}'
     fig_dir = os.path.join(working_dir, 'figdir', figure_prefix)
-    os.makedirs(fig_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(fig_dir), exist_ok=True)
 
-    model = NeuralNetwork(n_predictors, config["l1"], config["layers"])
+    model = NeuralNetwork(
+        n_predictors, config["l1"], config["layers"], config['batch_norm'])
     device = 'cpu'
     model.to(device)
 
     loss_fn = torch.nn.MSELoss(reduction='sum')
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=config["lr"])
+    if config['optimizer'] == 'AdamW':
+        optimizer = torch.optim.AdamW(
+            model.parameters(), lr=config["lr"])
+    elif config['optimizer'] == 'SDG':
+        optimizer = torch.optim.SDG(
+            model.parameters(), lr=config["lr"])
 
     if checkpoint_dir:
         model_state, optimizer_state = torch.load(
@@ -334,7 +364,7 @@ def train_cifar_ray(
         ray.tune.report(
             loss=(val_loss / len(val_loader)),
             r2_valiation=sklearn.metrics.r2_score(train_outputs.detach(), trainset[:][1]),
-            r2_test=sklearn.metrics.r2_score(test_outputs, expected_test_values))
+            r2_test=sklearn.metrics.r2_score(test_outputs.detach(), expected_test_values))
 
         plot_metrics(
             fig_dir,
@@ -355,24 +385,35 @@ def plot_metrics(
     fig, ax = plt.subplots(figsize=(12, 10))
 
     # equivalent but more general
-    ax1 = plt.subplot(2, 1, 1)
+    ax1 = plt.subplot(2, 2, 1)
+
+    ax3 = plt.subplot(2, 2, 2)
 
     # add a subplot with no frame
-    ax2 = plt.subplot(2, 1, 2, frameon=False)
+    ax2 = plt.subplot(2, 2, 3, frameon=False)
 
     ax1.scatter(expected_values, actual_values, c='b', s=0.25)
     z = numpy.polyfit(expected_values, actual_values, 1)
     trendline_func = numpy.poly1d(z)
-
-    r2_train = sklearn.metrics.r2_score(actual_values, expected_values)
-    r2_test = sklearn.metrics.r2_score(test_values, expected_test_values)
-
     ax1.set_xlabel('expected values')
     ax1.set_ylabel('actual values')
     ax1.plot(
         expected_values,
         trendline_func(expected_values),
         "r--", linewidth=1.5)
+
+    ax3.scatter(expected_test_values, test_values, c='g', s=0.25)
+    z = numpy.polyfit(expected_test_values, test_values, 1)
+    trendline_func = numpy.poly1d(z)
+    ax3.set_xlabel('expected values')
+    ax3.set_ylabel('actual values')
+    ax3.plot(
+        expected_test_values,
+        trendline_func(expected_test_values),
+        "r--", linewidth=1.5)
+
+    r2_train = sklearn.metrics.r2_score(actual_values, expected_values)
+    r2_test = sklearn.metrics.r2_score(test_values, expected_test_values)
     ax1.set_title(f'$(train) R^2={r2_train:.3f}; (test) R^2={r2_test:.3f}$')
 
     ax2.set_xlabel('epoch values')
@@ -436,14 +477,19 @@ def main():
         args.geopandas_data, args.invalid_values, args.n_rows, 100,
         args.predictor_response_table)
 
+    LOGGER.debug(f'there are {len(trainset)} training samples and {len(testset)} test samples. the testset is {100*len(testset)/len(trainset):.2f}% of the total')
+    return
+
     config = {
         #"l1": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
         #"l2": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
         "l1": ray.tune.quniform(n_predictors//2, 3*n_predictors, 1),
         #"l2": ray.tune.quniform(n_predictors//2, 3*n_predictors//2, 1),
+        'optimizer': ray.tune.choice['AdamW', 'SDG'],
         'layers': ray.tune.choice([1, 2, 3, 4]),
         "lr": ray.tune.uniform(args.learning_rate*1e-2, args.learning_rate*1e2),
-        "batch_size": ray.tune.qloguniform(10, 10000, 1)
+        "batch_size": ray.tune.qloguniform(10, 10000, 1),
+        'batch_norm': ray.tune.choice([True, False]),
     }
     scheduler = ASHAScheduler(
         metric="loss",
@@ -453,7 +499,8 @@ def main():
         reduction_factor=2)
     reporter = CLIReporter(
         # parameter_columns=["l1", "l2", "lr", "batch_size"],
-        metric_columns=["loss", "accuracy", "training_iteration", "r2"])
+        metric_columns=["loss", "accuracy", "training_iteration", "r2_valiation", "r2_test"],
+        max_progress_rows=args.num_samples)
 
     result = ray.tune.run(
         functools.partial(
@@ -465,7 +512,8 @@ def main():
         num_samples=args.num_samples,
         scheduler=scheduler,
         progress_reporter=reporter,
-        local_dir='ray_results')
+        local_dir='ray_results',
+        verbose=1)
 
     best_trial = result.get_best_trial("loss", "min", "last")
     print("Best trial config: {}".format(best_trial.config))
