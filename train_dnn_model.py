@@ -84,14 +84,13 @@ MAX_TIME_INDEX = 11
 
 class NeuralNetwork(torch.nn.Module):
     """Flexible neural net."""
-    def __init__(self, M, l1, n_layers, batch_norm):
+    def __init__(self, M, l1, n_layers):
         super(NeuralNetwork, self).__init__()
         self.flatten = torch.nn.Flatten()
         layer_list = list()
-        if batch_norm:
-            layer_list.append(torch.nn.BatchNorm1d(M))
         layer_list.append(torch.nn.Linear(M, int(l1)))
         for _ in range(n_layers-1):
+            layer_list.append(torch.nn.BatchNorm1d(int(l1)))
             layer_list.append(torch.nn.Linear(int(l1), int(l1)))
         layer_list.append(torch.nn.Linear(int(l1), 1))
         layer_list.append(torch.nn.ReLU())
@@ -268,17 +267,14 @@ def train_cifar_ray(
     os.makedirs(os.path.dirname(fig_dir), exist_ok=True)
 
     model = NeuralNetwork(
-        n_predictors, config["l1"], config["layers"], config['batch_norm'])
+        n_predictors, config["l1"], config["layers"])
     device = 'cpu'
     model.to(device)
 
     loss_fn = torch.nn.MSELoss(reduction='sum')
-    if config['optimizer'] == 'AdamW':
-        optimizer = torch.optim.AdamW(
-            model.parameters(), lr=config["lr"])
-    elif config['optimizer'] == 'SDG':
-        optimizer = torch.optim.SDG(
-            model.parameters(), lr=config["lr"])
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=config["lr"],
+        betas=(config['beta1'], config['beta2']))
 
     if checkpoint_dir:
         model_state, optimizer_state = torch.load(
@@ -361,18 +357,21 @@ def train_cifar_ray(
         test_outputs = model(testset[:][0])
         test_values = test_outputs.detach().numpy().flatten()
 
+        r2_val = sklearn.metrics.r2_score(train_outputs.detach(), trainset[:][1])
         ray.tune.report(
             loss=(val_loss / len(val_loader)),
-            r2_valiation=sklearn.metrics.r2_score(train_outputs.detach(), trainset[:][1]),
-            r2_test=sklearn.metrics.r2_score(test_outputs.detach(), expected_test_values))
+            r2_valiation=r2_val,
+            r2_test=sklearn.metrics.r2_score(test_outputs.detach(), expected_test_values),
+            r2_val_mag=(1/(1-r2_val)))
 
-        plot_metrics(
-            fig_dir,
-            expected_values, actual_values, expected_test_values, test_values, training_loss_list,
-            validation_loss_list, test_loss_list)
-        weight_file_path = f'./weights/{figure_prefix}.txt'
-        os.makedirs(os.path.dirname(weight_file_path), exist_ok=True)
-        pandas.DataFrame(model.linear_relu_stack[0].weight.detach().numpy()).to_csv(weight_file_path)
+        if epoch % 10 == 0:
+            plot_metrics(
+                fig_dir,
+                expected_values, actual_values, expected_test_values, test_values, training_loss_list,
+                validation_loss_list, test_loss_list)
+            weight_file_path = f'./weights/{figure_prefix}.txt'
+            os.makedirs(os.path.dirname(weight_file_path), exist_ok=True)
+            pandas.DataFrame(model.linear_relu_stack[0].weight.detach().numpy()).to_csv(weight_file_path)
 
     print("Finished Training")
 
@@ -458,8 +457,6 @@ def main():
         'number of iterations to run trainer'))
     parser.add_argument('--learning_rate', required=True, type=float, help=(
         'learning rate of initial epoch'))
-    parser.add_argument('--momentum', required=True, type=float, help=(
-        'momentum, default 0.9'), default=0.9)
     parser.add_argument('--last_epoch', help='last epoch to pick up at')
     parser.add_argument(
         '--n_rows', type=int,
@@ -478,28 +475,29 @@ def main():
         args.predictor_response_table)
 
     LOGGER.debug(f'there are {len(trainset)} training samples and {len(testset)} test samples. the testset is {100*len(testset)/len(trainset):.2f}% of the total')
-    return
 
     config = {
         #"l1": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
         #"l2": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
-        "l1": ray.tune.quniform(n_predictors//2, 3*n_predictors, 1),
+        #"l1": ray.tune.quniform(n_predictors//2, 3*n_predictors, 1),
+        "l1": ray.tune.choice([n_predictors//2, n_predictors, n_predictors*2]),
         #"l2": ray.tune.quniform(n_predictors//2, 3*n_predictors//2, 1),
-        'optimizer': ray.tune.choice['AdamW', 'SDG'],
-        'layers': ray.tune.choice([1, 2, 3, 4]),
-        "lr": ray.tune.uniform(args.learning_rate*1e-2, args.learning_rate*1e2),
+        'layers': ray.tune.choice([2, 4]),
+        'beta1': ray.tune.uniform(0.1, 1.0),
+        'beta2': ray.tune.uniform(0.1, 1.0),
+        "lr": ray.tune.uniform(args.learning_rate*1e-2, args.learning_rate),
+        'momentum': ray.tune.uniform(.1, .99),
         "batch_size": ray.tune.qloguniform(10, 10000, 1),
-        'batch_norm': ray.tune.choice([True, False]),
     }
     scheduler = ASHAScheduler(
-        metric="loss",
-        mode="min",
+        metric="r2_val_mag",
+        mode="max",
         max_t=args.n_epochs,
-        grace_period=10,
+        grace_period=100,
         reduction_factor=2)
     reporter = CLIReporter(
         # parameter_columns=["l1", "l2", "lr", "batch_size"],
-        metric_columns=["loss", "accuracy", "training_iteration", "r2_valiation", "r2_test"],
+        metric_columns=["loss", "accuracy", "training_iteration", "r2_valiation", "r2_test", "r2_val_mag"],
         max_progress_rows=args.num_samples)
 
     result = ray.tune.run(
@@ -507,7 +505,7 @@ def main():
             train_cifar_ray, trainset=trainset, testset=testset,
             n_epochs=args.n_epochs, n_predictors=n_predictors,
             working_dir=os.getcwd()),
-        resources_per_trial={"cpu": 2},
+        resources_per_trial={"cpu": 4},
         config=config,
         num_samples=args.num_samples,
         scheduler=scheduler,
