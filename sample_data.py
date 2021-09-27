@@ -16,6 +16,7 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger('matplotlib').setLevel(logging.WARN)
 logging.getLogger('fiona').setLevel(logging.WARN)
 
+import ecoshard
 from ecoshard import geoprocessing
 from osgeo import gdal
 from osgeo import osr
@@ -40,6 +41,7 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
         a geopandas frame with columns defined by the basenames of the
         rasters in ``raster_path_list`` and geometry by ``gdf_points``
         so long as the ``gdf_points`` lies in the bounding box of the rasters.
+        Any nodata values in the samples are set to 0.
     """
     LOGGER.debug(f'target_bb_wgs84 {target_bb_wgs84}')
 
@@ -137,7 +139,6 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
             # 0 out nodata
             if nodata is not None:
                 raster_data[numpy.isclose(raster_data, nodata)] = 0.0
-            #LOGGER.debug(f'{offset_dict} {local_window} {raster_data}')
             gdf_points.loc[local_points_index, basename] = raster_data
 
     return gdf_points
@@ -146,20 +147,23 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
 #@profile
 def generate_sample_points(
         raster_path_list, sample_polygon_path, bounding_box,
-        holdback_prop, n_points, country_filter_list=None):
+        holdback_bb, holdback_margin, n_points, country_filter_list=None):
     """Create random sample points that are in bounds of the rasters.
 
     Args:
         raster_path_list (list): list of raster paths which are in WGS84
             projection.
-        holdback_prop (float): between 0..1 representing what proportion of
-            the window should be used for holdback, creates two sets
-                * base sample
-                * holdback sample
-
-            any points that lie within a holdback_prop's buffer around
-            the window are thrown out.
+        sample_polygon_path (str): path to polygon vector that is used to
+            limit the point selection.
+        bounding_box (4-float): minx, miny, maxx, maxy tuple of the total
+            bounding box.
+        holdback_bb (4-float): minx, miny, maxx, maxy tuple of the holdback
+            box.
+        holdback_margin (float): margin to holdback the points around the
+            box so we don't have spatial correlation.
         n_points (int): number of samples.
+        country_filter_list (list of str): list of country names to only
+            select points in. If None, then selects everhwere.
 
     Return:
         GeoSeries of sample and holdback points
@@ -181,36 +185,29 @@ def generate_sample_points(
 
     x = numpy.random.uniform(x_min, x_max, n_points)
     y = numpy.random.uniform(y_min, y_max, n_points)
-
-    box_width = holdback_prop*(x_max-x_min)
-    box_height = holdback_prop*(y_max-y_min)
-
-    holdback_box_edge = min(box_width, box_height)
-
-    print('filter by allowed area')
-    gdf_points = geopandas.GeoSeries(filter(
+    points_gdf = geopandas.GeoSeries(filter(
         final_geom_prep.contains, geopandas.points_from_xy(x, y)))
 
-    for point in gdf_points:
-        holdback_bounds = shapely.geometry.box(
-            point.x-holdback_box_edge, point.y-holdback_box_edge,
-            point.x+holdback_box_edge, point.y+holdback_box_edge,
-            )
-        if final_geom_prep.contains(holdback_bounds):
-            break
-
-    filtered_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
-        filter(lambda x: not holdback_bounds.contains(x), gdf_points)))
-    filtered_gdf['holdback'] = False
+    holdback_bounds = shapely.geometry.box(
+        bounding_box[0]-holdback_margin,
+        bounding_box[1]-holdback_margin,
+        bounding_box[2]-holdback_margin,
+        bounding_box[3]-holdback_margin)
 
     holdback_box = shapely.geometry.box(
-        point.x-holdback_box_edge*0.5, point.y-holdback_box_edge*0.5,
-        point.x+holdback_box_edge*0.5, point.y+holdback_box_edge*0.5,)
+        bounding_box[0],
+        bounding_box[1],
+        bounding_box[2],
+        bounding_box[3])
 
-    holdback_points = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
-        filter(holdback_box.contains, gdf_points)))
-    holdback_points['holdback'] = True
-    filtered_gdf = filtered_gdf.append(holdback_points, ignore_index=True)
+    non_holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
+        filter(lambda x: not holdback_bounds.contains(x), points_gdf)))
+    non_holdback_gdf['holdback'] = False
+
+    holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
+        filter(holdback_box.contains, points_gdf)))
+    holdback_gdf['holdback'] = True
+    filtered_gdf = non_holdback_gdf.append(holdback_gdf, ignore_index=True)
     return filtered_gdf
 
 
@@ -219,9 +216,9 @@ def main():
     parser = argparse.ArgumentParser(
         description='create spatial samples of data on a global scale')
     parser.add_argument('--sample_rasters', type=str, nargs='+', help='path/pattern to list of rasters to sample', required=True)
-    parser.add_argument('--holdback_prop', type=float, help='path/pattern to list of response rasters', required=True)
+    parser.add_argument('--holdback_bb', type=float, nargs=4, help='holdback bounding box', required=True)
+    parser.add_argument('--holdback_margin', type=float, help='margin around the holdback box to ignore', required=True)
     parser.add_argument('--n_samples', type=int, help='number of point samples', required=True)
-    parser.add_argument('--target_gpkg_path', type=str, help='name of target gpkg point samplefile', required=True)
     parser.add_argument('--iso_names', type=str, nargs='+', help='set of countries to allow, default is all')
 
     args = parser.parse_args()
@@ -262,19 +259,24 @@ def main():
 
     sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
 
-    # used to scale how many points are sampled with how many are dropped for nodata
+    LOGGER.info(f'generate {args.n_samples} sample points')
     filtered_gdf_points = generate_sample_points(
         raster_path_set, sample_polygon_path, target_box_wgs84,
-        args.holdback_prop, args.n_samples, args.iso_names)
+        args.holdback_bb, args.holback_margin, args.n_samples, args.iso_names)
 
-    LOGGER.info('sample data...')
+    LOGGER.info(f'sample data with {len(filtered_gdf_points)}...')
     sample_df = sample_data(
         raster_path_set, filtered_gdf_points, target_box_wgs84)
-    LOGGER.info(f'got {len(sample_df)} number of points')
 
-    sample_df.to_file(args.target_gpkg_path, driver="GPKG")
+    target_gpkg_path = f'sampled_points_{"_".join([str(v) for v in target_bb_wgs84])}_{len(sample_df)}.gpkg'
+    LOGGER.info(f'saving  {len(sample_df)} to {target_gpkg_path}')
+    sample_df.to_file(target_gpkg_path, driver="GPKG")
 
-    print('plot')
+    LOGGER.info(f'hashing {target_gpkg_path}')
+    ecoshard.hash_file(
+        target_gpkg_path, rename=True, hash_algorithm='md5', force=True)
+
+    LOGGER.info('plot')
     LOGGER.debug(f" all {filtered_gdf_points}")
     LOGGER.debug(f" non holdback {filtered_gdf_points[filtered_gdf_points['holdback'] == False]}")
     LOGGER.debug(f" holdback {filtered_gdf_points[filtered_gdf_points['holdback'] == True]}")
