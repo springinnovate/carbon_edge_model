@@ -189,16 +189,16 @@ def generate_sample_points(
         final_geom_prep.contains, geopandas.points_from_xy(x, y)))
 
     holdback_bounds = shapely.geometry.box(
-        bounding_box[0]-holdback_margin,
-        bounding_box[1]-holdback_margin,
-        bounding_box[2]-holdback_margin,
-        bounding_box[3]-holdback_margin)
+        holdback_bb[0]-holdback_margin,
+        holdback_bb[1]-holdback_margin,
+        holdback_bb[2]+holdback_margin,
+        holdback_bb[3]+holdback_margin)
 
     holdback_box = shapely.geometry.box(
-        bounding_box[0],
-        bounding_box[1],
-        bounding_box[2],
-        bounding_box[3])
+        holdback_bb[0],
+        holdback_bb[1],
+        holdback_bb[2],
+        holdback_bb[3])
 
     non_holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(lambda x: not holdback_bounds.contains(x), points_gdf)))
@@ -262,13 +262,13 @@ def main():
     LOGGER.info(f'generate {args.n_samples} sample points')
     filtered_gdf_points = generate_sample_points(
         raster_path_set, sample_polygon_path, target_box_wgs84,
-        args.holdback_bb, args.holback_margin, args.n_samples, args.iso_names)
+        args.holdback_bb, args.holdback_margin, args.n_samples, args.iso_names)
 
     LOGGER.info(f'sample data with {len(filtered_gdf_points)}...')
     sample_df = sample_data(
         raster_path_set, filtered_gdf_points, target_box_wgs84)
 
-    target_gpkg_path = f'sampled_points_{"_".join([str(v) for v in target_bb_wgs84])}_{len(sample_df)}.gpkg'
+    target_gpkg_path = f'sampled_points_{"_".join([str(v) for v in args.holdback_bb])}_{len(sample_df)}.gpkg'
     LOGGER.info(f'saving  {len(sample_df)} to {target_gpkg_path}')
     sample_df.to_file(target_gpkg_path, driver="GPKG")
 

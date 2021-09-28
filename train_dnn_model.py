@@ -224,14 +224,33 @@ def load_data(
             LOGGER.debug(f'column id to filter: {column_id}')
             LOGGER.debug(f"going to drop value {row['include']} from column {column_id}")
 
-            drop_indexes = (gdf_filtered[column_id]==float(row['include']))
+            keep_indexes = (gdf_filtered[column_id]==float(row['include']))
             if index_filter_series is None:
-                index_filter_series = drop_indexes
+                index_filter_series = keep_indexes
             else:
-                index_filter_series &= drop_indexes
+                index_filter_series &= keep_indexes
 
             LOGGER.debug(index_filter_series)
+
+        # restrict based on "exclude"
+        index_filter_series = None
+        for index, row in predictor_response_table[~predictor_response_table['exclude'].isnull()].iterrows():
+            column_id = row['predictor']
+            if column_id is None:
+                column_id = row['response']
+            LOGGER.debug(f'column id to filter: {column_id}')
+            LOGGER.debug(f"going to drop value {row['exclude']} from column {column_id}")
+
+            keep_indexes = (gdf_filtered[column_id]!=float(row['exclude']))
+            if index_filter_series is None:
+                index_filter_series = keep_indexes
+            else:
+                index_filter_series &= keep_indexes
+
+            LOGGER.debug(index_filter_series)
+
         LOGGER.debug(index_filter_series)
+
         gdf_filtered = gdf_filtered[index_filter_series]
         LOGGER.debug(f'cleaned:\n{gdf_filtered}\n')
 
