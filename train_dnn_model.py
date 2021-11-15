@@ -11,12 +11,21 @@ import pickle
 import threading
 import time
 
+import numpy as np
 import matplotlib.pyplot as plt
 import pandas
 import ray
 from ray.tune.schedulers import ASHAScheduler
 from ray.tune import CLIReporter
 import sklearn.metrics
+from sklearn import linear_model
+from sklearn.metrics import r2_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import SGDRegressor
+from sklearn import svm
+from sklearn.svm import LinearSVR
+from sklearn.preprocessing import PolynomialFeatures
 
 
 logging.basicConfig(
@@ -84,16 +93,23 @@ MAX_TIME_INDEX = 11
 
 class NeuralNetwork(torch.nn.Module):
     """Flexible neural net."""
-    def __init__(self, M, l1, n_layers):
+    def __init__(self, M, N, l1, n_layers, relu):
         super(NeuralNetwork, self).__init__()
         self.flatten = torch.nn.Flatten()
         layer_list = list()
         layer_list.append(torch.nn.Linear(M, int(l1)))
-        for _ in range(n_layers-1):
-            layer_list.append(torch.nn.BatchNorm1d(int(l1)))
-            layer_list.append(torch.nn.Linear(int(l1), int(l1)))
-        layer_list.append(torch.nn.Linear(int(l1), 1))
-        layer_list.append(torch.nn.ReLU())
+        for layer_index in range(n_layers):
+            layer_list.append(torch.nn.Linear(
+                int(l1), 1 if layer_index == n_layers-1 else int(l1),
+                bias=True))
+            if layer_index < n_layers - 1 and relu:
+                layer_list.append(torch.nn.ReLU())
+
+            torch.nn.init.xavier_uniform_(
+                layer_list[-1].weight, gain=torch.nn.init.calculate_gain('linear'))
+            #layer_list[-1].bias = torch.nn.init.calculate_gain('linear')
+        #if relu:
+        #    layer_list.append(torch.nn.ReLU())
         self.linear_relu_stack = torch.nn.Sequential(*layer_list)
 
     def forward(self, x):
@@ -101,6 +117,21 @@ class NeuralNetwork(torch.nn.Module):
         logits = self.linear_relu_stack(x)
         return logits
 
+
+class R2Loss(torch.nn.Module):
+    def __init__(self):
+        super(R2Loss, self).__init__()
+
+    def forward(self, inputs, targets):
+        inputs_mean = torch.mean(inputs)
+        ss_tot = torch.sum((inputs - inputs_mean) ** 2)
+        ss_res = torch.sum((inputs - targets) ** 2)
+        r2 = 1 - ss_res / ss_tot
+
+        if torch.isfinite(r2):
+            return -torch.log(1/(1-r2))
+        else:
+            return r2
 
 def model_predict(
             model, lulc_raster_path, forest_mask_raster_path,
@@ -210,19 +241,20 @@ def load_data(
     # load predictor/response table
     predictor_response_table = pandas.read_csv(predictor_response_table)
     dataset_map = {}
+    LOGGER.debug(gdf['holdback'])
     for train_holdback_type, train_holdback_val in [
-            ('holdback', True), ('train', False)]:
+            ('holdback', [True, 'TRUE']), ('train', [False, 'FALSE'])]:
         predictor_response_map = collections.defaultdict(list)
-        gdf_filtered = gdf[gdf['holdback']==train_holdback_val]
+        gdf_filtered = gdf[gdf['holdback'].isin(train_holdback_val)]
 
         # restrict based on "include"
         index_filter_series = None
         for index, row in predictor_response_table[~predictor_response_table['include'].isnull()].iterrows():
             column_id = row['predictor']
-            if column_id is None:
+            if not isinstance(column_id, str):
                 column_id = row['response']
             LOGGER.debug(f'column id to filter: {column_id}')
-            LOGGER.debug(f"going to drop value {row['include']} from column {column_id}")
+            LOGGER.debug(f"going to keep value {row['include']} from column {column_id}")
 
             keep_indexes = (gdf_filtered[column_id]==float(row['include']))
             if index_filter_series is None:
@@ -233,13 +265,13 @@ def load_data(
             LOGGER.debug(index_filter_series)
 
         # restrict based on "exclude"
-        index_filter_series = None
         for index, row in predictor_response_table[~predictor_response_table['exclude'].isnull()].iterrows():
             column_id = row['predictor']
-            if column_id is None:
+            if not isinstance(column_id, str):
                 column_id = row['response']
             LOGGER.debug(f'column id to filter: {column_id}')
             LOGGER.debug(f"going to drop value {row['exclude']} from column {column_id}")
+            LOGGER.debug(f"row['predictor']: {row['predictor']} row['response']: {row['response']} ")
 
             keep_indexes = (gdf_filtered[column_id]!=float(row['exclude']))
             if index_filter_series is None:
@@ -249,14 +281,54 @@ def load_data(
 
             LOGGER.debug(index_filter_series)
 
+        # restrict based on min/max
+        if 'max' in predictor_response_table:
+            for index, row in predictor_response_table[~predictor_response_table['max'].isnull()].iterrows():
+                column_id = row['predictor']
+                if not isinstance(column_id, str):
+                    column_id = row['response']
+                LOGGER.debug(f'column id to filter: {column_id}')
+                LOGGER.debug(f"going to drop value > {row['max']} from column {column_id}")
+                LOGGER.debug(f"row['predictor']: {row['predictor']} row['response']: {row['response']} ")
+
+                keep_indexes = (gdf_filtered[column_id] <= float(row['max']))
+                if index_filter_series is None:
+                    index_filter_series = keep_indexes
+                else:
+                    index_filter_series &= keep_indexes
+
+                LOGGER.debug(index_filter_series)
+
+        # restrict based on min/max
+        if 'min' in predictor_response_table:
+            for index, row in predictor_response_table[~predictor_response_table['min'].isnull()].iterrows():
+                column_id = row['predictor']
+                if not isinstance(column_id, str):
+                    column_id = row['response']
+                LOGGER.debug(f'column id to filter: {column_id}')
+                LOGGER.debug(f"going to drop value < {row['min']} from column {column_id}")
+                LOGGER.debug(f"row['predictor']: {row['predictor']} row['response']: {row['response']} ")
+
+                keep_indexes = (gdf_filtered[column_id] >= float(row['min']))
+                if index_filter_series is None:
+                    index_filter_series = keep_indexes
+                else:
+                    index_filter_series &= keep_indexes
+
+                LOGGER.debug(index_filter_series)
+
         LOGGER.debug(index_filter_series)
 
-        gdf_filtered = gdf_filtered[index_filter_series]
+        if index_filter_series is not None:
+            gdf_filtered = gdf_filtered[index_filter_series]
         LOGGER.debug(f'cleaned:\n{gdf_filtered}\n')
+        #LOGGER.debug(f"min/max of {column_id} {gdf_filtered[column_id].agg(['min','max'])}")
 
+        id_list = collections.defaultdict(list)
         for parameter_type in ['predictor', 'response']:
             for parameter_id in predictor_response_table[parameter_type]:
                 if isinstance(parameter_id, str):
+                    id_list[parameter_type].append(parameter_id)
                     if parameter_id == 'geometry.x':
                         predictor_response_map[parameter_type].append(
                             gdf_filtered['geometry'].x)
@@ -266,7 +338,6 @@ def load_data(
                     else:
                         predictor_response_map[parameter_type].append(
                             gdf_filtered[parameter_id])
-
         x_tensor = torch.from_numpy(numpy.array(
             predictor_response_map['predictor'], dtype=numpy.float32).T)
         y_tensor = torch.from_numpy(numpy.array(
@@ -274,23 +345,31 @@ def load_data(
         dataset_map[train_holdback_type] = torch.utils.data.TensorDataset(
             x_tensor, y_tensor)
     return (
-        predictor_response_table['predictor'].count(), dataset_map['train'],
-        dataset_map['holdback'], rejected_outliers)
+        predictor_response_table['predictor'].count(),
+        predictor_response_table['response'].count(),
+        id_list['response'],
+        dataset_map['train'], dataset_map['holdback'], rejected_outliers)
 
 
 def train_cifar_ray(
-        config, n_predictors, trainset, testset, n_epochs, working_dir,
-        checkpoint_dir=None):
+        config, n_predictors, n_response, response_id_list, trainset, testset,
+        n_epochs, working_dir, checkpoint_dir=None):
     figure_prefix = f'{config["l1"]}_{config["layers"]}_{config["lr"]}'
     fig_dir = os.path.join(working_dir, 'figdir', figure_prefix)
     os.makedirs(os.path.dirname(fig_dir), exist_ok=True)
 
     model = NeuralNetwork(
-        n_predictors, config["l1"], config["layers"])
+        n_predictors, n_response, config["l1"], config["layers"],
+        config['relu'])
     device = 'cpu'
     model.to(device)
 
-    loss_fn = torch.nn.MSELoss(reduction='sum')
+    #loss_fn = torch.nn.MSELoss(reduction='sum')
+    loss_fn = R2Loss()
+    #loss_fn = torch.nn.SmoothL1Loss()
+    #loss_fn = torch.nn.MSELoss()
+    #loss_fn = lambda x, y: numpy.log(1/(1-sklearn.metrics.r2_score(x.detach().numpy(), y.detach().numpy())))
+    #loss_fn = lambda x, y: sklearn.metrics.r2_score(x.detach().numpy(), y.detach().numpy())
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config["lr"],
         betas=(config['beta1'], config['beta2']))
@@ -334,7 +413,7 @@ def train_cifar_ray(
 
             # forward + backward + optimize
             outputs = model(predictor_t)
-            training_loss = loss_fn(outputs, response_t)
+            training_loss = loss_fn(response_t, outputs)
             training_loss.backward()
             optimizer.step()
 
@@ -343,7 +422,7 @@ def train_cifar_ray(
 
             if i % 100 == 0:
                 LOGGER.debug(f'[{epoch+1+last_epoch}/{n_epochs+last_epoch}, {i+1}/{int(numpy.ceil(n_train_samples/config["batch_size"]))}]')
-        optimizer.zero_grad()
+            optimizer.zero_grad()
 
         training_loss_list.append(training_running_loss/len(train_loader))
 
@@ -351,7 +430,7 @@ def train_cifar_ray(
         val_loss = 0.0
         for i, (predictor_t, response_t) in enumerate(val_loader):
             outputs = model(predictor_t)
-            loss = loss_fn(outputs, response_t)
+            loss = loss_fn(response_t, outputs)
             val_loss += loss.item()
         validation_loss_list.append(val_loss/len(val_loader))
 
@@ -359,7 +438,7 @@ def train_cifar_ray(
         test_loss = 0.0
         for i, (predictor_t, response_t) in enumerate(test_loader):
             outputs = model(predictor_t)
-            loss = loss_fn(outputs, response_t)
+            loss = loss_fn(response_t, outputs)
             test_loss += loss.item()
         test_loss_list.append(test_loss/len(test_loader))
 
@@ -367,27 +446,38 @@ def train_cifar_ray(
             path = os.path.join(checkpoint_dir, "checkpoint")
             torch.save((model.state_dict(), optimizer.state_dict()), path)
 
-        expected_values = trainset[:][1].numpy().flatten()
+        expected_train_outputs = trainset[:][1].numpy()
 
-        train_outputs = model(trainset[:][0])
-        actual_values = train_outputs.detach().numpy().flatten()
+        train_outputs = model(trainset[:][0]).detach().numpy()
 
-        expected_test_values = testset[:][1].numpy().flatten()
-        test_outputs = model(testset[:][0])
-        test_values = test_outputs.detach().numpy().flatten()
+        expected_test_outputs = testset[:][1].numpy()
+        test_outputs = model(testset[:][0]).detach().numpy()
 
-        r2_val = sklearn.metrics.r2_score(train_outputs.detach(), trainset[:][1])
+        # _outputs are [n_samples, n_predictors] dimensions
+
+        r2_val_list = []
+        r2_val_test_list = []
+        for index in range(train_outputs.shape[1]):
+            r2_val_list.append(sklearn.metrics.r2_score(expected_train_outputs[:, index], train_outputs[:, index]))
+            r2_val_test_list.append(sklearn.metrics.r2_score(expected_test_outputs[:, index], test_outputs[:, index]))
+
+        r2_val = numpy.mean(r2_val_list)
+        r2_test = numpy.mean(r2_val_test_list)
         ray.tune.report(
             loss=(val_loss / len(val_loader)),
-            r2_valiation=r2_val,
-            r2_test=sklearn.metrics.r2_score(test_outputs.detach(), expected_test_values),
-            r2_val_mag=(1/(1-r2_val)))
+            r2_validation=r2_val,
+            r2_test=r2_test,
+            r2_val_mag=numpy.log(1/(1-r2_val)),
+            r2_val_list=r2_val_list,
+            r2_val_test_list=r2_val_test_list)
 
-        if epoch % 10 == 0:
+        if epoch % 100 == 0:
             plot_metrics(
                 fig_dir,
-                expected_values, actual_values, expected_test_values, test_values, training_loss_list,
-                validation_loss_list, test_loss_list)
+                expected_train_outputs, train_outputs,
+                expected_test_outputs, test_outputs,
+                response_id_list, training_loss_list,
+                validation_loss_list, test_loss_list, r2_val_list, r2_val_test_list)
             weight_file_path = f'./weights/{figure_prefix}.txt'
             os.makedirs(os.path.dirname(weight_file_path), exist_ok=True)
             pandas.DataFrame(model.linear_relu_stack[0].weight.detach().numpy()).to_csv(weight_file_path)
@@ -397,59 +487,69 @@ def train_cifar_ray(
 
 def plot_metrics(
         figure_prefix,
-        expected_values, actual_values, expected_test_values, test_values, training_loss_list,
-        validation_loss_list, test_loss_list):
+        expected_values_list, actual_values_list,
+        expected_test_values_list, test_values_list,
+        response_id_list, training_loss_list, validation_loss_list,
+        test_loss_list, r2_val_list, r2_val_test_list):
     # plot model correlation graph
     fig, ax = plt.subplots(figsize=(12, 10))
+    n_response = len(response_id_list)
 
-    # equivalent but more general
-    ax1 = plt.subplot(2, 2, 1)
+    #print(f'this is the expected values list {expected_values_list.T}')
+    #print(f'this is the actual values list {actual_values_list}')
+    for index, (expected_values, actual_values, expected_test_values, test_values, response_id) in enumerate(zip(expected_values_list.T, actual_values_list.T, expected_test_values_list.T, test_values_list.T, response_id_list)):
+        # equivalent but more general
+        validation_correlation_ax = plt.subplot(n_response+1, 2, index*2+1)
+        validation_correlation_ax.scatter(expected_values, actual_values, c='b', s=0.25)
+        #print(f'shapes: {expected_values.shape} {actual_values.shape} {expected_values_list.shape} {actual_values_list.shape}')
+        try:
+            z = numpy.polyfit(expected_values, actual_values, 1)
+        except ValueError as e:
+            # this guards against a poor polyfit line
+            print(e)
+        trendline_func = numpy.poly1d(z)
+        validation_correlation_ax.set_xlabel('expected values')
+        validation_correlation_ax.set_ylabel('model output')
+        validation_correlation_ax.plot(
+            expected_values,
+            trendline_func(expected_values),
+            "r--", linewidth=1.5)
+        validation_correlation_ax.set_ybound(
+            min(expected_values), max(expected_values))
+        r2_train = sklearn.metrics.r2_score(expected_values, actual_values)
+        r2_test = sklearn.metrics.r2_score(expected_test_values, test_values)
+        validation_correlation_ax.set_title(f'$(train) R^2={r2_train:.3f}; (test) R^2={r2_test:.3f}$')
 
-    ax3 = plt.subplot(2, 2, 2)
+        test_correlation_ax = plt.subplot(n_response+1, 2, index*2+2)
+        test_correlation_ax.scatter(expected_test_values, test_values, c='g', s=0.25)
+        try:
+            z = numpy.polyfit(expected_test_values, test_values, 1)
+        except ValueError as e:
+            # this guards against a poor polyfit line
+            print(e)
+        trendline_func = numpy.poly1d(z)
+        test_correlation_ax.set_xlabel('expected values')
+        test_correlation_ax.set_ylabel('model output')
+        test_correlation_ax.plot(
+            expected_test_values,
+            trendline_func(expected_test_values),
+            "r--", linewidth=1.5)
 
     # add a subplot with no frame
-    ax2 = plt.subplot(2, 2, 3, frameon=False)
-
-    ax1.scatter(expected_values, actual_values, c='b', s=0.25)
-    z = numpy.polyfit(expected_values, actual_values, 1)
-    trendline_func = numpy.poly1d(z)
-    ax1.set_xlabel('expected values')
-    ax1.set_ylabel('actual values')
-    ax1.plot(
-        expected_values,
-        trendline_func(expected_values),
-        "r--", linewidth=1.5)
-
-    ax3.scatter(expected_test_values, test_values, c='g', s=0.25)
-    z = numpy.polyfit(expected_test_values, test_values, 1)
-    trendline_func = numpy.poly1d(z)
-    ax3.set_xlabel('expected values')
-    ax3.set_ylabel('actual values')
-    ax3.plot(
-        expected_test_values,
-        trendline_func(expected_test_values),
-        "r--", linewidth=1.5)
-
-    r2_train = sklearn.metrics.r2_score(actual_values, expected_values)
-    r2_test = sklearn.metrics.r2_score(test_values, expected_test_values)
-    ax1.set_title(f'$(train) R^2={r2_train:.3f}; (test) R^2={r2_test:.3f}$')
-
-    ax2.set_xlabel('epoch values')
-    ax2.set_ylabel('loss')
-    ax2.semilogy(
+    loss_ax = plt.subplot(
+        n_response+1, 2, 2*len(expected_values_list[0])+1, frameon=False)
+    loss_ax.set_xlabel('epoch values')
+    loss_ax.set_ylabel('loss')
+    loss_ax.plot(
         range(len(training_loss_list)),
         training_loss_list,
         "b-", linewidth=1.5, label='training loss')
-    ax2.semilogy(
+    loss_ax.plot(
         numpy.array(range(len(validation_loss_list)))-0.5,
         validation_loss_list,
         "r-", linewidth=1.5, label='validation loss')
-    #ax2.semilogy(
-    #    numpy.array(range(len(test_loss_list)))-0.5,
-    #    test_loss_list,
-    #    "g-", linewidth=1.5, label='test loss')
-    ax2.legend()
-    ax2.set_title(f'Loss Function Model')
+    loss_ax.legend()
+    loss_ax.set_title(f'Loss Function Model {r2_val_list} {r2_val_test_list}')
     plt.savefig(f'{figure_prefix}_model_loss_{len(validation_loss_list):02d}.png')
     plt.close()
 
@@ -489,45 +589,90 @@ def main():
         help='number of times to do a sample to see best structure')
     args = parser.parse_args()
 
-    n_predictors, trainset, testset, rejected_outliers = load_data(
+    (n_predictors, n_response, response_id_list, trainset, testset,
+     rejected_outliers) = load_data(
         args.geopandas_data, args.invalid_values, args.n_rows, 100,
         args.predictor_response_table)
 
-    LOGGER.debug(f'there are {len(trainset)} training samples and {len(testset)} test samples. the testset is {100*len(testset)/len(trainset):.2f}% of the total')
+    """
+    max_iter = 1000000
+    POLY_ORDER = 2
+    reg = linear_model.LinearRegression()
+    for name, reg in [
+            ('ols', make_pipeline(PolynomialFeatures(POLY_ORDER, interaction_only=False), StandardScaler(), linear_model.LinearRegression())),
+            ('lasso', make_pipeline(PolynomialFeatures(POLY_ORDER, interaction_only=False), StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
+            ('lasso lars', make_pipeline(PolynomialFeatures(POLY_ORDER, interaction_only=False), StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
+            ('svm', make_pipeline(PolynomialFeatures(POLY_ORDER, interaction_only=False), StandardScaler(), LinearSVR(max_iter=max_iter, tol=1e-12))),
+            ]:
+        model = reg.fit(trainset[:][0], trainset[:][1])
+
+        k = trainset[:][0].shape[1]
+        for expected_values, modeled_values, n, prefix in [
+                (testset[:][1].flatten(), model.predict(testset[:][0]).flatten(), testset[:][0].shape[0], 'holdback'),
+                (trainset[:][1].flatten(), model.predict(trainset[:][0]).flatten(), trainset[:][0].shape[0], 'training'),
+                ]:
+
+            try:
+                z = numpy.polyfit(expected_values, modeled_values, 1)
+            except ValueError as e:
+                # this guards against a poor polyfit line
+                print(e)
+            trendline_func = numpy.poly1d(z)
+            plt.xlabel('expected values')
+            plt.ylabel('model output')
+            plt.plot(
+                expected_values,
+                trendline_func(expected_values),
+                "r--", linewidth=1.5)
+            plt.scatter(expected_values, modeled_values, c='g', s=0.25)
+            plt.ylim(
+                min(expected_values), max(expected_values))
+            r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
+            LOGGER.info(f'new r2: {r2}')
+            LOGGER.debug(f'n: {n} k: {k}')
+            r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
+            plt.title(
+                f'{prefix} {name}: $R^2={r2:.3f}$; Adjusted $R^2={r2_adjusted:.3f}$')
+            plt.savefig(f'{name}_{prefix}.png')
+            plt.close()
+    """
 
     config = {
         #"l1": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
         #"l2": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
         #"l1": ray.tune.quniform(n_predictors//2, 3*n_predictors, 1),
-        "l1": ray.tune.choice([n_predictors//2, n_predictors, n_predictors*2]),
+        "l1": ray.tune.choice([n_predictors//2, n_predictors, n_predictors*4]),
         #"l2": ray.tune.quniform(n_predictors//2, 3*n_predictors//2, 1),
-        'layers': ray.tune.choice([2, 4]),
+        'layers': ray.tune.choice([1, 2, 3]),
         'beta1': ray.tune.uniform(0.1, 1.0),
         'beta2': ray.tune.uniform(0.1, 1.0),
-        "lr": ray.tune.uniform(args.learning_rate*1e-2, args.learning_rate),
+        "lr": ray.tune.uniform(args.learning_rate*1e-2, args.learning_rate*1e2),
         'momentum': ray.tune.uniform(.1, .99),
         "batch_size": ray.tune.qloguniform(10, 10000, 1),
+        'relu': ray.tune.choice([True, False]),
     }
     scheduler = ASHAScheduler(
         metric="r2_val_mag",
         mode="max",
         max_t=args.n_epochs,
-        grace_period=100,
+        grace_period=min(100, args.n_epochs),
         reduction_factor=2)
     reporter = CLIReporter(
         # parameter_columns=["l1", "l2", "lr", "batch_size"],
-        metric_columns=["loss", "accuracy", "training_iteration", "r2_valiation", "r2_test", "r2_val_mag"],
+        metric_columns=["loss", "accuracy", "training_iteration", "r2_validation", "r2_test", "r2_val_mag", "r2_val_list", "r2_val_test_list",],
         max_progress_rows=args.num_samples)
 
     result = ray.tune.run(
         functools.partial(
             train_cifar_ray, trainset=trainset, testset=testset,
             n_epochs=args.n_epochs, n_predictors=n_predictors,
+            n_response=n_response, response_id_list=response_id_list,
             working_dir=os.getcwd()),
         resources_per_trial={"cpu": 4},
         config=config,
         num_samples=args.num_samples,
         scheduler=scheduler,
+        keep_checkpoints_num=100,
         progress_reporter=reporter,
         local_dir='ray_results',
         verbose=1)
@@ -537,7 +682,7 @@ def main():
     print("Best trial final validation loss: {}".format(
         best_trial.last_result["loss"]))
     print("Best trial final validation R^2: {}".format(
-        best_trial.last_result["r2"]))
+        best_trial.last_result["r2_validation"]))
 
     LOGGER.debug('all done')
 
