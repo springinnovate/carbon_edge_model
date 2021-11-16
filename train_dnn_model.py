@@ -344,9 +344,11 @@ def load_data(
             predictor_response_map['response'], dtype=numpy.float32).T)
         dataset_map[train_holdback_type] = torch.utils.data.TensorDataset(
             x_tensor, y_tensor)
+
     return (
         predictor_response_table['predictor'].count(),
         predictor_response_table['response'].count(),
+        id_list['predictor'],
         id_list['response'],
         dataset_map['train'], dataset_map['holdback'], rejected_outliers)
 
@@ -589,22 +591,30 @@ def main():
         help='number of times to do a sample to see best structure')
     args = parser.parse_args()
 
-    (n_predictors, n_response, response_id_list, trainset, testset,
-     rejected_outliers) = load_data(
+    (n_predictors, n_response, predictor_id_list, response_id_list,
+     trainset, testset, rejected_outliers) = load_data(
         args.geopandas_data, args.invalid_values, args.n_rows, 100,
         args.predictor_response_table)
 
-    """
-    max_iter = 1000000
+    LOGGER.debug(f'predictor id list: {predictor_id_list}')
+    LOGGER.debug(f'response id list: {response_id_list}')
+
+    max_iter = 100000
     POLY_ORDER = 2
     reg = linear_model.LinearRegression()
+    poly_features = PolynomialFeatures(POLY_ORDER, interaction_only=False)
     for name, reg in [
-            ('ols', make_pipeline(PolynomialFeatures(POLY_ORDER, interaction_only=False), StandardScaler(), linear_model.LinearRegression())),
-            ('lasso', make_pipeline(PolynomialFeatures(POLY_ORDER, interaction_only=False), StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
-            ('lasso lars', make_pipeline(PolynomialFeatures(POLY_ORDER, interaction_only=False), StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
-            ('svm', make_pipeline(PolynomialFeatures(POLY_ORDER, interaction_only=False), StandardScaler(), LinearSVR(max_iter=max_iter, tol=1e-12))),
+            ('ols', make_pipeline(poly_features, StandardScaler(), linear_model.LinearRegression())),
+            ('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
+            ('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
+            ('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, tol=1e-12))),
             ]:
         model = reg.fit(trainset[:][0], trainset[:][1])
+        poly_feature_id_list = poly_features.get_feature_names_out(predictor_id_list)
+        with open(f"coef_{name}.csv", 'w') as table_file:
+            table_file.write('id,coef\n')
+            for feature_id, coef in zip(poly_feature_id_list, reg[-1].coef_.flatten()):
+                table_file.write(f"{feature_id.replace(' ', '*')},{coef}\n")
 
         k = trainset[:][0].shape[1]
         for expected_values, modeled_values, n, prefix in [
@@ -635,8 +645,7 @@ def main():
                 f'{prefix} {name}: $R^2={r2:.3f}$; Adjusted $R^2={r2_adjusted:.3f}$')
             plt.savefig(f'{name}_{prefix}.png')
             plt.close()
-    """
-
+    return
     config = {
         #"l1": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
         #"l2": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
