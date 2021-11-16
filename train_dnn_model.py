@@ -324,8 +324,10 @@ def load_data(
         LOGGER.debug(f'cleaned:\n{gdf_filtered}\n')
         #LOGGER.debug(f"min/max of {column_id} {gdf_filtered[column_id].agg(['min','max'])}")
 
+        parameter_stats = {}
         id_list = collections.defaultdict(list)
         for parameter_type in ['predictor', 'response']:
+            index = 0
             for parameter_id in predictor_response_table[parameter_type]:
                 if isinstance(parameter_id, str):
                     id_list[parameter_type].append(parameter_id)
@@ -338,19 +340,26 @@ def load_data(
                     else:
                         predictor_response_map[parameter_type].append(
                             gdf_filtered[parameter_id])
+                    if parameter_type == 'predictor':
+                        parameter_stats[(index, parameter_id)] = (
+                            gdf_filtered[parameter_id].mean(),
+                            gdf_filtered[parameter_id].std())
+                        index += 1
         x_tensor = torch.from_numpy(numpy.array(
             predictor_response_map['predictor'], dtype=numpy.float32).T)
         y_tensor = torch.from_numpy(numpy.array(
             predictor_response_map['response'], dtype=numpy.float32).T)
         dataset_map[train_holdback_type] = torch.utils.data.TensorDataset(
             x_tensor, y_tensor)
+        dataset_map[f'{train_holdback_type}_params'] = parameter_stats
 
     return (
         predictor_response_table['predictor'].count(),
         predictor_response_table['response'].count(),
         id_list['predictor'],
         id_list['response'],
-        dataset_map['train'], dataset_map['holdback'], rejected_outliers)
+        dataset_map['train'], dataset_map['holdback'], rejected_outliers,
+        dataset_map['train_params'])
 
 
 def train_cifar_ray(
@@ -589,12 +598,38 @@ def main():
     parser.add_argument(
         '--num_samples', type=int, default=10,
         help='number of times to do a sample to see best structure')
+    parser.add_argument(
+        '--prefix', type=str, default='', help='add prefix to output files')
     args = parser.parse_args()
 
+
     (n_predictors, n_response, predictor_id_list, response_id_list,
-     trainset, testset, rejected_outliers) = load_data(
+     trainset, testset, rejected_outliers, parameter_stats) = load_data(
         args.geopandas_data, args.invalid_values, args.n_rows, 100,
         args.predictor_response_table)
+
+    LOGGER.debug(parameter_stats)
+
+    mean_vector = []
+    for (index, parameter_id), (mean, std) in sorted(parameter_stats.items()):
+        LOGGER.debug(f'{index}, {parameter_id}, {mean}, {std}')
+        mean_vector.append(mean)
+
+    sensitivity_test = []
+    parameter_id_list = ['mean']
+    sensitivity_test.append(numpy.array(mean_vector))
+    for (index, parameter_id), (mean, std) in sorted(parameter_stats.items()):
+        parameter_id_list.append(parameter_id)
+        LOGGER.debug(f'{index}, {parameter_id}, {mean}, {std}')
+        sensitivity_vector = numpy.array(mean_vector)
+        sensitivity_vector[index] = mean-std
+        sensitivity_test.append(numpy.array(sensitivity_vector))
+        sensitivity_vector[index] = mean+std
+        sensitivity_test.append(numpy.array(sensitivity_vector))
+    sensitivity_test = numpy.array(sensitivity_test)
+
+    LOGGER.debug(sensitivity_test.shape)
+    # mean vector is a vector of mean values for the parameters
 
     LOGGER.debug(f'predictor id list: {predictor_id_list}')
     LOGGER.debug(f'response id list: {response_id_list}')
@@ -610,8 +645,18 @@ def main():
             ('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, tol=1e-12))),
             ]:
         model = reg.fit(trainset[:][0], trainset[:][1])
+        sensitivity_result = model.predict(sensitivity_test)
+        with open(f'sensitivity_{name}.csv', 'w') as sensitivity_table:
+            sensitivity_table.write('parameter,result,mean-result\n')
+            # do the mean first
+            for index, val in enumerate(sensitivity_result):
+                if index == 0:
+                    mean = val
+                    sensitivity_table.write(f'{parameter_id_list[0]},{val[0]},n/a\n')
+                else:
+                    sensitivity_table.write(f'{parameter_id_list[1+(index-1)//2]},{val[0]},{mean-val[0]}\n')
         poly_feature_id_list = poly_features.get_feature_names_out(predictor_id_list)
-        with open(f"coef_{name}.csv", 'w') as table_file:
+        with open(f"{args.prefix}coef_{name}.csv", 'w') as table_file:
             table_file.write('id,coef\n')
             for feature_id, coef in zip(poly_feature_id_list, reg[-1].coef_.flatten()):
                 table_file.write(f"{feature_id.replace(' ', '*')},{coef}\n")
@@ -638,13 +683,17 @@ def main():
             plt.ylim(
                 min(expected_values), max(expected_values))
             r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
-            LOGGER.info(f'new r2: {r2}')
-            LOGGER.debug(f'n: {n} k: {k}')
             r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
             plt.title(
                 f'{prefix} {name}: $R^2={r2:.3f}$; Adjusted $R^2={r2_adjusted:.3f}$')
-            plt.savefig(f'{name}_{prefix}.png')
+            plt.savefig(f'{args.prefix}{name}_{prefix}.png')
             plt.close()
+
+
+        model_structure = {
+            'model': model,
+            'predictor_id_list': predictor_id_list,
+        }
     return
     config = {
         #"l1": ray.tune.sample_from(lambda _: 2 ** numpy.random.randint(2, 9)),
