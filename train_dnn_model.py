@@ -253,6 +253,8 @@ def load_data(
             column_id = row['predictor']
             if not isinstance(column_id, str):
                 column_id = row['response']
+            if not isinstance(column_id, str):
+                column_id = row['filter']
             LOGGER.debug(f'column id to filter: {column_id}')
             LOGGER.debug(f"going to keep value {row['include']} from column {column_id}")
 
@@ -269,6 +271,8 @@ def load_data(
             column_id = row['predictor']
             if not isinstance(column_id, str):
                 column_id = row['response']
+            if not isinstance(column_id, str):
+                column_id = row['filter']
             LOGGER.debug(f'column id to filter: {column_id}')
             LOGGER.debug(f"going to drop value {row['exclude']} from column {column_id}")
             LOGGER.debug(f"row['predictor']: {row['predictor']} row['response']: {row['response']} ")
@@ -287,6 +291,8 @@ def load_data(
                 column_id = row['predictor']
                 if not isinstance(column_id, str):
                     column_id = row['response']
+                if not isinstance(column_id, str):
+                    column_id = row['filter']
                 LOGGER.debug(f'column id to filter: {column_id}')
                 LOGGER.debug(f"going to drop value > {row['max']} from column {column_id}")
                 LOGGER.debug(f"row['predictor']: {row['predictor']} row['response']: {row['response']} ")
@@ -305,6 +311,8 @@ def load_data(
                 column_id = row['predictor']
                 if not isinstance(column_id, str):
                     column_id = row['response']
+                if not isinstance(column_id, str):
+                    column_id = row['filter']
                 LOGGER.debug(f'column id to filter: {column_id}')
                 LOGGER.debug(f"going to drop value < {row['min']} from column {column_id}")
                 LOGGER.debug(f"row['predictor']: {row['predictor']} row['response']: {row['response']} ")
@@ -613,23 +621,39 @@ def main():
     LOGGER.debug(parameter_stats)
 
     mean_vector = []
+    sample_vector = trainset[:][0][0].detach().numpy()
     for (index, parameter_id), (mean, std) in sorted(parameter_stats.items()):
-        LOGGER.debug(f'{index}, {parameter_id}, {mean}, {std}')
+        LOGGER.debug(f'{index}, {parameter_id}, {mean}, {std}, {sample_vector[index]}')
         mean_vector.append(mean)
 
     sensitivity_test = []
     # seed with a 'random' sample and the mean
-    parameter_id_list = ['sample', 'mean']
+    parameter_id_list = ['random sample', 'training set mean']
     sensitivity_test.append(trainset[:][0][0].detach().numpy())
     sensitivity_test.append(numpy.array(mean_vector))
     for (index, parameter_id), (mean, std) in sorted(parameter_stats.items()):
-        parameter_id_list.append(parameter_id)
+
         LOGGER.debug(f'{index}, {parameter_id}, {mean}, {std}')
+        local_sample_vector = numpy.array(sample_vector)
+        parameter_id_list.append(f'{parameter_id}_sample-std')
+        local_sample_vector[index] -= std
+        sensitivity_test.append(numpy.array(local_sample_vector))
+
+        local_sample_vector = numpy.array(sample_vector)
+        parameter_id_list.append(f'{parameter_id}_sample+std')
+        local_sample_vector[index] += std
+        sensitivity_test.append(numpy.array(local_sample_vector))
+
         sensitivity_vector = numpy.array(mean_vector)
-        sensitivity_vector[index] = mean-std
+        parameter_id_list.append(f'{parameter_id}_mean-std')
+        sensitivity_vector[index] =     -std
         sensitivity_test.append(numpy.array(sensitivity_vector))
+
+        sensitivity_vector = numpy.array(mean_vector)
+        parameter_id_list.append(f'{parameter_id}_mean+std')
         sensitivity_vector[index] = mean+std
         sensitivity_test.append(numpy.array(sensitivity_vector))
+
     sensitivity_test = numpy.array(sensitivity_test)
 
     LOGGER.debug(sensitivity_test.shape)
@@ -638,7 +662,7 @@ def main():
     LOGGER.debug(f'predictor id list: {predictor_id_list}')
     LOGGER.debug(f'response id list: {response_id_list}')
 
-    max_iter = 100000
+    max_iter = 50000
     POLY_ORDER = 2
     reg = linear_model.LinearRegression()
     poly_features = PolynomialFeatures(POLY_ORDER, interaction_only=False)
@@ -650,8 +674,9 @@ def main():
             ]:
         model = reg.fit(trainset[:][0], trainset[:][1])
         sensitivity_result = model.predict(sensitivity_test)
+        # result is pairs of 4 - mean-std for parameter, mean+std, sample-std, sample+std
         with open(f'sensitivity_{name}.csv', 'w') as sensitivity_table:
-            sensitivity_table.write('parameter,result,mean-val,sample-val\n')
+            sensitivity_table.write('parameter,result,val-sample,val-mean\n')
             # do the mean first
             for index, val in enumerate(sensitivity_result):
                 if isinstance(val, numpy.ndarray):
@@ -662,15 +687,18 @@ def main():
                     mean = val
                 if index <= 1:
                     sensitivity_table.write(f'{parameter_id_list[index]},{val},n/a,n/a\n')
+                elif (index-2) % 4 < 2:
+                    # sample row
+                    sensitivity_table.write(f'{parameter_id_list[index]},{val},{val-sample},n/a\n')
                 else:
-                    sensitivity_table.write(f'{parameter_id_list[2+(index-2)//2]},{val},{sample-val}\n')
+                    # mean row
+                    sensitivity_table.write(f'{parameter_id_list[index]},{val},n/a,{val-mean}\n')
         poly_feature_id_list = poly_features.get_feature_names_out(predictor_id_list)
         with open(f"{args.prefix}coef_{name}.csv", 'w') as table_file:
             table_file.write('id,coef\n')
             for feature_id, coef in zip(poly_feature_id_list, reg[-1].coef_.flatten()):
                 table_file.write(f"{feature_id.replace(' ', '*')},{coef}\n")
 
-        return
         k = trainset[:][0].shape[1]
         for expected_values, modeled_values, n, prefix in [
                 (testset[:][1].flatten(), model.predict(testset[:][0]).flatten(), testset[:][0].shape[0], 'holdback'),
