@@ -608,6 +608,8 @@ def main():
         args.geopandas_data, args.invalid_values, args.n_rows, 100,
         args.predictor_response_table)
 
+    LOGGER.debug(trainset[:][0][0])
+
     LOGGER.debug(parameter_stats)
 
     mean_vector = []
@@ -616,7 +618,9 @@ def main():
         mean_vector.append(mean)
 
     sensitivity_test = []
-    parameter_id_list = ['mean']
+    # seed with a 'random' sample and the mean
+    parameter_id_list = ['sample', 'mean']
+    sensitivity_test.append(trainset[:][0][0].detach().numpy())
     sensitivity_test.append(numpy.array(mean_vector))
     for (index, parameter_id), (mean, std) in sorted(parameter_stats.items()):
         parameter_id_list.append(parameter_id)
@@ -647,20 +651,26 @@ def main():
         model = reg.fit(trainset[:][0], trainset[:][1])
         sensitivity_result = model.predict(sensitivity_test)
         with open(f'sensitivity_{name}.csv', 'w') as sensitivity_table:
-            sensitivity_table.write('parameter,result,mean-result\n')
+            sensitivity_table.write('parameter,result,mean-val,sample-val\n')
             # do the mean first
             for index, val in enumerate(sensitivity_result):
+                if isinstance(val, numpy.ndarray):
+                    val = val[0]
                 if index == 0:
+                    sample = val
+                if index == 1:
                     mean = val
-                    sensitivity_table.write(f'{parameter_id_list[0]},{val[0]},n/a\n')
+                if index <= 1:
+                    sensitivity_table.write(f'{parameter_id_list[index]},{val},n/a,n/a\n')
                 else:
-                    sensitivity_table.write(f'{parameter_id_list[1+(index-1)//2]},{val[0]},{mean-val[0]}\n')
+                    sensitivity_table.write(f'{parameter_id_list[2+(index-2)//2]},{val},{sample-val}\n')
         poly_feature_id_list = poly_features.get_feature_names_out(predictor_id_list)
         with open(f"{args.prefix}coef_{name}.csv", 'w') as table_file:
             table_file.write('id,coef\n')
             for feature_id, coef in zip(poly_feature_id_list, reg[-1].coef_.flatten()):
                 table_file.write(f"{feature_id.replace(' ', '*')},{coef}\n")
 
+        return
         k = trainset[:][0].shape[1]
         for expected_values, modeled_values, n, prefix in [
                 (testset[:][1].flatten(), model.predict(testset[:][0]).flatten(), testset[:][0].shape[0], 'holdback'),
@@ -688,7 +698,6 @@ def main():
                 f'{prefix} {name}: $R^2={r2:.3f}$; Adjusted $R^2={r2_adjusted:.3f}$')
             plt.savefig(f'{args.prefix}{name}_{prefix}.png')
             plt.close()
-
 
         model_structure = {
             'model': model,
