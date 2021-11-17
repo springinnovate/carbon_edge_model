@@ -90,6 +90,7 @@ CARBON_EDGE_MODEL_DATA_NODATA = [
     ('soc_5-15cm_mean_compressed_wgs84__md5_4c489f6132cc76c6d634181c25d22d19.tif', None),
     ('tri_10sec_compressed_wgs84__md5_258ad3123f05bc140eadd6246f6a078e.tif', None),
     ('wind_speed_10sec_compressed_wgs84__md5_7c5acc948ac0ff492f3d148ffc277908.tif', None),
+    ('population_2015_5min_compressed_md5_4c267e3cb681689acc08020fd64e023d.tif', 3.4028235e+38, 0.0),
     # ('accessibility_to_cities_2015_30sec_compressed_md5_c8b0cede8a8f6b0f004c8b97586ea61a.tif', -9999, None),
     # ('altitude_10sec_compressed_md5_5f2c8b4e26ec969819134109181c3744.tif', None, None),
     # ('bio_01_30sec_compressed_md5_6f0ba86674e14d3e2a11d9f66282df51.tif', -9999, None),
@@ -365,7 +366,7 @@ def fetch_data(target_data_dir, task_graph):
     downloaded_file_list = []
     for file_id, nodata in \
             CARBON_EDGE_MODEL_DATA_NODATA + [
-                (BACCINI_10s_2014_BIOMASS_URI, None),
+                (BACCINI_10s_2014_BIOMASS_URL, None),
                 (ESA_LULC_URI, None)]:
         if not file_id.startswith('http://'):
             file_url = os.path.join(BASE_URL, file_id)
