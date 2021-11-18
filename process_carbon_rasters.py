@@ -5,9 +5,8 @@ import logging
 import multiprocessing
 import re
 
-import ecoshard
-import numpy
 from ecoshard import geoprocessing
+import numpy
 import scipy
 import taskgraph
 
@@ -80,51 +79,7 @@ MASK_NODATA = 127
 LOGGER = logging.getLogger(__name__)
 
 
-def same_coverage(raster_a_path, raster_b_path):
-    """Return true if raster a and b have same pixels and bounding box."""
-    raster_a_info = pygeoprocessing.get_raster_info(raster_a_path)
-    raster_b_info = pygeoprocessing.get_raster_info(raster_b_path)
-    if raster_a_info['raster_size'] != raster_b_info['raster_size']:
-        return False
-    if not numpy.isclose(
-            raster_a_info['bounding_box'],
-            raster_b_info['bounding_box']).all():
-        return False
-    return True
-
-
-def _reclassify_vals_op(array, array_nodata, mask_values):
-    """Set values 1d array/array to nodata unless `inverse` then opposite.
-
-    Args:
-        array (numpy.ndarray): base integer array containing either nodata or
-            possible value in mask values
-        array_nodata (int): nodata value for array
-        mask_values (tuple/list): values to set to 1 in ``array``.
-
-    Returns:
-        values in ``array`` set to 1 where in mask_values, 0 otherwise, or
-            nodata.
-
-    """
-    result = numpy.zeros(array.shape, dtype=numpy.uint8)
-    if array_nodata is not None:
-        result[numpy.isclose(array, array_nodata)] = MASK_NODATA
-    mask_array = numpy.in1d(array, mask_values).reshape(result.shape)
-    result[mask_array] = 1
-    return result
-
-
-def create_mask(base_raster_path, mask_values, target_raster_path):
-    """Create a mask of base raster where in `mask_values` it's 1, else 0."""
-    # reclassify clipped file as the output file
-    nodata = pygeoprocessing.get_raster_info(base_raster_path)['nodata'][0]
-    pygeoprocessing.raster_calculator(
-        [(base_raster_path, 1), (nodata, 'raw'), (mask_values, 'raw')],
-        _reclassify_vals_op, target_raster_path, gdal.GDT_Byte, None)
-
-
-def make_kernel_raster(pixel_radius, target_path):
+def _make_kernel_raster(pixel_radius, target_path):
     """Create kernel with given radius to `target_path`."""
     truncate = 2
     size = int(pixel_radius * 2 * truncate + 1)
@@ -133,80 +88,9 @@ def make_kernel_raster(pixel_radius, target_path):
     kernel_array = scipy.ndimage.filters.gaussian_filter(
         step_fn, pixel_radius, order=0, mode='constant', cval=0.0,
         truncate=truncate)
-    pygeoprocessing.numpy_array_to_raster(
+    geoprocessing.numpy_array_to_raster(
         kernel_array, -1, (1., -1.), (0.,  0.), None,
         target_path)
-
-
-def create_convolutions(
-        landcover_type_raster_path, expected_max_edge_effect_km_list,
-        target_data_dir, task_graph):
-    """Create forest convolution mask at `expected_max_edge_effect_km`.
-
-    Args:
-        landcover_type_raster_path (path): path to raster containing 4 codes
-            representing:
-                1: cropland
-                2: urban
-                3: forest
-                4: other
-
-        excepcted_max_edge_effect_km_list (list): list of floats of
-            expected edge effect in km.
-        target_data_dir (path): path to directory to write resulting files
-        task_graph (TaskGraph): object used to schedule work and avoid
-            reexecution.
-
-    Returns:
-        List of convolution file paths created by this function
-    """
-    churn_dir = os.path.join(target_data_dir, 'convolution_kernels')
-    LOGGER.debug(f'making convolution kernel churn dir at {churn_dir}')
-    try:
-        os.makedirs(churn_dir)
-    except OSError:
-        pass
-    pixel_size = pygeoprocessing.get_raster_info(
-        landcover_type_raster_path)['pixel_size']
-
-    # this is calculated as 111km per degree
-    convolution_raster_list = []
-    for expected_max_edge_effect_km in expected_max_edge_effect_km_list:
-        pixel_radius = (pixel_size[0] * 111 / expected_max_edge_effect_km)**-1
-        kernel_raster_path = os.path.join(
-            churn_dir, f'kernel_{pixel_radius}.tif')
-        kernel_task = task_graph.add_task(
-            func=make_kernel_raster,
-            args=(pixel_radius, kernel_raster_path),
-            target_path_list=[kernel_raster_path],
-            task_name=f'make kernel of radius {pixel_radius}')
-
-        for mask_id, mask_code in MASK_TYPES:
-            mask_raster_path = os.path.join(
-                target_data_dir, f'{mask_id}_mask.tif')
-            create_mask_task = task_graph.add_task(
-                func=create_mask,
-                args=(landcover_type_raster_path,
-                      (mask_code,), mask_raster_path),
-                target_path_list=[mask_raster_path],
-                task_name=f'create {mask_id} mask')
-
-            mask_gf_path = (
-                f'{os.path.splitext(mask_raster_path)[0]}_gf_'
-                f'{expected_max_edge_effect_km}.tif')
-            LOGGER.debug(f'making convoluion for {mask_gf_path}')
-            convolution_task = task_graph.add_task(
-                func=pygeoprocessing.convolve_2d,
-                args=(
-                    (mask_raster_path, 1), (kernel_raster_path, 1),
-                    mask_gf_path),
-                dependent_task_list=[create_mask_task, kernel_task],
-                target_path_list=[mask_gf_path],
-                task_name=f'create guassian filter of {mask_id} at {mask_gf_path}')
-            convolution_raster_list.append(((mask_gf_path, None, None)))
-    task_graph.join()
-    LOGGER.debug(f'all done convolutoin list - {convolution_raster_list}')
-    return convolution_raster_list
 
 
 def main():
@@ -235,7 +119,7 @@ def main():
         kernel_raster_path = os.path.join(
             CHURN_DIR, f'kernel_{pixel_radius}.tif')
         kernel_task = task_graph.add_task(
-            func=make_kernel_raster,
+            func=_make_kernel_raster,
             args=(pixel_radius, kernel_raster_path),
             target_path_list=[kernel_raster_path],
             task_name=f'make kernel of radius {pixel_radius}')
@@ -269,7 +153,7 @@ def main():
                     MASK_DIR,
                     f'{basename}_{mask_id}_gf_{expected_max_edge_effect_km}.tif')
                 LOGGER.debug(f'making convoluion for {mask_gf_path}')
-                convolution_task = task_graph.add_task(
+                _ = task_graph.add_task(
                     func=geoprocessing.convolve_2d,
                     args=(
                         (mask_raster_path, 1), (kernel_raster_path, 1),
