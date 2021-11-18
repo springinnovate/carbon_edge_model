@@ -143,9 +143,9 @@ def main():
                 MASK_DIR, f'{basename}_{mask_id}.tif')
             mask_task = task_graph.add_task(
                 func=_mask_raster,
-                args=(landcover_raster_path, mask_raster_path),
+                args=(landcover_raster_path, lucodes, mask_raster_path),
                 target_path_list=[mask_raster_path],
-                task_id=f'mask out {mask_id}')
+                task_name=f'mask out {mask_id}')
 
             for kernel_raster_path, expected_max_edge_effect_km in \
                     kernel_raster_path_list:

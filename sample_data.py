@@ -52,105 +52,109 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
     local_bb_transform_cache = {}
     for raster_path in sorted(raster_path_list):
         raster_info = geoprocessing.get_raster_info(raster_path)
-        basename = os.path.basename(os.path.splitext(raster_path)[0])
+        n_bands = len(raster_info['nodata'])
+        for band_index in range(1, n_bands+1):
+            basename = os.path.basename(os.path.splitext(raster_path)[0])
+            if n_bands > 1:
+                basename += f'_{band_index}'
 
-        nodata = raster_info['nodata'][0]
-        if nodata is None:
-            nodata = 0
-        # TODO: gdf_points[basename] = nodata
-        gdf_points[basename] = -999
+            nodata = raster_info['nodata'][0]
+            if nodata is None:
+                nodata = 0
+            # TODO: gdf_points[basename] = nodata
+            gdf_points[basename] = -999
 
-        gt = raster_info['geotransform']
-        inv_gt = gdal.InvGeoTransform(gt)
-        raster = gdal.OpenEx(raster_path)
-        band = raster.GetRasterBand(1)
-        LOGGER.debug(f'processing {basename}')
-        n_total = raster_info['raster_size'][0]*raster_info['raster_size'][1]
-        n_processed = 0
-        for offset_dict in geoprocessing.iterblocks(
-                (raster_path, 1), offset_only=True, largest_block=2**29):
-            if time.time()-last_time > 5:
-                LOGGER.debug(
-                    f'{n_processed/n_total*100:.2f}% complete for {basename} {n_processed} {n_total}')
-                last_time = time.time()
-            n_processed += offset_dict['win_xsize']*offset_dict['win_ysize']
-            LOGGER.debug(offset_dict)
-            local_bb_key = (
-                gt, offset_dict['xoff'], offset_dict['yoff'],
-                offset_dict['win_xsize'], offset_dict['win_ysize'],
-                raster_info['projection_wkt'])
-            if local_bb_key not in local_bb_transform_cache:
-                local_bb = (
-                    gdal.ApplyGeoTransform(
-                        gt, offset_dict['xoff'], offset_dict['yoff']) +
-                    gdal.ApplyGeoTransform(
-                        gt, offset_dict['xoff']+offset_dict['win_xsize'],
-                        offset_dict['yoff']+offset_dict['win_ysize']))
-                local_bb_wgs84 = geoprocessing.transform_bounding_box(
-                    local_bb,
-                    raster_info['projection_wkt'], osr.SRS_WKT_WGS84_LAT_LONG)
-                LOGGER.debug(f'{local_bb} vs {local_bb_wgs84} offset_dict {offset_dict} geotransform {gt}')
-
-                local_box_wgs84 = shapely.geometry.box(
-                    local_bb_wgs84[0],
-                    local_bb_wgs84[1],
-                    local_bb_wgs84[2],
-                    local_bb_wgs84[3])
-
-                intersect_box_wgs84 = local_box_wgs84.intersection(
-                    target_bb_wgs84)
-                LOGGER.debug(intersect_box_wgs84.area)
-                if intersect_box_wgs84.area == 0:
-                    local_bb_transform_cache[local_bb_key] = None
-                    continue
-
-                local_points = gdf_points.cx[
-                    intersect_box_wgs84.bounds[0]:intersect_box_wgs84.bounds[2],
-                    intersect_box_wgs84.bounds[1]:intersect_box_wgs84.bounds[3],
-                    ]
-                local_points = local_points.set_crs(
-                    osr.SRS_WKT_WGS84_LAT_LONG)
-                local_points = local_points.to_crs(
+            gt = raster_info['geotransform']
+            inv_gt = gdal.InvGeoTransform(gt)
+            raster = gdal.OpenEx(raster_path)
+            band = raster.GetRasterBand(band_index)
+            LOGGER.debug(f'processing {basename}')
+            n_total = raster_info['raster_size'][0]*raster_info['raster_size'][1]
+            n_processed = 0
+            for offset_dict in geoprocessing.iterblocks(
+                    (raster_path, 1), offset_only=True, largest_block=2**29):
+                if time.time()-last_time > 5:
+                    LOGGER.debug(
+                        f'{n_processed/n_total*100:.2f}% complete for {basename} {n_processed} {n_total}')
+                    last_time = time.time()
+                n_processed += offset_dict['win_xsize']*offset_dict['win_ysize']
+                LOGGER.debug(offset_dict)
+                local_bb_key = (
+                    gt, offset_dict['xoff'], offset_dict['yoff'],
+                    offset_dict['win_xsize'], offset_dict['win_ysize'],
                     raster_info['projection_wkt'])
-                LOGGER.debug(local_points)
+                if local_bb_key not in local_bb_transform_cache:
+                    local_bb = (
+                        gdal.ApplyGeoTransform(
+                            gt, offset_dict['xoff'], offset_dict['yoff']) +
+                        gdal.ApplyGeoTransform(
+                            gt, offset_dict['xoff']+offset_dict['win_xsize'],
+                            offset_dict['yoff']+offset_dict['win_ysize']))
+                    local_bb_wgs84 = geoprocessing.transform_bounding_box(
+                        local_bb,
+                        raster_info['projection_wkt'], osr.SRS_WKT_WGS84_LAT_LONG)
+                    LOGGER.debug(f'{local_bb} vs {local_bb_wgs84} offset_dict {offset_dict} geotransform {gt}')
 
-                if len(local_points) == 0:
-                    local_bb_transform_cache[local_bb_key] = None
+                    local_box_wgs84 = shapely.geometry.box(
+                        local_bb_wgs84[0],
+                        local_bb_wgs84[1],
+                        local_bb_wgs84[2],
+                        local_bb_wgs84[3])
+
+                    intersect_box_wgs84 = local_box_wgs84.intersection(
+                        target_bb_wgs84)
+                    LOGGER.debug(intersect_box_wgs84.area)
+                    if intersect_box_wgs84.area == 0:
+                        local_bb_transform_cache[local_bb_key] = None
+                        continue
+
+                    local_points = gdf_points.cx[
+                        intersect_box_wgs84.bounds[0]:intersect_box_wgs84.bounds[2],
+                        intersect_box_wgs84.bounds[1]:intersect_box_wgs84.bounds[3],
+                        ]
+                    local_points = local_points.set_crs(
+                        osr.SRS_WKT_WGS84_LAT_LONG)
+                    local_points = local_points.to_crs(
+                        raster_info['projection_wkt'])
+                    LOGGER.debug(local_points)
+
+                    if len(local_points) == 0:
+                        local_bb_transform_cache[local_bb_key] = None
+                        continue
+
+                    local_coords = numpy.array([
+                        gdal.ApplyGeoTransform(inv_gt, point.x, point.y)
+                        for point in local_points['geometry']], dtype=int)
+                    LOGGER.debug(local_coords)
+                    min_x = min(local_coords[:, 0])
+                    min_y = min(local_coords[:, 1])
+                    max_x = max(local_coords[:, 0])
+                    max_y = max(local_coords[:, 1])
+                    local_window = {
+                        'xoff': int(min_x),
+                        'yoff': int(min_y),
+                        'win_xsize': int(max_x-min_x)+1,
+                        'win_ysize': int(max_y-min_y)+1,
+                    }
+                    local_coords = (local_coords - [
+                        local_window['xoff'], local_window['yoff']]).T
+
+                    local_bb_transform_cache[local_bb_key] = (
+                        local_points.index, local_window, local_coords)
+
+                payload = local_bb_transform_cache[local_bb_key]
+                if payload is None:
                     continue
+                local_points_index, local_window, local_coords = payload
 
-                local_coords = numpy.array([
-                    gdal.ApplyGeoTransform(inv_gt, point.x, point.y)
-                    for point in local_points['geometry']], dtype=int)
-                LOGGER.debug(local_coords)
-                min_x = min(local_coords[:, 0])
-                min_y = min(local_coords[:, 1])
-                max_x = max(local_coords[:, 0])
-                max_y = max(local_coords[:, 1])
-                local_window = {
-                    'xoff': int(min_x),
-                    'yoff': int(min_y),
-                    'win_xsize': int(max_x-min_x)+1,
-                    'win_ysize': int(max_y-min_y)+1,
-                }
-                local_coords = (local_coords - [
-                    local_window['xoff'], local_window['yoff']]).T
-
-                local_bb_transform_cache[local_bb_key] = (
-                    local_points.index, local_window, local_coords)
-
-            payload = local_bb_transform_cache[local_bb_key]
-            if payload is None:
-                continue
-            local_points_index, local_window, local_coords = payload
-
-            raster_data = (
-                band.ReadAsArray(**local_window).T)[
-                    local_coords[0, :], local_coords[1, :]]
-            # 0 out nodata
-            if nodata is not None:
-                raster_data[numpy.isclose(raster_data, nodata)] = 0.0
-            gdf_points.loc[local_points_index, basename] = raster_data
-            #gdf_points = gdf_points.loc[local_points_index]
+                raster_data = (
+                    band.ReadAsArray(**local_window).T)[
+                        local_coords[0, :], local_coords[1, :]]
+                # 0 out nodata
+                if nodata is not None:
+                    raster_data[numpy.isclose(raster_data, nodata)] = 0.0
+                gdf_points.loc[local_points_index, basename] = raster_data
+                #gdf_points = gdf_points.loc[local_points_index]
 
     return gdf_points
 
