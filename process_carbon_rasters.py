@@ -11,14 +11,14 @@ import scipy
 import taskgraph
 
 from osgeo import gdal
-
+gdal.SetCacheMax(2**27)
 
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('taskgraph').setLevel(logging.WARN)
+logging.getLogger('taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 logging.getLogger('matplotlib').setLevel(logging.WARN)
