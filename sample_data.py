@@ -252,7 +252,8 @@ def main():
                     f'{file_path} found at {pattern} is not a raster')
         raster_path_set.update(file_path_list)
 
-    raster_bounding_box_list = []
+    # default bounding box list with some reasonable bounds
+    raster_bounding_box_list = [(-179, -80, 179, 80)]
     basename_list = []
     nodata_list = []
     # find lat/lng bounding box
@@ -272,6 +273,8 @@ def main():
         target_bb_wgs84[1],
         target_bb_wgs84[2],
         target_bb_wgs84[3])
+
+    LOGGER.debug(f'target box in wgs84: {target_box_wgs84}')
 
     sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
 
