@@ -95,23 +95,28 @@ def load_data(
     # load data
     #LOGGER.info(f'reading geopandas file {geopandas_data}')
     if geopandas_data.endswith('gpkg'):
-        gdf = geopandas.read_file(geopandas_data, rows=n_rows)
+        gdf = geopandas.read_file(geopandas_data)
     else:
         with open(geopandas_data, 'rb') as geopandas_file:
-            gdf = pickle.load(geopandas_file)
+            gdf = pickle.load(geopandas_file).copy()
+    if n_rows is not None:
+        gdf = gdf.sample(n=n_rows, replace=False).copy()
     #LOGGER.info(f'gdf columns: {gdf.columns}')
     for invalid_value_tuple in invalid_values:
         key, value = invalid_value_tuple.split(',')
-        gdf = gdf[gdf[key] != float(value)]
+        gdf.drop(gdf[key] != float(value), inplace=True)
 
     rejected_outliers = {}
+    gdf.to_csv('dropped_base.csv')
     for column_id in gdf.columns:
         if gdf[column_id].dtype in (int, float, complex):
             outliers = list_outliers(gdf[column_id].to_numpy())
             if len(outliers) > 0:
                 #LOGGER.debug(f'{column_id}: {outliers}')
-                gdf[column_id][gdf[column_id].isin(outliers)] = 0
+                gdf.replace({column_id: outliers}, 0, inplace=True)
+                #gdf.loc[column_id, gdf[column_id].isin(outliers)] = 0
                 rejected_outliers[column_id] = outliers
+    gdf.to_csv('dropped.csv')
 
     # load predictor/response table
     predictor_response_table = pandas.read_csv(predictor_response_table_path)
@@ -340,19 +345,27 @@ def r2_analysis(
      parameter_stats) = load_data(
         geopandas_data_path, invalid_values, n_rows,
         predictor_response_table_path, allowed_set)
-    LOGGER.debug(f'got {n_predictors} predictors')
-
+    LOGGER.info(f'got {n_predictors} predictors, doing fit')
     model = reg.fit(trainset[0], trainset[1])
-
     expected_values = trainset[1].flatten()
+    LOGGER.info('fit complete, calculate r2')
     modeled_values = model.predict(trainset[0]).flatten()
 
     r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
     k = trainset[0].shape[1]
     n = trainset[0].shape[0]
     r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
-    return r2_adjusted
+    return r2_adjusted, reg, predictor_id_list
 
+
+def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg):
+    poly_feature_id_list = poly_features.get_feature_names_out(
+        predictor_id_list)
+    with open(os.path.join(
+            f"{prefix}coef_{name}.csv"), 'w') as table_file:
+        table_file.write('id,coef\n')
+        for feature_id, coef in zip(poly_feature_id_list, reg[-1].coef_.flatten()):
+            table_file.write(f"{feature_id.replace(' ', '*')},{coef}\n")
 
 def main():
     parser = argparse.ArgumentParser(description='DNN model trainer')
@@ -373,18 +386,23 @@ def main():
     args = parser.parse_args()
 
     predictor_response_table = pandas.read_csv(args.predictor_response_table)
-    predictor_id_list = predictor_response_table['predictor'].dropna()
-    allowed_set = set(predictor_id_list)
+    allowed_set = set(predictor_response_table['predictor'].dropna())
 
     poly_features = PolynomialFeatures(POLY_ORDER, interaction_only=False)
     max_iter = 50000
     lasso_reg = make_pipeline(
         poly_features, StandardScaler(), linear_model.Lasso(
             alpha=0.1, max_iter=max_iter))
-
-    last_adjusted_r2 = r2_analysis(
+    LOGGER.info('doing initial r2 analysis')
+    last_adjusted_r2, reg, predictor_id_list = r2_analysis(
         args.geopandas_data, args.invalid_values, args.n_rows,
         args.predictor_response_table, allowed_set, lasso_reg)
+    print(last_adjusted_r2)
+    _write_coeficient_table(
+        poly_features, predictor_id_list, args.prefix, os.path.basename(
+            os.path.splitext(args.predictor_response_table)[0]), reg)
+    return
+
     LOGGER.debug(last_adjusted_r2)
     pool = multiprocessing.pool.Pool(3)
 
@@ -507,12 +525,8 @@ def main():
         #         else:
         #             # mean row
         #             sensitivity_table.write(f'{parameter_id_list[index]},{val},n/a,{val-mean}\n')
-        poly_feature_id_list = poly_features.get_feature_names_out(predictor_id_list)
-        with open(os.path.join(
-                FIG_DIR, f"{args.prefix}coef_{name}.csv"), 'w') as table_file:
-            table_file.write('id,coef\n')
-            for feature_id, coef in zip(poly_feature_id_list, reg[-1].coef_.flatten()):
-                table_file.write(f"{feature_id.replace(' ', '*')},{coef}\n")
+        _write_coeficient_table(
+            poly_features, predictor_id_list, args.prefix, name, reg)
 
         k = trainset[0].shape[1]
         for expected_values, modeled_values, n, prefix in [
