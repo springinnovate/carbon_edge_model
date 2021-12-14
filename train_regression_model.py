@@ -125,9 +125,22 @@ def load_data(
         predictor_response_table['predictor'].isin(
             allowed_set.union(set([numpy.nan])))]
     dataset_map = {}
+    fields_to_drop_list = []
     for train_holdback_type, train_holdback_val in [
             ('holdback', [True, 'TRUE']), ('train', [False, 'FALSE'])]:
         gdf_filtered = gdf[gdf['holdback'].isin(train_holdback_val)]
+
+        # drop fields that request it
+        for index, row in predictor_response_table[~predictor_response_table['include'].isnull()].iterrows():
+            LOGGER.debug(column_id)
+            column_id = row['predictor']
+            if not isinstance(column_id, str):
+                column_id = row['response']
+            if not isinstance(column_id, str):
+                column_id = row['filter']
+
+            if row['filter_only'] == 1:
+                fields_to_drop_list.append(column_id)
 
         # restrict based on "include"
         index_filter_series = None
@@ -221,6 +234,9 @@ def load_data(
         #else:
         #    unique_groups = [numpy.nan]
 
+        #for field_to_drop in fields_to_drop_list:
+        #    gdf_filtered.drop(field_to_drop, axis=1, inplace=True)
+
         # gdf filtered is the table with data indexed by the raw parameter
         # names that will show up in the predictor response table
         # ['predictor'] or ['response'] columns
@@ -245,6 +261,8 @@ def load_data(
                         zip(predictor_response_table[parameter_type],
                             predictor_response_table['group'],
                             predictor_response_table['target']):
+                    if parameter_id in fields_to_drop_list:
+                        continue
                     # this loop gets at a particular parameter
                     # (crop, slope, etc)
                     if not isinstance(parameter_id, str):
@@ -317,6 +335,7 @@ def load_data(
         dataset_map[train_holdback_type] = (x_tensor.T, y_tensor.T)
         dataset_map[f'{train_holdback_type}_params'] = parameter_stats
 
+    #gdf_filtered.to_csv('gdf_filtered.csv')
     return (
         predictor_response_table['predictor'].count(),
         predictor_response_table['response'].count(),
@@ -346,6 +365,7 @@ def r2_analysis(
         geopandas_data_path, invalid_values, n_rows,
         predictor_response_table_path, allowed_set)
     LOGGER.info(f'got {n_predictors} predictors, doing fit')
+    LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
     model = reg.fit(trainset[0], trainset[1])
     expected_values = trainset[1].flatten()
     LOGGER.info('fit complete, calculate r2')
@@ -390,53 +410,53 @@ def main():
 
     poly_features = PolynomialFeatures(POLY_ORDER, interaction_only=False)
     max_iter = 50000
-    lasso_reg = make_pipeline(
-        poly_features, StandardScaler(), linear_model.Lasso(
-            alpha=0.1, max_iter=max_iter))
-    LOGGER.info('doing initial r2 analysis')
-    last_adjusted_r2, reg, predictor_id_list = r2_analysis(
-        args.geopandas_data, args.invalid_values, args.n_rows,
-        args.predictor_response_table, allowed_set, lasso_reg)
-    print(last_adjusted_r2)
-    _write_coeficient_table(
-        poly_features, predictor_id_list, args.prefix, os.path.basename(
-            os.path.splitext(args.predictor_response_table)[0]), reg)
-    return
+    # lasso_reg = make_pipeline(
+    #     poly_features, StandardScaler(), linear_model.Lasso(
+    #         alpha=0.1, max_iter=max_iter))
+    # LOGGER.info('doing initial r2 analysis')
+    # last_adjusted_r2, reg, predictor_id_list = r2_analysis(
+    #     args.geopandas_data, args.invalid_values, args.n_rows,
+    #     args.predictor_response_table, allowed_set, lasso_reg)
+    # print(last_adjusted_r2)
+    # _write_coeficient_table(
+    #     poly_features, predictor_id_list, args.prefix, os.path.basename(
+    #         os.path.splitext(args.predictor_response_table)[0]), reg)
+    # return
 
-    LOGGER.debug(last_adjusted_r2)
-    pool = multiprocessing.pool.Pool(3)
+    # LOGGER.debug(last_adjusted_r2)
+    # pool = multiprocessing.pool.Pool(3)
 
-    while True:
-        result_list = []
-        for predictor_id in reversed(sorted(allowed_set)):
-            local_set = set(allowed_set)
-            local_set.remove(predictor_id)
-            #LOGGER.debug(predictor_id)
-            result = pool.apply_async(
-                r2_analysis, (
-                    args.geopandas_data, args.invalid_values, args.n_rows,
-                    args.predictor_response_table, local_set, lasso_reg))
-            result_list.append((predictor_id, result))
+    # while True:
+    #     result_list = []
+    #     for predictor_id in reversed(sorted(allowed_set)):
+    #         local_set = set(allowed_set)
+    #         local_set.remove(predictor_id)
+    #         #LOGGER.debug(predictor_id)
+    #         result = pool.apply_async(
+    #             r2_analysis, (
+    #                 args.geopandas_data, args.invalid_values, args.n_rows,
+    #                 args.predictor_response_table, local_set, lasso_reg))
+    #         result_list.append((predictor_id, result))
 
-            #r2_adjusted = r2_analysis(
-            #    args.geopandas_data, args.invalid_values, args.n_rows,
-            #    args.predictor_response_table, local_set, lasso_reg)
-        pool.close()
-        pool.join()
-        r2_by_predictor_list = []
-        for predictor_id, result in result_list:
-            LOGGER.debug(f'waiting on {predictor_id}')
-            adjusted_r2 = result.get()
-            LOGGER.info(
-                f'got {adjusted_r2} for {predictor_id} increase of '
-                f'{adjusted_r2-last_adjusted_r2}')
-            r2_by_predictor_list.append((adjusted_r2, predictor_id))
-        LOGGER.debug(f'previous r2: {last_adjusted_r2}')
-        LOGGER.debug('\n'.join([
-            f'{predictor_id} (new {r2} vs previous {last_adjusted_r2}): increase {last_adjusted_r2-r2}' for r2, predictor_id in
-            sorted(r2_by_predictor_list)
-            if last_adjusted_r2-r2 > 0]))
-        return
+    #         #r2_adjusted = r2_analysis(
+    #         #    args.geopandas_data, args.invalid_values, args.n_rows,
+    #         #    args.predictor_response_table, local_set, lasso_reg)
+    #     pool.close()
+    #     pool.join()
+    #     r2_by_predictor_list = []
+    #     for predictor_id, result in result_list:
+    #         LOGGER.debug(f'waiting on {predictor_id}')
+    #         adjusted_r2 = result.get()
+    #         LOGGER.info(
+    #             f'got {adjusted_r2} for {predictor_id} increase of '
+    #             f'{adjusted_r2-last_adjusted_r2}')
+    #         r2_by_predictor_list.append((adjusted_r2, predictor_id))
+    #     LOGGER.debug(f'previous r2: {last_adjusted_r2}')
+    #     LOGGER.debug('\n'.join([
+    #         f'{predictor_id} (new {r2} vs previous {last_adjusted_r2}): increase {last_adjusted_r2-r2}' for r2, predictor_id in
+    #         sorted(r2_by_predictor_list)
+    #         if last_adjusted_r2-r2 > 0]))
+    # #   return
 
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
@@ -493,17 +513,13 @@ def main():
     LOGGER.debug(f'predictor id list: {predictor_id_list}')
     LOGGER.debug(f'response id list: {response_id_list}')
 
-    max_iter = 50000
-    reg = linear_model.LinearRegression()
-    poly_features = PolynomialFeatures(POLY_ORDER, interaction_only=False)
     for name, reg in [
             #('ols', make_pipeline(poly_features, StandardScaler(), linear_model.LinearRegression())),
+            ('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
             ('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
             ('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
-            ('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, tol=1e-12))),
             ]:
-        LOGGER.debug(trainset[0].shape)
-        LOGGER.debug(trainset[1].shape)
+        LOGGER.debug(f'{name}: {trainset[0].shape}, {trainset[1].shape}')
         model = reg.fit(trainset[0], trainset[1])
         # sensitivity_result = model.predict(sensitivity_test)
         # # result is pairs of 4 - mean-std for parameter, mean+std, sample-std, sample+std

@@ -4,7 +4,6 @@ import glob
 import os
 import logging
 import multiprocessing
-import re
 
 from ecoshard import geoprocessing
 import numpy
@@ -55,7 +54,7 @@ WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
                 ID["EPSG",9001]]]]"""
 
 PIXEL_SIZE = (300, -300)
-ALIGNED_WORKSPACE = 'aligned_rasters'
+ALIGNED_WORKSPACE = 'new_aligned_rasters'
 os.makedirs(ALIGNED_WORKSPACE, exist_ok=True)
 GF_DIR = os.path.join(ALIGNED_WORKSPACE, 'gf_dir')
 os.makedirs(GF_DIR, exist_ok=True)
@@ -85,7 +84,7 @@ def main():
         description='create spatial samples of data on a global scale')
     parser.add_argument(
         'raster_path_list', type=str, nargs='+',
-        help='path/pattern to list of rasters to sample', required=True)
+        help='path/pattern to list of rasters to sample')
     parser.add_argument(
         '--kernel_distance_list', type=float, nargs='+',
         help='distance in km for sample kernel', required=True)
@@ -95,7 +94,7 @@ def main():
     LOGGER.info('build kernels')
     kernel_raster_path_list = []
     for expected_max_edge_effect_km in args.kernel_distance_list:
-        pixel_radius = 100*expected_max_edge_effect_km/PIXEL_SIZE[0]
+        pixel_radius = 1000*expected_max_edge_effect_km/PIXEL_SIZE[0]
         kernel_raster_path = os.path.join(
             CHURN_DIR, f'kernel_{pixel_radius}.tif')
         kernel_task = task_graph.add_task(
