@@ -1,4 +1,4 @@
-"""Script to download everything needed to train the models."""
+"""Sample raster data into geopandas structure."""
 import argparse
 import glob
 import logging

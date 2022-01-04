@@ -1,10 +1,9 @@
-"""Script to download everything needed to train the models."""
+"""Framework to build regression model based on geopandas structure."""
 import argparse
 import collections
 import logging
 import os
 import pickle
-import multiprocessing
 
 import matplotlib.pyplot as plt
 import pandas
