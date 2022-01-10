@@ -50,9 +50,7 @@ WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
                 ID["EPSG",9001]]]]"""
 
 WORKSPACE_DIR = 'processed_rasters'
-ALIGNED_WORKSPACE = os.path.join(WORKSPACE_DIR, 'aligned_rasters')
-for dir_path in [WORKSPACE_DIR, ALIGNED_WORKSPACE]:
-    os.makedirs(dir_path, exist_ok=True)
+os.makedirs(WORKSPACE_DIR, exist_ok=True)
 
 GLOBAL_ECKERT_IV_BB = [-16921202.923, -8460601.461, 16921797.077, 8461398.539]
 
@@ -102,7 +100,7 @@ def main():
     for raster_path in raster_path_list:
         LOGGER.info(f'process {raster_path}')
         target_raster_path = os.path.join(
-            ALIGNED_WORKSPACE, os.path.basename(raster_path))
+            WORKSPACE_DIR, os.path.basename(raster_path))
         task_graph.add_task(
             func=geoprocessing.warp_raster,
             args=(

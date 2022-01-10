@@ -17,14 +17,14 @@ Place all the rasters you want to use in the model including predictors and resp
 
 ``python align_rasters_for_carbon_model.py path_to_raster_folder/*.tif``
 
-This creates a directory called ``processed_rasters/aligned_rasters`` which is a copy of all the rasters in the base folder but aligned and projected into the same dimensions.
+This creates a directory called ``processed_rasters`` which is a copy of all the rasters in the base folder but aligned and projected into the same dimensions.
 
 Step 2 -- Extract landcover type masks
 **************************************
 
 In this step the landcover rasters are processed into forest, urban, and crop mask rasters. These are used to identify where the model should be run (forest only) but also in a later step to measure any distance weighted influence from those landcover types. To extract masks from any number of ESA landcover rasters run the following command
 
-``python extract_landcover_masks.py processed_rasters/aligned_rasters/[landcover pattern].tif``
+``python extract_landcover_masks.py processed_rasters/[landcover pattern].tif``
 
 This script expects landcover rasters to be in the ESA format with the following classifications:
   * cropland: 10-41
@@ -32,13 +32,15 @@ This script expects landcover rasters to be in the ESA format with the following
   * forest: 50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170
 
 For each file matched in the pattern, 3 files are generated preprended with
-``cropland``, ``urban``, or ``forest``.
-
+``masked_cropland``, ``masked_urban``, or ``masked_forest``.
 
 Step 3 -- Calculate distance weighted influence
 ***********************************************
 
+The three masktypes in the previous step should be distance weighted based on
+the expected influence of carbon edge densities.
 
+``python gaussian_filter_rasters.py processed_rasters/masked_*.tif``
 
 
 
