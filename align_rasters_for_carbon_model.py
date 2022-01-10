@@ -6,8 +6,8 @@ import logging
 import multiprocessing
 
 from ecoshard import geoprocessing
+from ecoshard import taskgraph
 import numpy
-import taskgraph
 
 from osgeo import gdal
 gdal.SetCacheMax(2**27)
