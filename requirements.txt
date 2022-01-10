@@ -1,6 +1,0 @@
-ecoshard
-gdal
-pygeoprocessing
-numpy
-scipy
-taskgraph
