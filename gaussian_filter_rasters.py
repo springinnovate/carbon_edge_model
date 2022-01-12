@@ -1,15 +1,15 @@
 """Pass rasters and create gaussian filters for them."""
 import argparse
 import glob
-import os
 import logging
 import multiprocessing
+import os
 
 from ecoshard import geoprocessing
+from ecoshard import taskgraph
 import numpy
 import scipy
 import scipy.integrate as integrate
-import taskgraph
 import scipy.ndimage
 
 from osgeo import gdal
@@ -20,47 +20,10 @@ logging.basicConfig(
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('taskgraph').setLevel(logging.INFO)
+logging.getLogger('ecoshard.taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
-logging.getLogger('matplotlib').setLevel(logging.WARN)
-logging.getLogger('fiona').setLevel(logging.WARN)
-
-WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
-    BASEGEOGCRS["GCS_unknown",
-        DATUM["World Geodetic System 1984",
-            ELLIPSOID["WGS 84",6378137,298.257223563,
-                LENGTHUNIT["metre",1]],
-            ID["EPSG",6326]],
-        PRIMEM["Greenwich",0,
-            ANGLEUNIT["Degree",0.0174532925199433]]],
-    CONVERSION["unnamed",
-        METHOD["Eckert IV"],
-        PARAMETER["Longitude of natural origin",0,
-            ANGLEUNIT["Degree",0.0174532925199433],
-            ID["EPSG",8802]],
-        PARAMETER["False easting",0,
-            LENGTHUNIT["metre",1],
-            ID["EPSG",8806]],
-        PARAMETER["False northing",0,
-            LENGTHUNIT["metre",1],
-            ID["EPSG",8807]]],
-    CS[Cartesian,2],
-        AXIS["(E)",east,
-            ORDER[1],
-            LENGTHUNIT["metre",1,
-                ID["EPSG",9001]]],
-        AXIS["(N)",north,
-            ORDER[2],
-            LENGTHUNIT["metre",1,
-                ID["EPSG",9001]]]]"""
-
-PIXEL_SIZE = (3000, -3000)
-ALIGNED_WORKSPACE = 'new_aligned_rasters'
-os.makedirs(ALIGNED_WORKSPACE, exist_ok=True)
-GF_DIR = os.path.join(ALIGNED_WORKSPACE, 'gf_dir')
-os.makedirs(GF_DIR, exist_ok=True)
-CHURN_DIR = os.path.join(ALIGNED_WORKSPACE, 'churn_dir')
+CHURN_DIR = 'churn_dir'
 os.makedirs(CHURN_DIR, exist_ok=True)
 
 GLOBAL_ECKERT_IV_BB = [-16921202.923, -8460601.461, 16921797.077, 8461398.539]
@@ -77,34 +40,53 @@ def _make_kernel_raster(pixel_radius, target_path):
         truncate=truncate)
 
     sigma2 = pixel_radius * pixel_radius
-    #x = numpy.arange(0, size//2)
-    #x = numpy.array([0.5])
-    #phi_x = numpy.exp(-0.5 / sigma2 * x ** 2)
-    #kernel = phi_x #/ phi_x.sum()
-    #kernel_sum = numpy.sum(kernel)
-    #LOGGER.debug(kernel_sum)
-    #LOGGER.debug(kernel)
-
     scale = integrate.quad(
         lambda x: numpy.exp(-0.5/sigma2*x**2), -2, 0)[0]
-    LOGGER.debug(f'{size//2-pixel_radius}, {size//2+pixel_radius}')
-    LOGGER.debug(numpy.sum(kernel_array))
+
     geoprocessing.numpy_array_to_raster(
-        kernel_array/kernel_array[size//2+1, size//2+1], -1, (1., -1.), (0.,  0.), None,
-        target_path)
+        kernel_array/scale, -1, (1., -1.), (0.,  0.), None, target_path)
 
 
 def _process_gf(raw_raster_path, mask_raster_path, scale, target_raster_path):
+    """Scale raster by a value."""
+    pixel_size = geoprocessing.get_raster_info(raw_raster_path)['pixel_size']
+
     def _mask_op(base, mask):
         result = base.copy()
-        #result = 2*(result-0.3)
-        result /= (scale * PIXEL_SIZE[0])
-        result[(mask != 1) | (result < 0)] = 0
+        result /= (scale * pixel_size[0])
+        result[(mask == 0) | (result < 0)] = 0
         return result
 
     geoprocessing.raster_calculator(
         ((raw_raster_path, 1), (mask_raster_path, 1)), _mask_op,
         target_raster_path, gdal.GDT_Float32, -1)
+
+
+def filter_raster(base_raster_path, expected_max_edge_effect_km, target_path):
+    """Gaussian filter base by expected max edge to target_path."""
+    pixel_size = geoprocessing.get_raster_info(base_raster_path)['pixel_size']
+    pixel_radius = 1000*expected_max_edge_effect_km/pixel_size[0]
+    basename = os.path.basename(target_path)
+    kernel_raster_path = os.path.join(
+        CHURN_DIR, f'kernel_{pixel_radius}_{basename}')
+    _make_kernel_raster(pixel_radius, kernel_raster_path)
+    raw_gf_path = os.path.join(
+        CHURN_DIR, f'raw_gf_{expected_max_edge_effect_km}_{basename}')
+    LOGGER.debug(f'making convolution for {raw_gf_path}')
+
+    geoprocessing.convolve_2d(
+        (base_raster_path, 1), (kernel_raster_path, 1), raw_gf_path)
+
+    def _mask_op(raw_gf, base_array):
+        result = numpy.where(base_array == 1, raw_gf, -1.0)
+        return result
+
+    geoprocessing.raster_calculator(
+        [(raw_gf_path, 1), (base_raster_path, 1)], _mask_op, target_path,
+        gdal.GDT_Float32, -1.0)
+
+    os.remove(kernel_raster_path)
+    os.remove(raw_gf_path)
 
 
 def main():
@@ -117,92 +99,31 @@ def main():
     parser.add_argument(
         '--kernel_distance_list', type=float, nargs='+',
         help='distance in km for sample kernel', required=True)
-    parser.add_argument(
-        '--project_raster', action='store_true',
-        help='if set, projects input raster to Eckert IV')
 
     args = parser.parse_args()
 
-    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 5.0)
-    LOGGER.info('build kernels')
-    kernel_raster_path_list = []
-    for expected_max_edge_effect_km in args.kernel_distance_list:
-        pixel_radius = 1000*expected_max_edge_effect_km/PIXEL_SIZE[0]
-        kernel_raster_path = os.path.join(
-            CHURN_DIR, f'kernel_{pixel_radius}.tif')
-        kernel_task = task_graph.add_task(
-            func=_make_kernel_raster,
-            args=(pixel_radius, kernel_raster_path),
-            target_path_list=[kernel_raster_path],
-            task_name=f'make kernel of radius {pixel_radius}')
-        kernel_raster_path_list.append(
-            (kernel_raster_path, kernel_task, expected_max_edge_effect_km))
-
-    task_graph.join()
-    LOGGER.info('align everything')
-    for path_pattern in args.raster_path_list:
-        for raster_path in glob.glob(path_pattern):
-            LOGGER.debug(f'process {raster_path}')
-            basename = os.path.basename(os.path.splitext(raster_path)[0])
-            if args.project_raster:
-                warped_raster_path = os.path.join(
-                    ALIGNED_WORKSPACE, f'{basename}.tif')
-                warp_task = task_graph.add_task(
-                    func=geoprocessing.warp_raster,
-                    args=(
-                        raster_path, PIXEL_SIZE, warped_raster_path,
-                        'near'),
-                    kwargs={
-                        'target_bb': GLOBAL_ECKERT_IV_BB,
-                        'target_projection_wkt': WORLD_ECKERT_IV_WKT,
-                        },
-                    target_path_list=[warped_raster_path],
-                    task_name=f'warp {os.path.basename(raster_path)}')
-            else:
-                warped_raster_path = raster_path
-                warp_task = task_graph.add_task()
-
-            for (kernel_raster_path, kernel_task,
-                 expected_max_edge_effect_km) in kernel_raster_path_list:
-                raw_gf_path = os.path.join(
-                    CHURN_DIR, f'raw_{basename}_gf_{expected_max_edge_effect_km}.tif')
-                LOGGER.debug(f'making convoluion for {raw_gf_path}')
-                gf_task = task_graph.add_task(
-                    func=geoprocessing.convolve_2d,
-                    args=(
-                        (warped_raster_path, 1), (kernel_raster_path, 1),
-                        raw_gf_path),
-                    #kwargs={'normalize_kernel': True},
-                    dependent_task_list=[warp_task, kernel_task],
-                    target_path_list=[raw_gf_path],
-                    task_name=f'create guassian filter at {raw_gf_path}')
-
-                gf_path = os.path.join(
-                    GF_DIR, f'{basename}_gf_{expected_max_edge_effect_km}.tif')
-
-                kernel_task.join()
-                gf_task = task_graph.add_task(
-                    func=_process_gf,
-                    args=(
-                        raw_gf_path, warped_raster_path,
-                        get_center(kernel_raster_path), gf_path),
-                    dependent_task_list=[gf_task],
-                    target_path_list=[gf_path],
-                    task_name=f'mask guassian filter at {gf_path}')
-                gf_task.join()
-                gf_array = geoprocessing.raster_to_numpy_array(gf_path)
-                size = gf_array.shape[0]
-                LOGGER.debug(gf_array[size//2, size//2])
+    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 15)
+    raster_path_list = [
+        raster_path for raster_pattern in args.raster_path_list
+        for raster_path in glob.glob(raster_pattern)]
+    for raster_path in raster_path_list:
+        LOGGER.debug(f'process {raster_path}')
+        basename = os.path.basename(raster_path)
+        base_dir = os.path.dirname(raster_path)
+        for expected_max_edge_effect_km in args.kernel_distance_list:
+            gf_path = os.path.join(
+                base_dir, f'gf_{expected_max_edge_effect_km}_{basename}')
+            task_graph.add_task(
+                func=filter_raster,
+                args=(
+                    raster_path, expected_max_edge_effect_km,
+                    gf_path),
+                target_path_list=[gf_path],
+                task_name=f'filter raster {gf_path}')
 
     task_graph.join()
     task_graph.close()
 
-
-def get_center(raster_path):
-    return 1.0
-    r = gdal.OpenEx(raster_path)
-    size = r.RasterXSize
-    return r.ReadAsArray(size//2+1, size//2+1, 1, 1)[0, 0]
 
 if __name__ == '__main__':
     main()
