@@ -72,7 +72,7 @@ def main():
             LOGGER.info(f'process {raster_path}:{mask_id}')
             base_dir = os.path.dirname(raster_path)
             target_path = os.path.join(
-                base_dir, f'{mask_id}_{os.path.basename(raster_path)}')
+                base_dir, f'masked_{mask_id}_{os.path.basename(raster_path)}')
             task_graph.add_task(
                 func=_mask_raster,
                 args=(raster_path, lulc_codes, target_path),
