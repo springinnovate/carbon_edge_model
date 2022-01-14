@@ -38,15 +38,17 @@ Step 3 -- Calculate distance weighted influence
 ***********************************************
 
 The three masktypes in the previous step should be distance weighted based on
-the expected influence of carbon edge densities.
+the expected influence of carbon edge densities using this command
 
-``python gaussian_filter_rasters.py processed_rasters/masked_*.tif``
+``python gaussian_filter_rasters.py processed_rasters/masked_*.tif --kernel_distance_list 0.4 1.45``
 
+The kernel distances of 0.4km, and 1.45km, were selected from experimental observation of expected maximum edge effect distances in two types of forest.
 
+Step 4 -- Sample Rasters into Point Dataset
+*******************************************
 
+``python sample_data.py --sample_rasters processed_rasters/*.tif --holdback_bb 15.0 -9 33.0 9 --holdback_margin 2.0 --n_samples 100000``
 
-
-0.45 and 1.4
 
 
 
@@ -317,3 +319,18 @@ License
 
 This software is permissively licensed under The Apache 2.0 open source license.
 
+
+inputs:
+  landcover
+  prob
+  what to flip it to
+
+
+raster a
+raster b
+{
+  [for value in a
+    if b > threshold, flip a to something, else something else]
+}
+
+landcover in a, value > threshold, value < threshold
