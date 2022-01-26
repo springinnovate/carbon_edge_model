@@ -47,8 +47,15 @@ The kernel distances of 0.4km, and 1.45km, were selected from experimental obser
 Step 4 -- Sample Rasters into Point Dataset
 *******************************************
 
-``python sample_data.py --sample_rasters processed_rasters/*.tif --holdback_bb 15.0 -9 33.0 9 --holdback_margin 2.0 --n_samples 100000``
+Rasters are then sampled into a point dataset and separated by base points and holdback test set. The following command samples all the rasters in the ``processed_rasters`` directory:
 
+``python sample_data.py --sample_rasters processed_rasters/*.tif --holdback_bb 15.0 -9 33.0 9 --holdback_margin 2.0 --n_samples 100000 --country_polygon_path countries.gpkg``
+
+Arguments are as follows:
+  * ``--holdback_bb`` a bounding box in (lng min, lat min, lng max, lat max) format to define as the holdback test set for validation.
+  * ``--holdback_margin`` with of margin around the holdback bounding box to avoid sampling in units of degrees
+  * ``--n_samples`` number of sample points to generate
+  * ``--country_polygon_path`` if provided, limits sample points to the areas within the polygon of this vector.
 
 
 
