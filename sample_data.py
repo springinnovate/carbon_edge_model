@@ -295,7 +295,8 @@ def main():
 
     LOGGER.info(f'hashing {target_gpkg_path}')
     ecoshard.hash_file(
-        target_gpkg_path, rename=True, hash_algorithm='md5', force=True)
+        target_gpkg_path, rename=True, hash_algorithm='md5', force=True,
+        hash_length=6)
 
     LOGGER.info('plot')
     LOGGER.debug(f" all {filtered_gdf_points}")

@@ -59,6 +59,10 @@ Arguments are as follows:
   * ``--n_samples`` number of sample points to generate.
   * ``--country_polygon_path`` if provided, limits sample points to the areas within the polygon of this vector.
 
+This creates a point GPKG file in the current directory named ``sampled_points_[bounding box]_md5_[hash of file].gpkg`` that has the fields
+  * ``holdback`` true if in the holdback point set, false if not
+  * n other fields named after the rasters in the ``--sample_rasters`` input argument. Note the name of this file for the next step.
+
 
 
 Running the Model
