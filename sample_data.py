@@ -5,6 +5,16 @@ import logging
 import os
 import time
 
+from ecoshard import geoprocessing
+from osgeo import gdal
+from osgeo import osr
+from shapely.prepared import prep
+import ecoshard
+import geopandas
+import matplotlib.pyplot as plt
+import numpy
+import shapely
+
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -13,18 +23,8 @@ logging.basicConfig(
 logging.getLogger('taskgraph').setLevel(logging.WARN)
 LOGGER = logging.getLogger(__name__)
 
-logging.getLogger('matplotlib').setLevel(logging.WARN)
 logging.getLogger('fiona').setLevel(logging.WARN)
 
-import ecoshard
-from ecoshard import geoprocessing
-from osgeo import gdal
-from osgeo import osr
-from shapely.prepared import prep
-import geopandas
-import matplotlib.pyplot as plt
-import numpy
-import shapely
 
 gdal.SetCacheMax(2**27)
 
@@ -166,10 +166,10 @@ def generate_sample_points(
     """Create random sample points that are in bounds of the rasters.
 
     Args:
-        raster_path_list (list): list of raster paths which are in WGS84
+        raster_path_list (list): list of raster paths which are in the same
             projection.
         sample_polygon_path (str): path to polygon vector that is used to
-            limit the point selection.
+            limit the point selection or ``None``.
         bounding_box (4-float): minx, miny, maxx, maxy tuple of the total
             bounding box.
         holdback_bb (4-float): minx, miny, maxx, maxy tuple of the holdback
@@ -184,19 +184,20 @@ def generate_sample_points(
         GeoSeries of sample and holdback points
     """
     # include the vector bounding box information to make a global list
-    print('read file')
-    df = geopandas.read_file(sample_polygon_path)
+    if sample_polygon_path is not None:
+        print(f'load {sample_polygon_path}')
+        df = geopandas.read_file(sample_polygon_path)
 
-    if country_filter_list:
-        df = df[df['iso3'].isin(country_filter_list)]
+        if country_filter_list:
+            df = df[df['iso3'].isin(country_filter_list)]
 
-    geom = df['geometry'].intersection(bounding_box)
-    print('union')
-
-    final_geom = geom.unary_union
-    print('prep')
-    final_geom_prep = prep(final_geom)
-    x_min, y_min, x_max, y_max = final_geom.bounds
+        geom = df['geometry'].intersection(bounding_box)
+        final_geom = geom.unary_union
+        final_geom_prep = prep(final_geom)
+        x_min, y_min, x_max, y_max = final_geom.bounds
+    else:
+        x_min, y_min, x_max, y_max = bounding_box.bounds
+        final_geom_prep = prep(bounding_box)
 
     x = numpy.random.uniform(x_min, x_max, n_points)
     y = numpy.random.uniform(y_min, y_max, n_points)
@@ -214,7 +215,7 @@ def generate_sample_points(
         holdback_bb[1],
         holdback_bb[2],
         holdback_bb[3])
-
+    print(holdback_box)
     non_holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(lambda x: not holdback_bounds.contains(x), points_gdf)))
     non_holdback_gdf['holdback'] = False
@@ -232,10 +233,13 @@ def main():
     parser = argparse.ArgumentParser(
         description='create spatial samples of data on a global scale')
     parser.add_argument('--sample_rasters', type=str, nargs='+', help='path/pattern to list of rasters to sample', required=True)
-    parser.add_argument('--holdback_bb', type=float, nargs=4, help='holdback bounding box', required=True)
+    parser.add_argument('--holdback_bb', type=float, nargs=4, help='holdback bounding box in wgs84', required=True)
     parser.add_argument('--holdback_margin', type=float, help='margin around the holdback box to ignore', required=True)
     parser.add_argument('--n_samples', type=int, help='number of point samples', required=True)
     parser.add_argument('--iso_names', type=str, nargs='+', help='set of countries to allow, default is all')
+    parser.add_argument(
+        '--sample_vector_path', type=str,
+        help='path to a vector to limit sample points, if left off, samples to bounding box of rasters')
 
     args = parser.parse_args()
 
@@ -276,11 +280,9 @@ def main():
 
     LOGGER.debug(f'target box in wgs84: {target_box_wgs84}')
 
-    sample_polygon_path = r"D:\repositories\critical-natural-capital-optimizations\data\countries_iso3_md5_6fb2431e911401992e6e56ddf0a9bcda.gpkg"
-
     LOGGER.info(f'generate {args.n_samples} sample points')
     filtered_gdf_points = generate_sample_points(
-        raster_path_set, sample_polygon_path, target_box_wgs84,
+        raster_path_set, args.sample_vector_path, target_box_wgs84,
         args.holdback_bb, args.holdback_margin, args.n_samples, args.iso_names)
 
     LOGGER.info(f'sample data with {len(filtered_gdf_points)}...')
