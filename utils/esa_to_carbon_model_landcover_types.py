@@ -7,7 +7,7 @@ import tempfile
 
 from osgeo import gdal
 from osgeo import osr
-import pygeoprocessing
+from ecoshard import geoprocessing
 import numpy
 
 gdal.SetCacheMax(2**27)
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     target_bb = None
     target_projection_wkt = None
     if args.clipping_shapefile_path:
-        clip_vector_info = pygeoprocessing.get_vector_info(
+        clip_vector_info = geoprocessing.get_vector_info(
             args.clipping_shapefile_path)
         target_bb = clip_vector_info['bounding_box']
         target_projection_wkt = clip_vector_info['projection_wkt']
@@ -86,7 +86,7 @@ if __name__ == '__main__':
             (target_bb[3]-target_bb[1])/2)
 
         # 2) convert to lat/lng
-        base_projection_wkt = pygeoprocessing.get_raster_info(
+        base_projection_wkt = geoprocessing.get_raster_info(
             args.esa_lulc_raster_path)['projection_wkt']
         base_srs = osr.SpatialReference()
         base_srs.ImportFromWkt(base_projection_wkt)
@@ -105,7 +105,7 @@ if __name__ == '__main__':
             bb_centroid[0], bb_centroid[1])
 
         # 3) add lulc pixel size to it to make a pixel bb
-        esa_raster_info = pygeoprocessing.get_raster_info(
+        esa_raster_info = geoprocessing.get_raster_info(
             args.esa_lulc_raster_path)
         lng_lat_pixel_bb = [
             bb_centroid_lng_lat[0],
@@ -115,7 +115,7 @@ if __name__ == '__main__':
             ]
 
         # 4) reproject that pixel bb to target
-        target_pixel_bb = pygeoprocessing.transform_bounding_box(
+        target_pixel_bb = geoprocessing.transform_bounding_box(
             lng_lat_pixel_bb, base_srs.ExportToWkt(),
             target_srs.ExportToWkt())
 
@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
         # 6) clip raster
         reclassify_raster_path = os.path.join(churn_dir, 'clipped.tif')
-        pygeoprocessing.warp_raster(
+        geoprocessing.warp_raster(
             args.esa_lulc_raster_path, target_pixel_size,
             reclassify_raster_path, 'near', target_bb=target_bb,
             base_projection_wkt=base_srs.ExportToWkt(),
@@ -139,7 +139,7 @@ if __name__ == '__main__':
         reclassify_raster_path = args.esa_lulc_raster_path
 
     # reclassify clipped file as the output file
-    pygeoprocessing.raster_calculator(
+    geoprocessing.raster_calculator(
         [(reclassify_raster_path, 1)], _reclassify_esa_vals_op,
         args.target_mask_raster_path, gdal.GDT_Byte, None)
 
