@@ -26,8 +26,6 @@ logging.getLogger('fiona').setLevel(logging.WARN)
 logging.getLogger('matplotlib.font_manager').setLevel(logging.WARN)
 
 from osgeo import gdal
-from osgeo import osr
-from utils import esa_to_carbon_model_landcover_types
 import geopandas
 import numpy
 
@@ -37,39 +35,15 @@ gdal.SetCacheMax(2**27)
 BOUNDING_BOX = [-179, -60, 179, 60]
 POLY_ORDER = 2
 
-WORKSPACE_DIR = 'workspace'
-FIG_DIR = os.path.join(WORKSPACE_DIR, 'fig_dir')
-ECOSHARD_DIR = os.path.join(WORKSPACE_DIR, 'ecoshard')
-ALIGN_DIR = os.path.join(WORKSPACE_DIR, f'align{"_".join([str(v) for v in BOUNDING_BOX])}')
-CHURN_DIR = os.path.join(WORKSPACE_DIR, f'churn{"_".join([str(v) for v in BOUNDING_BOX])}')
+FIG_DIR = os.path.join('fig_dir')
 CHECKPOINT_DIR = 'model_checkpoints'
 for dir_path in [
-        WORKSPACE_DIR, ECOSHARD_DIR, ALIGN_DIR, CHURN_DIR, CHECKPOINT_DIR, FIG_DIR]:
+        FIG_DIR]:
     os.makedirs(dir_path, exist_ok=True)
-RASTER_LOOKUP_PATH = os.path.join(WORKSPACE_DIR, f'raster_lookup{"_".join([str(v) for v in BOUNDING_BOX])}.dat')
-
-URL_PREFIX = (
-    'https://storage.googleapis.com/ecoshard-root/global_carbon_regression_2/'
-    'inputs/')
-
-RESPONSE_RASTER_FILENAME = 'baccini_carbon_data_2003_2014_compressed_md5_11d1455ee8f091bf4be12c4f7ff9451b.tif'
-
-MASK_TYPES = [
-    ('cropland', esa_to_carbon_model_landcover_types.CROPLAND_LULC_CODES),
-    ('urban', esa_to_carbon_model_landcover_types.URBAN_LULC_CODES),
-    ('forest', esa_to_carbon_model_landcover_types.FOREST_CODES)]
-
-EXPECTED_MAX_EDGE_EFFECT_KM_LIST = [0.5]  # changed given guidance from reviewer [1.0, 3.0, 10.0]
-
-CELL_SIZE = (0.004, -0.004)  # in degrees
-PROJECTION_WKT = osr.SRS_WKT_WGS84_LAT_LONG
-SAMPLE_RATE = 0.001
-
-MAX_TIME_INDEX = 11
 
 
 def load_data(
-        geopandas_data, invalid_values, n_rows, predictor_response_table_path,
+        geopandas_data, n_rows, predictor_response_table_path,
         allowed_set):
     """
     Load and process data from geopandas data structure.
@@ -78,8 +52,6 @@ def load_data(
         geopandas_data (str): path to geopandas file containing at least
             the fields defined in the predictor response table and a
             "holdback" field to indicate the test data.
-        invalid_values (list): list of (fieldname, value) tuples to
-            invalidate any fieldname entries that have that value.
         n_rows (int): number of rows to load.
         predictor_response_table_path (str): path to a csv file containing
             headers 'predictor' and 'response'. Any non-null values
@@ -97,11 +69,6 @@ def load_data(
     else:
         with open(geopandas_data, 'rb') as geopandas_file:
             gdf = pickle.load(geopandas_file).copy()
-    if n_rows is not None:
-        gdf = gdf.sample(n=n_rows, replace=False).copy()
-    for invalid_value_tuple in invalid_values:
-        key, value = invalid_value_tuple.split(',')
-        gdf.drop(gdf[key] != float(value), inplace=True)
 
     rejected_outliers = {}
     gdf.to_csv('dropped_base.csv')
@@ -290,7 +257,7 @@ def load_data(
         dataset_map[train_holdback_type] = (x_tensor.T, y_tensor.T)
         dataset_map[f'{train_holdback_type}_params'] = parameter_stats
 
-    #gdf_filtered.to_csv('gdf_filtered.csv')
+    gdf_filtered.to_csv('gdf_filtered.csv')
     return (
         predictor_response_table['predictor'].count(),
         predictor_response_table['response'].count(),
@@ -311,13 +278,13 @@ def list_outliers(data, m=100.):
 
 
 def r2_analysis(
-        geopandas_data_path, invalid_values, n_rows,
+        geopandas_data_path, n_rows,
         predictor_response_table_path, allowed_set, reg):
     """Calculate adjusted R2 given the allowed set."""
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, testset, rejected_outliers,
      parameter_stats) = load_data(
-        geopandas_data_path, invalid_values, n_rows,
+        geopandas_data_path, n_rows,
         predictor_response_table_path, allowed_set)
     LOGGER.info(f'got {n_predictors} predictors, doing fit')
     LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
@@ -415,7 +382,7 @@ def main():
 
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
-        args.geopandas_data, args.invalid_values, args.n_rows,
+        args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
 
 
@@ -523,7 +490,7 @@ def main():
             r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
             r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
             plt.title(
-                f'{args.prefix}{prefix} {name}\n$R^2={r2:.3f}$\nAdjusted $R^2={r2_adjusted:.3f}$')
+                f'{args.prefix}{prefix} {name}\n$R^2={r2:.3f}$ -- Adjusted $R^2={r2_adjusted:.3f}$')
             plt.savefig(os.path.join(
                 FIG_DIR, f'{args.prefix}{name}_{prefix}.png'))
             plt.close()
