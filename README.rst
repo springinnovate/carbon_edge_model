@@ -78,7 +78,7 @@ The CSV headers are explained in detail here:
 * ``group`` and ``target`` - used to "group" differently named raster samples into a single sample pool. For example, if there are several ``response`` rasters but they refer to different years of data, all are needed to train the model as a single predictor, you would list every individual year as a separate response and give it a unique ``group`` per predictor, but an identical ``target``. For example, if you have 5 rasters as responses, and 10 predictors, but all 5 rasters have the same ``target``, there will be 5 samples of 11 units where all the predictors are identical but the responses are unique.
 * ``filter_only`` - if set to 1 then this raster is not included in the sample vector, but is only used to accept or reject a sample vector given any of the filter options. This is useful if there is an input predictor that is a mask, such as forest, but otherwise always has the same value.
 
-Below is an example of such a table
+Below is an example of such a table:
 
 +----------------------------------------------------------------------------------+-----------+----------+----------+------+------+--------+----------------------+--------------+
 | predictor                                                                        | response  | include  | exclude  | min  | max  | group  | target               | filter_only  |
@@ -118,6 +118,15 @@ Below is an example of such a table
 | wind_speed_10sec_compressed_wgs84__md5_7c5acc948ac0ff492f3d148ffc277908          |           |          |          |      |      |        |                      |              |
 +----------------------------------------------------------------------------------+-----------+----------+----------+------+------+--------+----------------------+--------------+
 
+
+Utility to make model config table
+----------------------------------
+
+The script at ``utils/build_skeleton_model_config.py`` can be used to generate a base CSV model config file that is easier to manipulate than writing from scratch. To use it:
+
+``python utils/build_skeleton_model_config.py [path to .gpkg] --output_filename [model_config_table.csv]``
+
+The generated CSV has all the necessary columns specified above and every data column in the geopackage (except ``holdback`` and ``geometry``) is listed in the ``predictor`` column. It is easier to manipulate that table than it would be to write it from scratch.
 
 Step 5 -- Train the model
 *************************
