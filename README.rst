@@ -128,13 +128,14 @@ The script at ``utils/build_skeleton_model_config.py`` can be used to generate a
 
 The generated CSV has all the necessary columns specified above and every data column in the geopackage (except ``holdback`` and ``geometry``) is listed in the ``predictor`` column. It is easier to manipulate that table than it would be to write it from scratch.
 
-Step 5 -- Train the model
+Step 6 -- Train the model
 *************************
 
+Given the sample point dataset and a model configuration file created above, a regression model can be trained with the following command:
 
+``python train_regression_model.py [path to point .gpkg] [path to model configuration .csv]``
 
-
-
+This will train the model with several techniques that will get logged to the console. Each model reports its fitness with a scatterplot figure located at ``fig_dir/[regression model]_[training|holdback].png`` which contains the fit line, R^2 and adjusted R^2 and information whether it was the training or holdback test set.
 
 Running the Model
 -----------------

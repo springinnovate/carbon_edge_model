@@ -94,7 +94,6 @@ def load_data(
 
         # drop fields that request it
         for index, row in predictor_response_table[~predictor_response_table['include'].isnull()].iterrows():
-            LOGGER.debug(column_id)
             column_id = row['predictor']
             if not isinstance(column_id, str):
                 column_id = row['response']
@@ -107,22 +106,17 @@ def load_data(
         # restrict based on "include"
         index_filter_series = None
         for index, row in predictor_response_table[~predictor_response_table['include'].isnull()].iterrows():
-            LOGGER.debug(column_id)
             column_id = row['predictor']
             if not isinstance(column_id, str):
                 column_id = row['response']
             if not isinstance(column_id, str):
                 column_id = row['filter']
-            #LOGGER.debug(f'column id to filter: {column_id}')
-            #LOGGER.debug(f"going to keep value {row['include']} from column {column_id}")
 
             keep_indexes = (gdf_filtered[column_id]==float(row['include']))
             if index_filter_series is None:
                 index_filter_series = keep_indexes
             else:
                 index_filter_series &= keep_indexes
-
-            #LOGGER.debug(index_filter_series)
 
         # restrict based on "exclude"
         for index, row in predictor_response_table[~predictor_response_table['exclude'].isnull()].iterrows():
@@ -131,17 +125,12 @@ def load_data(
                 column_id = row['response']
             if not isinstance(column_id, str):
                 column_id = row['filter']
-            #LOGGER.debug(f'column id to filter: {column_id}')
-            #LOGGER.debug(f"going to drop value {row['exclude']} from column {column_id}")
-            #LOGGER.debug(f"row['predictor']: {row['predictor']} row['response']: {row['response']} ")
 
             keep_indexes = (gdf_filtered[column_id]!=float(row['exclude']))
             if index_filter_series is None:
                 index_filter_series = keep_indexes
             else:
                 index_filter_series &= keep_indexes
-
-            LOGGER.debug(index_filter_series)
 
         # restrict based on min/max
         if 'max' in predictor_response_table:
@@ -151,9 +140,6 @@ def load_data(
                     column_id = row['response']
                 if not isinstance(column_id, str):
                     column_id = row['filter']
-                #LOGGER.debug(f'column id to filter: {column_id}')
-                #LOGGER.debug(f"going to drop value > {row['max']} from column {column_id}")
-                #LOGGER.debug(f"row['predictor']: {row['predictor']} row['response']: {row['response']} ")
 
                 keep_indexes = (gdf_filtered[column_id] <= float(row['max']))
                 if index_filter_series is None:
@@ -179,15 +165,15 @@ def load_data(
         if index_filter_series is not None:
             gdf_filtered = gdf_filtered[index_filter_series]
 
-        unique_groups = [numpy.nan]
         if 'group' in predictor_response_table:
             unique_groups = predictor_response_table['group'].dropna().unique()
+        if unique_groups.size == 0:
+            unique_groups = [numpy.nan]
 
         parameter_stats = {}
         group_collection = collections.defaultdict(
             lambda: collections.defaultdict(list))
         index = 0
-        LOGGER.debug(unique_groups)
         for group_id in unique_groups:
             id_list_by_parameter_type = collections.defaultdict(list)
             # set up one group run, this map will collect vector of predictor
@@ -206,7 +192,6 @@ def load_data(
                         # parameter might not be a predictor or a response
                         # (n/a in the model table column)
                         continue
-                    LOGGER.debug(predictor_response_group_id)
                     if (isinstance(predictor_response_group_id, str) or
                             not numpy.isnan(predictor_response_group_id)):
                         # this predictor class has a group defined with it,
@@ -239,7 +224,6 @@ def load_data(
                 group_collection[group_id] = (
                     predictor_response_map, id_list_by_parameter_type)
         # group_collection is sorted by group
-        LOGGER.debug(group_collection)
         x_tensor = None
         for key, (parameters, id_list) in group_collection.items():
             local_x_tensor = numpy.array(
@@ -308,6 +292,12 @@ def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg)
         table_file.write('id,coef\n')
         for feature_id, coef in zip(poly_feature_id_list, reg[-1].coef_.flatten()):
             table_file.write(f"{feature_id.replace(' ', '*')},{coef}\n")
+    with open(os.path.join(
+            f"{prefix}norm_coef_{name}.csv"), 'w') as table_file:
+        table_file.write('id,coef\n')
+        for feature_id, scale, mean, var in zip(poly_feature_id_list, reg[-2].scale_.flatten(), reg[-2].mean_.flatten(), reg[-2].var_.flatten()):
+            table_file.write(f"{feature_id.replace(' ', '*')},{scale},{mean},{var}\n")
+
 
 def main():
     parser = argparse.ArgumentParser(description='DNN model trainer')
@@ -321,9 +311,6 @@ def main():
         '--n_rows', type=int,
         help='number of samples to train on from the dataset')
     parser.add_argument(
-        '--invalid_values', type=str, nargs='*', default=list(),
-        help='values to mask out of dataframe write as fieldname,value pairs')
-    parser.add_argument(
         '--prefix', type=str, default='', help='add prefix to output files')
     args = parser.parse_args()
 
@@ -332,108 +319,10 @@ def main():
 
     poly_features = PolynomialFeatures(POLY_ORDER, interaction_only=False)
     max_iter = 50000
-    # lasso_reg = make_pipeline(
-    #     poly_features, StandardScaler(), linear_model.Lasso(
-    #         alpha=0.1, max_iter=max_iter))
-    # LOGGER.info('doing initial r2 analysis')
-    # last_adjusted_r2, reg, predictor_id_list = r2_analysis(
-    #     args.geopandas_data, args.invalid_values, args.n_rows,
-    #     args.predictor_response_table, allowed_set, lasso_reg)
-    # print(last_adjusted_r2)
-    # _write_coeficient_table(
-    #     poly_features, predictor_id_list, args.prefix, os.path.basename(
-    #         os.path.splitext(args.predictor_response_table)[0]), reg)
-    # return
-
-    # LOGGER.debug(last_adjusted_r2)
-    # pool = multiprocessing.pool.Pool(3)
-
-    # while True:
-    #     result_list = []
-    #     for predictor_id in reversed(sorted(allowed_set)):
-    #         local_set = set(allowed_set)
-    #         local_set.remove(predictor_id)
-    #         #LOGGER.debug(predictor_id)
-    #         result = pool.apply_async(
-    #             r2_analysis, (
-    #                 args.geopandas_data, args.invalid_values, args.n_rows,
-    #                 args.predictor_response_table, local_set, lasso_reg))
-    #         result_list.append((predictor_id, result))
-
-    #         #r2_adjusted = r2_analysis(
-    #         #    args.geopandas_data, args.invalid_values, args.n_rows,
-    #         #    args.predictor_response_table, local_set, lasso_reg)
-    #     pool.close()
-    #     pool.join()
-    #     r2_by_predictor_list = []
-    #     for predictor_id, result in result_list:
-    #         LOGGER.debug(f'waiting on {predictor_id}')
-    #         adjusted_r2 = result.get()
-    #         LOGGER.info(
-    #             f'got {adjusted_r2} for {predictor_id} increase of '
-    #             f'{adjusted_r2-last_adjusted_r2}')
-    #         r2_by_predictor_list.append((adjusted_r2, predictor_id))
-    #     LOGGER.debug(f'previous r2: {last_adjusted_r2}')
-    #     LOGGER.debug('\n'.join([
-    #         f'{predictor_id} (new {r2} vs previous {last_adjusted_r2}): increase {last_adjusted_r2-r2}' for r2, predictor_id in
-    #         sorted(r2_by_predictor_list)
-    #         if last_adjusted_r2-r2 > 0]))
-    # #   return
-
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
-
-
-    #LOGGER.debug(parameter_stats)
-    #mean_vector = []
-    #sample_vector = trainset[:][0][0].detach().numpy()
-    #predictor_vector = trainset[0]
-    #response_vector = trainset[1]
-    # for (parameter_index, parameter_id), (mean, std) in sorted(
-    #         parameter_stats.items()):
-    #     LOGGER.debug(
-    #         f'{parameter_index}, {parameter_id}, {mean}, {std}, '
-    #         f'{predictor_vector[parameter_index]}')
-    #     mean_vector.append(mean)
-
-    #LOGGER.debug(predictor_vector.shape)
-
-    # sensitivity_test = []
-    # # seed with a 'random' sample and the mean
-    # parameter_id_list = ['random sample', 'training set mean']
-    # sensitivity_test.append(trainset[0][:, 0])
-    # sensitivity_test.append(numpy.array(mean_vector))
-    # for (index, parameter_id), (mean, std) in sorted(parameter_stats.items()):
-
-    #     LOGGER.debug(f'{index}, {parameter_id}, {mean}, {std}')
-    #     local_sample_vector = numpy.array(sensitivity_test[-1])
-    #     parameter_id_list.append(f'{parameter_id}_sample-std')
-    #     local_sample_vector[index] -= std
-    #     sensitivity_test.append(numpy.array(local_sample_vector))
-
-    #     local_sample_vector = numpy.array(sensitivity_test[-1])
-    #     parameter_id_list.append(f'{parameter_id}_sample+std')
-    #     local_sample_vector[index] += std
-    #     sensitivity_test.append(numpy.array(local_sample_vector))
-
-    #     sensitivity_vector = numpy.array(mean_vector)
-    #     parameter_id_list.append(f'{parameter_id}_mean-std')
-    #     sensitivity_vector[index] = mean-std
-    #     sensitivity_test.append(numpy.array(sensitivity_vector))
-
-    #     sensitivity_vector = numpy.array(mean_vector)
-    #     parameter_id_list.append(f'{parameter_id}_mean+std')
-    #     sensitivity_vector[index] = mean+std
-    #     sensitivity_test.append(numpy.array(sensitivity_vector))
-
-    #sensitivity_test = numpy.array(sensitivity_test)
-    #LOGGER.debug(sensitivity_test.shape)
-    # mean vector is a vector of mean values for the parameters
-
-    LOGGER.debug(f'predictor id list: {predictor_id_list}')
-    LOGGER.debug(f'response id list: {response_id_list}')
 
     for name, reg in [
             #('ols', make_pipeline(poly_features, StandardScaler(), linear_model.LinearRegression())),
@@ -441,28 +330,9 @@ def main():
             ('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
             ('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
             ]:
-        LOGGER.debug(f'{name}: {trainset[0].shape}, {trainset[1].shape}')
+        LOGGER.info(f'fitting data with {name}')
         model = reg.fit(trainset[0], trainset[1])
-        # sensitivity_result = model.predict(sensitivity_test)
-        # # result is pairs of 4 - mean-std for parameter, mean+std, sample-std, sample+std
-        # with open(f'sensitivity_{name}.csv', 'w') as sensitivity_table:
-        #     sensitivity_table.write('parameter,result,val-sample,val-mean\n')
-        #     # do the mean first
-        #     for index, val in enumerate(sensitivity_result):
-        #         if isinstance(val, numpy.ndarray):
-        #             val = val[0]
-        #         if index == 0:
-        #             sample = val
-        #         if index == 1:
-        #             mean = val
-        #         if index <= 1:
-        #             sensitivity_table.write(f'{parameter_id_list[index]},{val},n/a,n/a\n')
-        #         elif (index-2) % 4 < 2:
-        #             # sample row
-        #             sensitivity_table.write(f'{parameter_id_list[index]},{val},{val-sample},n/a\n')
-        #         else:
-        #             # mean row
-        #             sensitivity_table.write(f'{parameter_id_list[index]},{val},n/a,{val-mean}\n')
+        LOGGER.info(f'saving coefficient table for {name}')
         _write_coeficient_table(
             poly_features, predictor_id_list, args.prefix, name, reg)
 
@@ -471,7 +341,6 @@ def main():
                 (testset[1].flatten(), model.predict(testset[0]).flatten(), testset[0].shape[0], 'holdback'),
                 (trainset[1].flatten(), model.predict(trainset[0]).flatten(), trainset[0].shape[0], 'training'),
                 ]:
-
             try:
                 z = numpy.polyfit(expected_values, modeled_values, 1)
             except ValueError as e:
@@ -489,6 +358,8 @@ def main():
                 min(expected_values), max(expected_values))
             r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
             r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
+            if prefix == 'holdback':
+                LOGGER.info(f'{name}-{prefix} adjusted R^2: {r2_adjusted:.3f}')
             plt.title(
                 f'{args.prefix}{prefix} {name}\n$R^2={r2:.3f}$ -- Adjusted $R^2={r2_adjusted:.3f}$')
             plt.savefig(os.path.join(
@@ -499,15 +370,6 @@ def main():
             'model': model,
             'predictor_id_list': predictor_id_list,
         }
-
-    # start with a list of predictors and response
-    # train model and record adjusted R^2
-    # loop through each predictor to drop it and compare against R^2
-    # drop the predictor that gives the largest R^2 increase to the base, report to .txt, then iterate
-    predictor_set = set()
-    previous_r_2 = 0.0
-    #while True:
-
 
     LOGGER.debug('all done')
 
