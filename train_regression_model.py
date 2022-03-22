@@ -92,7 +92,6 @@ def load_data(
         pytorch dataset tuple of (train, test) DataSets.
     """
     # load data
-    #LOGGER.info(f'reading geopandas file {geopandas_data}')
     if geopandas_data.endswith('gpkg'):
         gdf = geopandas.read_file(geopandas_data)
     else:
@@ -100,7 +99,6 @@ def load_data(
             gdf = pickle.load(geopandas_file).copy()
     if n_rows is not None:
         gdf = gdf.sample(n=n_rows, replace=False).copy()
-    #LOGGER.info(f'gdf columns: {gdf.columns}')
     for invalid_value_tuple in invalid_values:
         key, value = invalid_value_tuple.split(',')
         gdf.drop(gdf[key] != float(value), inplace=True)
@@ -111,9 +109,7 @@ def load_data(
         if gdf[column_id].dtype in (int, float, complex):
             outliers = list_outliers(gdf[column_id].to_numpy())
             if len(outliers) > 0:
-                #LOGGER.debug(f'{column_id}: {outliers}')
                 gdf.replace({column_id: outliers}, 0, inplace=True)
-                #gdf.loc[column_id, gdf[column_id].isin(outliers)] = 0
                 rejected_outliers[column_id] = outliers
     gdf.to_csv('dropped.csv')
 
@@ -198,10 +194,6 @@ def load_data(
                 else:
                     index_filter_series &= keep_indexes
 
-
-
-                #LOGGER.debug(index_filter_series)
-
         # restrict based on min/max
         if 'min' in predictor_response_table:
             for index, row in predictor_response_table[~predictor_response_table['min'].isnull()].iterrows():
@@ -210,10 +202,6 @@ def load_data(
                     column_id = row['response']
                 if not isinstance(column_id, str):
                     column_id = row['filter']
-                # skip if not allowed
-                #LOGGER.debug(f'column id to filter: {column_id}')
-                #LOGGER.debug(f"going to drop value < {row['min']} from column {column_id}")
-                #LOGGER.debug(f"row['predictor']: {row['predictor']} row['response']: {row['response']} ")
 
                 keep_indexes = (gdf_filtered[column_id] >= float(row['min']))
                 if index_filter_series is None:
@@ -221,36 +209,19 @@ def load_data(
                 else:
                     index_filter_series &= keep_indexes
 
-                #LOGGER.debug(index_filter_series)
-
-        #LOGGER.debug(index_filter_series)
-
         if index_filter_series is not None:
             gdf_filtered = gdf_filtered[index_filter_series]
 
+        unique_groups = [numpy.nan]
         if 'group' in predictor_response_table:
             unique_groups = predictor_response_table['group'].dropna().unique()
-        #else:
-        #    unique_groups = [numpy.nan]
 
-        #for field_to_drop in fields_to_drop_list:
-        #    gdf_filtered.drop(field_to_drop, axis=1, inplace=True)
-
-        # gdf filtered is the table with data indexed by the raw parameter
-        # names that will show up in the predictor response table
-        # ['predictor'] or ['response'] columns
-        #LOGGER.debug(gdf_filtered.columns)
-        # predictor response table is the model parameter table indexed by
-        #   predictor, response, include, exclude, min, max, group, target
-        #LOGGER.debug(predictor_response_table['predictor'])
-        #LOGGER.debug(predictor_response_table['response'])
         parameter_stats = {}
-        group_collection = collections.defaultdict(lambda: collections.defaultdict(list))
+        group_collection = collections.defaultdict(
+            lambda: collections.defaultdict(list))
         index = 0
+        LOGGER.debug(unique_groups)
         for group_id in unique_groups:
-            # this will collect the correct target ids for the resulting
-            # grouped variables, every ID list should be the same for each
-            # group id
             id_list_by_parameter_type = collections.defaultdict(list)
             # set up one group run, this map will collect vector of predictor
             # and response for training for that group
@@ -268,8 +239,9 @@ def load_data(
                         # parameter might not be a predictor or a response
                         # (n/a in the model table column)
                         continue
-
-                    if not numpy.isnan(predictor_response_group_id):
+                    LOGGER.debug(predictor_response_group_id)
+                    if (isinstance(predictor_response_group_id, str) or
+                            not numpy.isnan(predictor_response_group_id)):
                         # this predictor class has a group defined with it,
                         # use it if the group matches the current group id
                         if predictor_response_group_id != group_id:
@@ -279,16 +251,6 @@ def load_data(
                         # used in every group
                         target_id = parameter_id
 
-                    # LOGGER.debug(
-                    #    f'{train_holdback_type} {parameter_type} {group_id} {parameter_id}: '
-                    #    f'{target_id}')
-                    # if this parameter id has groups, it also has a target,
-                    # we want to uniquely stack the n groups
-                    # if there is no group then we can duplicate the stack n times
-
-                    # gdf_filtered only has raw data
-                    # the predictor_response table tells us how the fields in
-                    # gdf_filtered group to a higher concept
                     if isinstance(parameter_id, str):
                         id_list_by_parameter_type[parameter_type].append(
                             target_id)
@@ -310,12 +272,9 @@ def load_data(
                 group_collection[group_id] = (
                     predictor_response_map, id_list_by_parameter_type)
         # group_collection is sorted by group
+        LOGGER.debug(group_collection)
         x_tensor = None
         for key, (parameters, id_list) in group_collection.items():
-            #LOGGER.debug(
-            #    f"{key}:\n{id_list['predictor'][0]}\n"
-            #    f"{(parameters['predictor'][0])}")
-
             local_x_tensor = numpy.array(
                 predictor_response_map['predictor'], dtype=numpy.float32)
             local_y_tensor = numpy.array(
@@ -328,9 +287,6 @@ def load_data(
                     (x_tensor, local_x_tensor), axis=1)
                 y_tensor = numpy.concatenate(
                     (y_tensor, local_y_tensor), axis=1)
-            #LOGGER.debug(x_tensor.shape)
-        #LOGGER.debug(x_tensor.shape)
-        #LOGGER.debug(y_tensor.shape)
         dataset_map[train_holdback_type] = (x_tensor.T, y_tensor.T)
         dataset_map[f'{train_holdback_type}_params'] = parameter_stats
 
