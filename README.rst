@@ -120,7 +120,7 @@ Below is an example of such a table:
 
 
 Utility to make model config table
-----------------------------------
+==================================
 
 The script at ``utils/build_skeleton_model_config.py`` can be used to generate a base CSV model config file that is easier to manipulate than writing from scratch. To use it:
 
@@ -137,8 +137,14 @@ Given the sample point dataset and a model configuration file created above, a r
 
 This will train the model with several techniques that will get logged to the console. Each model reports its fitness with a scatterplot figure located at ``fig_dir/[regression model]_[training|holdback].png`` which contains the fit line, R^2 and adjusted R^2 and information whether it was the training or holdback test set.
 
+The resulting model is saved at
+
 Running the Model
 -----------------
+
+
+
+
 
 Step 1 -- Create a simple landcover classification
 **************************************************
