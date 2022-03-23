@@ -63,6 +63,7 @@ def main():
         raster_path
         for raster_pattern in args.raster_pattern_list
         for raster_path in glob.glob(raster_pattern)]
+    LOGGER.debug(raster_path_list)
 
     n_workers = min(len(raster_path_list), multiprocessing.cpu_count())
     LOGGER.info(f'{n_workers} workers are starting')
