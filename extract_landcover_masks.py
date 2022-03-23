@@ -26,7 +26,7 @@ logging.basicConfig(
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('ecoshard.taskgraph').setLevel(logging.WARN)
+logging.getLogger('ecoshard.taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 
@@ -64,8 +64,9 @@ def main():
         for raster_pattern in args.raster_pattern_list
         for raster_path in glob.glob(raster_pattern)]
 
-    task_graph = taskgraph.TaskGraph(
-        '.', min(len(raster_path_list), multiprocessing.cpu_count()), 10.0)
+    n_workers = min(len(raster_path_list), multiprocessing.cpu_count())
+    LOGGER.info(f'{n_workers} workers are starting')
+    task_graph = taskgraph.TaskGraph('.', n_workers, 10.0)
 
     for raster_path in raster_path_list:
         for mask_id, lulc_codes in MASK_TYPES:
@@ -79,9 +80,11 @@ def main():
                 target_path_list=[target_path],
                 task_name=f'mask {target_path}')
 
+    LOGGER.info(f'waiting for jobs to complete')
     task_graph.close()
     task_graph.join()
     del task_graph
+    LOGGER.info(f'all done!')
 
 
 if __name__ == '__main__':
