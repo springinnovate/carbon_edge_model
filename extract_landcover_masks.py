@@ -65,7 +65,9 @@ def main():
         for raster_path in glob.glob(raster_pattern)]
     LOGGER.debug(raster_path_list)
 
-    n_workers = min(len(raster_path_list), multiprocessing.cpu_count())
+    n_workers = min(
+        len(raster_path_list)*len(MASK_TYPES),
+        multiprocessing.cpu_count())
     LOGGER.info(f'{n_workers} workers are starting')
     task_graph = taskgraph.TaskGraph('.', n_workers, 10.0)
 
