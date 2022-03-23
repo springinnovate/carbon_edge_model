@@ -102,10 +102,15 @@ def main():
 
     args = parser.parse_args()
 
-    task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 15)
     raster_path_list = [
         raster_path for raster_pattern in args.raster_path_list
         for raster_path in glob.glob(raster_pattern)]
+    n_workers = min(
+        len(raster_path_list)*len(args.kernel_distance_list),
+        multiprocessing.cpu_count())
+
+    task_graph = taskgraph.TaskGraph('.', n_workers, 15)
+
     for raster_path in raster_path_list:
         LOGGER.debug(f'process {raster_path}')
         basename = os.path.basename(raster_path)
