@@ -51,13 +51,13 @@ Step 4 -- Sample rasters into point dataset
 
 Rasters are then sampled into a point dataset and separated by base points and holdback test set. The following command samples all the rasters in the ``processed_rasters`` directory:
 
-``python sample_data.py --sample_rasters processed_rasters/*.tif --holdback_bb 15.0 -9 33.0 9 --holdback_margin 2.0 --n_samples 100000 --country_polygon_path countries.gpkg``
+``python sample_data.py --sample_rasters processed_rasters/*.tif --holdback_bb 15.0 -9 33.0 9 --holdback_margin 2.0 --n_samples 100000 --sample_vector_path countries.gpkg``
 
 Arguments are as follows:
   * ``--holdback_bb`` a bounding box in (lng min, lat min, lng max, lat max) format to define as the holdback test set for validation. Note this bounding box must be in WGS84 even if input rasters are not.
   * ``--holdback_margin`` with of margin around the holdback bounding box to avoid sampling in units of degrees.
   * ``--n_samples`` number of sample points to generate.
-  * ``--country_polygon_path`` if provided, limits sample points to the areas within the polygon of this vector.
+  * ``--sample_vector_path`` if provided, limits sample points to the areas within the polygon of this vector.
 
 This creates a point GPKG file in the current directory named ``sampled_points_[bounding box]_md5_[hash of file].gpkg`` that has the fields
   * ``holdback`` true if in the holdback point set, false if not
