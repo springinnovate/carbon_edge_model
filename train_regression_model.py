@@ -364,9 +364,9 @@ def main():
             poly_features, predictor_id_list, args.prefix, name, reg)
 
         k = trainset[0].shape[1]
-        for expected_values, modeled_values, n, prefix, X, y in [
-                (testset[1].flatten(), model.predict(testset[0]).flatten(), testset[0].shape[0], 'holdback', testset[0], testset[1]),
-                (trainset[1].flatten(), model.predict(trainset[0]).flatten(), trainset[0].shape[0], 'training', trainset[0], trainset[1]),
+        for expected_values, modeled_values, n, prefix in [
+                (testset[1].flatten(), model.predict(testset[0]).flatten(), testset[0].shape[0], 'holdback'),
+                (trainset[1].flatten(), model.predict(trainset[0]).flatten(), trainset[0].shape[0], 'training'),
                 ]:
             try:
                 z = numpy.polyfit(expected_values, modeled_values, 1)
@@ -383,8 +383,7 @@ def main():
             plt.scatter(expected_values, modeled_values, c='g', s=0.25)
             plt.ylim(
                 min(expected_values), max(expected_values))
-            #r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
-            r2 = reg.score(X, y)
+            r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
             r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
             if prefix == 'holdback':
                 LOGGER.info(f'{name}-{prefix} adjusted R^2: {r2_adjusted:.3f}')
