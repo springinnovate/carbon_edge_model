@@ -301,10 +301,18 @@ def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg)
         except Exception:
             pass
         if len(reg) == 3:
-            table_file.write('id,coef,scale,mean,\n')
+            table_file.write('id,coef,scale,mean,term1,term2\n')
             table_file.write(f"intercept,{intercept}\n")
             for feature_id, coef, scale, mean in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].scale_.flatten(), reg[-2].mean_.flatten()):
-                table_file.write(f"{feature_id.replace(' ', '*')},{coef},{scale},{mean}\n")
+                if '**2' in feature_id:
+                    term1 = feature_id.split('*')[0]
+                    term2 = term1
+                elif '*' not in feature_id:
+                    term1 = feature_id
+                    term2 = term1
+                else:
+                    term1, term2 = feature_id.split('*')
+                table_file.write(f"{feature_id.replace(' ', '*')},{coef},{scale},{mean},{term1},{term2}\n")
         else:
             table_file.write('id,coef,pca,scale,mean,\n')
             table_file.write(f"intercept,{intercept}\n")
@@ -332,7 +340,6 @@ def main():
 
     predictor_response_table = pandas.read_csv(args.predictor_response_table)
     allowed_set = set(predictor_response_table['predictor'].dropna())
-
 
     #spline_features = SplineTransformer(degree=2, n_knots=3)
     max_iter = 50000
