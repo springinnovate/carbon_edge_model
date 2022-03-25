@@ -106,7 +106,7 @@ def load_data(
             if not isinstance(column_id, str):
                 column_id = row['filter']
 
-            LOGGER.info(f'xxxxxxxxxxxxxxxxxxxxxxx {row["filter_only"]})
+            LOGGER.info(f'xxxxxxxxxxxxxxxxxxxxxxx {row["filter_only"]}')
             if row['filter_only'] in [1, '1']:
                 LOGGER.info(f'******************* dropping {column_id}')
                 fields_to_drop_list.append(column_id)
