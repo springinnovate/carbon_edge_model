@@ -333,6 +333,7 @@ def main():
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
+    LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
     #n_components = int(n_predictors**2*.3)
     #n_components = n_predictors
     for name, reg in [
