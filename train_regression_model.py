@@ -315,7 +315,7 @@ def main():
 
     poly_features = PolynomialFeatures(
         POLY_ORDER, interaction_only=False, include_bias=False)
-    spline_features = SplineTransformer(degree=2, n_knots=3)
+    spline_features = SplineTransformer(degree=3, n_knots=4)
     max_iter = 50000
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
