@@ -294,8 +294,8 @@ def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg)
         predictor_id_list)
     with open(os.path.join(
             f"{prefix}coef_{name}.csv"), 'w') as table_file:
-        table_file.write(f"intercept,{reg[-1].intercept_}\n")
         table_file.write('id,coef,pca,scale,mean,\n')
+        table_file.write(f"intercept,{reg[-1].intercept_[0]}\n")
         for feature_id, coef, pca, scale, mean in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].singular_values_, reg[-3].scale_.flatten(), reg[-3].mean_.flatten()):
             table_file.write(f"{feature_id.replace(' ', '*')},{coef},{pca},{scale},{mean}\n")
 
