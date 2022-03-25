@@ -354,8 +354,8 @@ def main():
             model_file.write(pickle.dumps(model_to_pickle))
 
         LOGGER.info(f'saving coefficient table for {name}')
-        _write_coeficient_table(
-            poly_features, predictor_id_list, args.prefix, name, reg)
+        # _write_coeficient_table(
+        #     poly_features, predictor_id_list, args.prefix, name, reg)
 
         k = trainset[0].shape[1]
         for expected_values, modeled_values, n, prefix in [
