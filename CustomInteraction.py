@@ -77,7 +77,7 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
         n_int_cols = len(self.interaction_columns)
         n_out = n_int_cols*(n_samples+1)
         XP = np.empty(
-            shape=(n_samples, n_out), dtype=X.dtype, order=self.order
+            shape=(n_samples, n_out), dtype=X.dtype, order='C',
         )
 
         XP[:, 0:len(self.interaction_columns)] = (
