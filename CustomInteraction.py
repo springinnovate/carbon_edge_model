@@ -24,12 +24,16 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
             Transformed feature names.
         """
         feature_names = []
-        for index, name in enumerate(input_features):
-            for int_col in self.interaction_columns:
+        for int_col in enumerate(self.interaction_columns):
+            feature_names.append(input_features[int_col])
+
+        for int_col_index, int_col in enumerate(self.interaction_columns):
+            for index, name in enumerate(input_features):
                 if index == int_col:
                     feature_names.append(f'{name}**2')
                 else:
                     feature_names.append(f'{name}*{input_features[int_col]}')
+
         return np.asarray(feature_names, dtype=object)
 
     def fit(self, X, y=None):
@@ -84,10 +88,10 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
             X[:, self.interaction_columns])
         print(X)
         print(XP)
-        for index in range(X.shape[1]):
-            for int_col_index, int_col in enumerate(self.interaction_columns):
+        for int_col_index, int_col in enumerate(self.interaction_columns):
+            for index in range(X.shape[1]):
                 #print(f'{n_int_cols+index*int_col_index}')
-                xp_col = n_int_cols+index*(int_col_index+1)
+                xp_col = n_int_cols+int_col_index*X.shape[1]+index
                 print(xp_col)
                 XP[:, xp_col] = (
                     X[:, index] * X[:, int_col])
