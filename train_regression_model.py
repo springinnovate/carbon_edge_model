@@ -105,7 +105,7 @@ def load_data(
             if not isinstance(column_id, str):
                 column_id = row['filter']
 
-            if row['filter_only'] == 1:
+            if row['filter_only'] in [1, '1']:
                 fields_to_drop_list.append(column_id)
 
         # restrict based on "include"
