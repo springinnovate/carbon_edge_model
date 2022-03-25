@@ -29,6 +29,7 @@ logging.getLogger('taskgraph').setLevel(logging.WARN)
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('fiona').setLevel(logging.WARN)
 logging.getLogger('matplotlib.font_manager').setLevel(logging.WARN)
+logging.getLogger('PIL.PngImagePlugin').setLevel(logging.WARN)
 
 from osgeo import gdal
 import geopandas
@@ -106,6 +107,7 @@ def load_data(
                 column_id = row['filter']
 
             if row['filter_only'] in [1, '1']:
+                LOGGER.info(f'******************* dropping {column_id}')
                 fields_to_drop_list.append(column_id)
 
         # restrict based on "include"
@@ -190,6 +192,7 @@ def load_data(
                             predictor_response_table['group'],
                             predictor_response_table['target']):
                     if parameter_id in fields_to_drop_list:
+                        LOGGER.info(f'xxxxxxxxxxxxxx actively dropped {parameter_id}')
                         continue
                     # this loop gets at a particular parameter
                     # (crop, slope, etc)
