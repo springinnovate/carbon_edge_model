@@ -313,19 +313,13 @@ def main():
     parser.add_argument(
         '--prefix', type=str, default='', help='add prefix to output files')
     parser.add_argument(
-        '--interaction_columns', type=int, nargs='+',
+        '--interaction_columns', type=str, nargs='+',
         help='interaction_columns')
     args = parser.parse_args()
 
     predictor_response_table = pandas.read_csv(args.predictor_response_table)
     allowed_set = set(predictor_response_table['predictor'].dropna())
 
-    if len(args.interaction_columns) > 0:
-        poly_features = CustomInteraction(
-            interaction_columns=args.interaction_columns)
-    else:
-        poly_features = PolynomialFeatures(
-            POLY_ORDER, interaction_only=False, include_bias=False)
 
     #spline_features = SplineTransformer(degree=2, n_knots=3)
     max_iter = 50000
@@ -334,6 +328,16 @@ def main():
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
     LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
+    if len(args.interaction_columns) > 0:
+        interaction_indexes = [
+            predictor_id_list.index(predictor_id)
+            for predictor_id in args.interaction_columns]
+        poly_features = CustomInteraction(
+            interaction_columns=interaction_indexes)
+    else:
+        poly_features = PolynomialFeatures(
+            POLY_ORDER, interaction_only=False, include_bias=False)
+
     #n_components = int(n_predictors**2*.3)
     #n_components = n_predictors
     for name, reg in [
