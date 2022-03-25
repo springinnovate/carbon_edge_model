@@ -322,7 +322,6 @@ def main():
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
     n_components = int(n_predictors**2*.3)
-    n_components = n_predictors**2
     #n_components = n_predictors
     for name, reg in [
             #('ols', make_pipeline(poly_features, StandardScaler(), linear_model.LinearRegression())),
@@ -332,9 +331,9 @@ def main():
             # ('LinearSVR', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
             # ('LassoLarsCV', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
             # ('LassoLars', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
-            ('LinearSVR', make_pipeline(poly_features, PCA(n_components=n_components), StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
-            ('LassoLarsCV', make_pipeline(poly_features, PCA(n_components=n_components), StandardScaler(), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
-            ('LassoLars', make_pipeline(poly_features, PCA(n_components=n_components), StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
+            ('LinearSVR', make_pipeline(poly_features, PCA(), StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
+            ('LassoLarsCV', make_pipeline(poly_features, PCA(), StandardScaler(), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
+            ('LassoLars', make_pipeline(poly_features, PCA(), StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
             ]:
         LOGGER.info(f'fitting data with {name}')
         model = reg.fit(trainset[0], trainset[1])
