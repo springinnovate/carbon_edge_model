@@ -18,7 +18,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import SplineTransformer
 from sklearn.compose import TransformedTargetRegressor
 
-import CustomInteraction
+from CustomInteraction import CustomInteraction
 
 logging.basicConfig(
     level=logging.DEBUG,
