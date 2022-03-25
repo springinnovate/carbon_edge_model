@@ -319,7 +319,7 @@ def main():
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
-    n_components = n_predictors*2
+    n_components = n_predictors*4
     for name, reg in [
             #('ols', make_pipeline(poly_features, StandardScaler(), linear_model.LinearRegression())),
             #('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
