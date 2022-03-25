@@ -24,7 +24,7 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
             Transformed feature names.
         """
         feature_names = []
-        for int_col in enumerate(self.interaction_columns):
+        for int_col in self.interaction_columns:
             feature_names.append(input_features[int_col])
 
         for int_col_index, int_col in enumerate(self.interaction_columns):
