@@ -344,8 +344,8 @@ def main():
 
         k = trainset[0].shape[1]
         for expected_values, modeled_values, n, prefix in [
-                (testset[1].flatten(), model.predict(testset[0]).flatten(), testset[0].shape[0], 'holdback'),
-                (trainset[1].flatten(), model.predict(trainset[0]).flatten(), trainset[0].shape[0], 'training'),
+                (testset[1].flatten(), model.predict(numpy.log(testset[0])).flatten(), testset[0].shape[0], 'holdback'),
+                (trainset[1].flatten(), model.predict(numpy.log(trainset[0])).flatten(), trainset[0].shape[0], 'training'),
                 ]:
             try:
                 z = numpy.log(numpy.polyfit(expected_values, modeled_values, 1))
