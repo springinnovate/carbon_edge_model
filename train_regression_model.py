@@ -14,6 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVR
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import SplineTransformer
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -314,6 +315,7 @@ def main():
 
     poly_features = PolynomialFeatures(
         POLY_ORDER, interaction_only=False, include_bias=False)
+    spline_features = SplineTransformer(degree=2, n_knots=3)
     max_iter = 50000
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
@@ -325,9 +327,9 @@ def main():
             #('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
             #('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
             #('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
-            ('LinearSVR', make_pipeline(poly_features, StandardScaler(), PCA(n_components=n_components), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
-            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
-            ('LassoLars', make_pipeline(poly_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
+            ('LinearSVR', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
+            ('LassoLarsCV', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
+            ('LassoLars', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
             ]:
         LOGGER.info(f'fitting data with {name}')
         model = reg.fit(trainset[0], trainset[1])
