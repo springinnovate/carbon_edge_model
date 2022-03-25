@@ -8,10 +8,11 @@ import pickle
 import matplotlib.pyplot as plt
 import pandas
 import sklearn.metrics
-from sklearn import linear_model
+from sklearn.linear_model import LassoLars
+from sklearn.linear_model import LassoLarsCV
+from sklearn.svm import LinearSVR
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import LinearSVR
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import SplineTransformer
