@@ -324,7 +324,7 @@ def main():
             #('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
             #('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
             #('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
-            ('LinearSVR', make_pipeline(poly_features, StandardScaler(), PCA(n_components=n_predictors), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', eps=1e-3, dual=False))),
+            ('LinearSVR', make_pipeline(poly_features, StandardScaler(), PCA(n_components=n_predictors), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
             ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), PCA(n_components=n_predictors), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3))),
             ]:
         LOGGER.info(f'fitting data with {name}')
