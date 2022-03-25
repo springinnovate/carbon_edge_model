@@ -334,11 +334,11 @@ def main():
             # ('LassoLarsCV', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
             # ('LassoLars', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
             ('LinearSVR', make_pipeline(poly_features, StandardScaler(), PCA(whiten=True), TransformedTargetRegressor(
-                regressor=LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False), func=numpy.exp, inverse_func=numpy.log))),
+                regressor=LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False), func=numpy.log, inverse_func=numpy.exp))),
             ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), PCA(whiten=True), TransformedTargetRegressor(
-                regressor=LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False), func=numpy.exp, inverse_func=numpy.log))),
+                regressor=LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False), func=numpy.log, inverse_func=numpy.exp))),
             ('LassoLars', make_pipeline(poly_features, StandardScaler(), PCA(whiten=True), TransformedTargetRegressor(
-                regressor=LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3), func=numpy.exp, inverse_func=numpy.log))),
+                regressor=LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3), func=numpy.log, inverse_func=numpy.exp))),
             ]:
 
 
@@ -377,7 +377,8 @@ def main():
             plt.scatter(expected_values, modeled_values, c='g', s=0.25)
             plt.ylim(
                 min(expected_values), max(expected_values))
-            r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
+            #r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
+            r2 = reg.score(expected_values, modeled_values)
             r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
             if prefix == 'holdback':
                 LOGGER.info(f'{name}-{prefix} adjusted R^2: {r2_adjusted:.3f}')
