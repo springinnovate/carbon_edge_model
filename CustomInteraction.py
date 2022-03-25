@@ -46,7 +46,7 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
         self : object
             Fitted transformer.
         """
-        self._n_output_features = len(self.interaction_columns)*(X.shape[0]+1)
+        self._n_output_features = len(self.interaction_columns)*(X.shape[1]+1)
         return self
 
     def transform(self, X):
