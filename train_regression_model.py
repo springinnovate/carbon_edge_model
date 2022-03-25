@@ -303,8 +303,8 @@ def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg)
         if len(reg) == 3:
             table_file.write('id,coef,scale,mean,\n')
             table_file.write(f"intercept,{intercept}\n")
-            for feature_id, coef, pca, scale, mean in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].scale_.flatten(), reg[-2].mean_.flatten()):
-                table_file.write(f"{feature_id.replace(' ', '*')},{coef},{pca},{scale},{mean}\n")
+            for feature_id, coef, scale, mean in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].scale_.flatten(), reg[-2].mean_.flatten()):
+                table_file.write(f"{feature_id.replace(' ', '*')},{coef},{scale},{mean}\n")
         else:
             table_file.write('id,coef,pca,scale,mean,\n')
             table_file.write(f"intercept,{intercept}\n")
