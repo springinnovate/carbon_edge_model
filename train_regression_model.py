@@ -317,7 +317,8 @@ def main():
     predictor_response_table = pandas.read_csv(args.predictor_response_table)
     allowed_set = set(predictor_response_table['predictor'].dropna())
 
-    poly_features = PolynomialFeatures(POLY_ORDER, interaction_only=False)
+    poly_features = PolynomialFeatures(
+        1, interaction_only=False, include_bias=False)
     max_iter = 50000
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
@@ -326,12 +327,22 @@ def main():
 
     for name, reg in [
             #('ols', make_pipeline(poly_features, StandardScaler(), linear_model.LinearRegression())),
-            ('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
-            ('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
-            ('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
+            #('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
+            #('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
+            #('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
+            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLarsCV(max_iter=max_iter))),
             ]:
         LOGGER.info(f'fitting data with {name}')
         model = reg.fit(trainset[0], trainset[1])
+        model_filename = f'{name}_model.dat'
+        LOGGER.info(f'saving model to {model_filename}')
+        with open(model_filename, 'wb') as model_file:
+            model_to_pickle = {
+                'model': model,
+                'predictor_list': predictor_id_list
+            }
+            model_file.write(pickle.dumps(model_to_pickle))
+
         LOGGER.info(f'saving coefficient table for {name}')
         _write_coeficient_table(
             poly_features, predictor_id_list, args.prefix, name, reg)
