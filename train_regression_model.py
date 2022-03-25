@@ -294,10 +294,22 @@ def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg)
         predictor_id_list)
     with open(os.path.join(
             f"{prefix}coef_{name}.csv"), 'w') as table_file:
-        table_file.write('id,coef,pca,scale,mean,\n')
-        table_file.write(f"intercept,{reg[-1].intercept_}\n")
-        for feature_id, coef, pca, scale, mean in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].singular_values_, reg[-3].scale_.flatten(), reg[-3].mean_.flatten()):
-            table_file.write(f"{feature_id.replace(' ', '*')},{coef},{pca},{scale},{mean}\n")
+        intercept = reg[1].intercept_
+        try:
+            intercept = intercept[0]
+        except Exception:
+            pass
+        print(f'LENGTH OF REG {len(reg)}')
+        if len(reg) == 3:
+            table_file.write('id,coef,scale,mean,\n')
+            table_file.write(f"intercept,{intercept}\n")
+            for feature_id, coef, pca, scale, mean in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].scale_.flatten(), reg[-2].mean_.flatten()):
+                table_file.write(f"{feature_id.replace(' ', '*')},{coef},{pca},{scale},{mean}\n")
+        else:
+            table_file.write('id,coef,pca,scale,mean,\n')
+            table_file.write(f"intercept,{intercept}\n")
+            for feature_id, coef, pca, scale, mean in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].singular_values_, reg[-3].scale_.flatten(), reg[-3].mean_.flatten()):
+                table_file.write(f"{feature_id.replace(' ', '*')},{coef},{pca},{scale},{mean}\n")
 
 
 def main():
@@ -349,9 +361,9 @@ def main():
             # ('LinearSVR', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
             # ('LassoLarsCV', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
             # ('LassoLars', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
-            ('LinearSVR', make_pipeline(poly_features, StandardScaler(),  PCA(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
-            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(),  PCA(), LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
-            ('LassoLars', make_pipeline(poly_features, StandardScaler(), PCA(),  LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
+            ('LinearSVR', make_pipeline(poly_features, StandardScaler(),  LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
+            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(),  LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
+            ('LassoLars', make_pipeline(poly_features, StandardScaler(),  LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
             ]:
 
         LOGGER.info(f'fitting data with {name}')
