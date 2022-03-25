@@ -46,6 +46,7 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
         self : object
             Fitted transformer.
         """
+        self._n_output_features = len(self.interaction_columns)*(X.shape[0]+1)
         return self
 
     def transform(self, X):
@@ -75,9 +76,8 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
         """
         n_samples = X.shape[0]
         n_int_cols = len(self.interaction_columns)
-        n_out = n_int_cols*(n_samples+1)
         XP = np.empty(
-            shape=(n_samples, n_out), dtype=X.dtype, order='C',
+            shape=(n_samples, self._n_output_features), dtype=X.dtype, order='C',
         )
 
         XP[:, 0:len(self.interaction_columns)] = (
