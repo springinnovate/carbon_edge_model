@@ -291,7 +291,7 @@ def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg)
             f"{prefix}coef_{name}.csv"), 'w') as table_file:
         table_file.write('id,coef,scale,mean\n')
         for feature_id, coef, scale, mean in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].scale_.flatten(), reg[-2].mean_.flatten()):
-            table_file.write(f"{feature_id.replace(' ', '*')},{coef}, {scale}, {mean}\n")
+            table_file.write(f"{feature_id.replace(' ', '*')},{coef},{scale},{mean}\n")
 
 
 def main():
@@ -319,7 +319,6 @@ def main():
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
-    print(f' there are {n_response} response variables')
     for name, reg in [
             #('ols', make_pipeline(poly_features, StandardScaler(), linear_model.LinearRegression())),
             #('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
