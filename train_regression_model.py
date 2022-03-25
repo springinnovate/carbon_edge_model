@@ -294,12 +294,12 @@ def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg)
         predictor_id_list)
     with open(os.path.join(
             f"{prefix}coef_{name}.csv"), 'w') as table_file:
-        intercept = reg[1].intercept_
+        print(f'LENGTH OF REG {len(reg)}')
+        intercept = reg[-1].intercept_
         try:
             intercept = intercept[0]
         except Exception:
             pass
-        print(f'LENGTH OF REG {len(reg)}')
         if len(reg) == 3:
             table_file.write('id,coef,scale,mean,\n')
             table_file.write(f"intercept,{intercept}\n")
