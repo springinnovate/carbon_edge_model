@@ -328,7 +328,7 @@ def main():
             ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLarsCV(max_iter=max_iter, cv=1000, eps=1e-5))),
             ]:
         LOGGER.info(f'fitting data with {name}')
-        model = reg.fit(trainset[0], trainset[1])
+        model = reg.fit(trainset[0], numpy.exp(trainset[1]))
         model_filename = f'{name}_model.dat'
         LOGGER.info(f'saving model to {model_filename}')
         with open(model_filename, 'wb') as model_file:
@@ -348,7 +348,7 @@ def main():
                 (trainset[1].flatten(), model.predict(trainset[0]).flatten(), trainset[0].shape[0], 'training'),
                 ]:
             try:
-                z = numpy.polyfit(expected_values, modeled_values, 1)
+                z = numpy.log(numpy.polyfit(expected_values, modeled_values, 1))
             except ValueError as e:
                 # this guards against a poor polyfit line
                 print(e)
