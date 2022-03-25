@@ -84,9 +84,9 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
             X[:, self.interaction_columns])
         print(X)
         print(XP)
-        return
         for index in range(X.shape[1]):
             for int_col_index, int_col in enumerate(self.interaction_columns):
-                XP[:, index+n_int_cols] = X[:, index] * X[:, int_col]
+                XP[:, n_int_cols+index*int_col_index] = (
+                    X[:, index] * X[:, int_col])
         print(f'done with transform {XP.shape} input {X.shape}')
         return XP
