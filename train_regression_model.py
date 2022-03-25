@@ -378,7 +378,7 @@ def main():
             plt.ylim(
                 min(expected_values), max(expected_values))
             #r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
-            r2 = reg.score(expected_values, modeled_values)
+            r2 = reg.score(expected_values.reshape(-1, 1), modeled_values)
             r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
             if prefix == 'holdback':
                 LOGGER.info(f'{name}-{prefix} adjusted R^2: {r2_adjusted:.3f}')
