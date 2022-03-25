@@ -18,6 +18,8 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import SplineTransformer
 from sklearn.compose import TransformedTargetRegressor
 
+from . import CustomInteraction
+
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -310,20 +312,28 @@ def main():
         help='number of samples to train on from the dataset')
     parser.add_argument(
         '--prefix', type=str, default='', help='add prefix to output files')
+    parser.add_argument(
+        '--interaction_columns', type=int, nargs='+',
+        help='interaction_columns')
     args = parser.parse_args()
 
     predictor_response_table = pandas.read_csv(args.predictor_response_table)
     allowed_set = set(predictor_response_table['predictor'].dropna())
 
-    poly_features = PolynomialFeatures(
-        POLY_ORDER, interaction_only=False, include_bias=False)
-    spline_features = SplineTransformer(degree=2, n_knots=3)
+    if len(args.interaction_columns) > 0:
+        poly_features = CustomInteraction(
+            interaction_columns=args.interaction_columns)
+    else:
+        poly_features = PolynomialFeatures(
+            POLY_ORDER, interaction_only=False, include_bias=False)
+
+    #spline_features = SplineTransformer(degree=2, n_knots=3)
     max_iter = 50000
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
-    n_components = int(n_predictors**2*.3)
+    #n_components = int(n_predictors**2*.3)
     #n_components = n_predictors
     for name, reg in [
             #('ols', make_pipeline(poly_features, StandardScaler(), linear_model.LinearRegression())),
@@ -340,7 +350,6 @@ def main():
             ('LassoLars', make_pipeline(poly_features, StandardScaler(), PCA(whiten=True), TransformedTargetRegressor(
                 regressor=LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3), func=numpy.log, inverse_func=numpy.exp))),
             ]:
-
 
         LOGGER.info(f'fitting data with {name}')
         model = reg.fit(trainset[0], trainset[1])
