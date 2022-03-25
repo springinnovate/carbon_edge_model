@@ -324,20 +324,8 @@ def main():
             #('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
             #('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
             #('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
-            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLarsCV(max_iter=max_iter, cv=trainset[0].shape[0], eps=1e-3))),
+            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), PCA(n_components=n_predictors), linear_model.LassoLarsCV(max_iter=max_iter, cv=trainset[0].shape[0], eps=1e-3))),
             ]:
-
-
-
-        from sklearn.decomposition import PCA
-        pca = PCA(n_components=n_predictors)
-        print(pca.fit(trainset[0]).transform(trainset[0]))
-        print(trainset[0])
-        print(pca.explained_variance_ratio_)
-        print(f'singular values:\n{pca.singular_values_}')
-        return
-
-
         LOGGER.info(f'fitting data with {name}')
         model = reg.fit(trainset[0], trainset[1])
         model_filename = f'{name}_model.dat'
