@@ -289,14 +289,9 @@ def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg)
         predictor_id_list)
     with open(os.path.join(
             f"{prefix}coef_{name}.csv"), 'w') as table_file:
-        table_file.write('id,coef\n')
-        for feature_id, coef in zip(poly_feature_id_list, reg[-1].coef_.flatten()):
+        table_file.write('id,coef,scale,mean\n')
+        for feature_id, coef in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].scale_.flatten(), reg[-2].mean_.flatten()):
             table_file.write(f"{feature_id.replace(' ', '*')},{coef}\n")
-    with open(os.path.join(
-            f"{prefix}norm_coef_{name}.csv"), 'w') as table_file:
-        table_file.write('id,coef\n')
-        for feature_id, scale, mean, var in zip(poly_feature_id_list, reg[-2].scale_.flatten(), reg[-2].mean_.flatten(), reg[-2].var_.flatten()):
-            table_file.write(f"{feature_id.replace(' ', '*')},{scale},{mean},{var}\n")
 
 
 def main():
@@ -330,7 +325,7 @@ def main():
             #('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
             #('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
             #('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
-            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLarsCV(max_iter=max_iter))),
+            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLarsCV(max_iter=max_iter, cv=1000))),
             ]:
         LOGGER.info(f'fitting data with {name}')
         model = reg.fit(trainset[0], trainset[1])
