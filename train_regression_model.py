@@ -328,7 +328,7 @@ def main():
             ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLarsCV(max_iter=max_iter, cv=1000, eps=1e-5))),
             ]:
         LOGGER.info(f'fitting data with {name}')
-        model = reg.fit(trainset[0], numpy.exp(trainset[1]))
+        model = reg.fit(trainset[0], numpy.log(trainset[1]))
         model_filename = f'{name}_model.dat'
         LOGGER.info(f'saving model to {model_filename}')
         with open(model_filename, 'wb') as model_file:
