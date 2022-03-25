@@ -343,12 +343,9 @@ def main():
             # ('LinearSVR', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
             # ('LassoLarsCV', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
             # ('LassoLars', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
-            ('LinearSVR', make_pipeline(poly_features, StandardScaler(), TransformedTargetRegressor(
-                regressor=LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False), func=numpy.log, inverse_func=numpy.exp))),
-            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), TransformedTargetRegressor(
-                regressor=LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False), func=numpy.log, inverse_func=numpy.exp))),
-            ('LassoLars', make_pipeline(poly_features, StandardScaler(), TransformedTargetRegressor(
-                regressor=LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3), func=numpy.log, inverse_func=numpy.exp))),
+            ('LinearSVR', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
+            ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(), LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False), func=numpy.log, inverse_func=numpy.exp)),
+            ('LassoLars', make_pipeline(poly_features, StandardScaler(), LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3), func=numpy.log, inverse_func=numpy.exp)),
             ]:
 
         LOGGER.info(f'fitting data with {name}')
@@ -363,8 +360,8 @@ def main():
             model_file.write(pickle.dumps(model_to_pickle))
 
         LOGGER.info(f'saving coefficient table for {name}')
-        # _write_coeficient_table(
-        #     poly_features, predictor_id_list, args.prefix, name, reg)
+        _write_coeficient_table(
+            poly_features, predictor_id_list, args.prefix, name, reg)
 
         k = trainset[0].shape[1]
         for expected_values, modeled_values, n, prefix, X, y in [
