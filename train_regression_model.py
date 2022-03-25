@@ -313,7 +313,7 @@ def main():
     allowed_set = set(predictor_response_table['predictor'].dropna())
 
     poly_features = PolynomialFeatures(
-        1, interaction_only=False, include_bias=False)
+        POLY_ORDER, interaction_only=False, include_bias=False)
     max_iter = 50000
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, testset, rejected_outliers, parameter_stats) = load_data(
@@ -338,8 +338,8 @@ def main():
             model_file.write(pickle.dumps(model_to_pickle))
 
         LOGGER.info(f'saving coefficient table for {name}')
-        _write_coeficient_table(
-            poly_features, predictor_id_list, args.prefix, name, reg)
+        #_write_coeficient_table(
+        #    poly_features, predictor_id_list, args.prefix, name, reg)
 
         k = trainset[0].shape[1]
         for expected_values, modeled_values, n, prefix in [
