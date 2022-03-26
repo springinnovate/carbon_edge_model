@@ -35,7 +35,7 @@ def main():
             f'wgs84_{os.path.basename(file_path)}')
         task_graph.add_task(
             func=geoprocessing.warp_raster,
-            args=(file_path, TARGET_WGS84_PIXEL_SIZE, target_path),
+            args=(file_path, TARGET_WGS84_PIXEL_SIZE, target_path, 'near'),
             kwargs={'target_projection_wkt': osr.SRS_WKT_WGS84_LAT_LONG})
     task_graph.join()
     task_graph.close()
