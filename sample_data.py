@@ -204,6 +204,8 @@ def generate_sample_points(
     y = numpy.random.uniform(y_min, y_max, n_points)
     points_gdf = geopandas.GeoSeries(filter(
         final_geom_prep.contains, geopandas.points_from_xy(x, y)))
+    LOGGER.debug(f'points gdf {points_gdf.size}')
+    sys.exit()
 
     # TODO: create bounds list
     # TODO: create shapely prepped objects for bounds list and holdback list
@@ -312,8 +314,6 @@ def main():
     w.plot(ax=ax, color='green', markersize=2.5)
     plt.show()
 
-
-
     LOGGER.info(f'sample data with {len(filtered_gdf_points)}...')
     sample_df = sample_data(
         raster_path_set, filtered_gdf_points, target_box_wgs84)
@@ -326,8 +326,6 @@ def main():
     ecoshard.hash_file(
         target_gpkg_path, rename=True, hash_algorithm='md5', force=True,
         hash_length=6)
-
-
 
     LOGGER.debug('all done')
 
