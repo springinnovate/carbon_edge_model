@@ -4,6 +4,12 @@ var datasets = {
     'baccini_2014': ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_baccini_carbon_data_2014.tif')
 };
 
+var carbon_models = {
+    'Original Model': null,
+    'Forest Edge to 0': null,
+    'Forest Edge to 1': null,
+}
+
 datasets['baccini_2014'] = datasets['baccini_2014'].mask(
   ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif').neq(ee.Image(0)));
 
@@ -11,37 +17,41 @@ var terms = table.toList(table.size());
 
 //Create Carbon Regression Image based on table coefficients
 terms.evaluate(function (x) {
-  var image_map = {};
-  var i = null;
-  var max_x = x.length;
 
-  var carbon_image = ee.Image(x[0].properties.coef).rename('B0');
+  //loop 3 times, original, 0 and 1,
+  ['Original Model', 'Forest Edge to 0', 'Forest Edge to 1'].forEach(function (experiment_type) {
+      var image_map = {};
+      var i = null;
+      var max_x = x.length;
 
-  for (i = 1; i < max_x; i++) {
-      var term1 = x[i].properties.term1;
-      var term2 = x[i].properties.term2;
+      var carbon_image = ee.Image(x[0].properties.coef).rename('B0');
 
-      var term1_clean = term1.replace(/-/g, "_").replace(/\./g, "_");
-      var term2_clean = term2.replace(/-/g, "_").replace(/\./g, "_");
-
-      var term1_url = "gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_"+term1+".tif";
-      var term2_url = "gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_"+term2+".tif";
-
-      image_map[term1_clean] = ee.Image.loadGeoTIFF(term1_url);
-      image_map[term2_clean] = ee.Image.loadGeoTIFF(term2_url);
-      datasets[term1_clean] = image_map[term1_clean];
-      datasets[term2_clean] = image_map[term2_clean];
-  }
-  for (i = 1; i < max_x; i++) {
-    var expression_str = x[i].properties.coef/x[i].properties.scale+"*("+(x[i].properties.id).replace(/-/g, "_").replace(/\./g, "_")+"-"+x[i].properties.mean+")";
-    var term_image = ee.Image().expression({
-        expression: expression_str,
-        map: image_map
-      });
-    carbon_image = carbon_image.add(term_image);
-  }
-  datasets['***carbon model***'] = carbon_image;
-  console.log(carbon_image);
+      for (i = 1; i < max_x; i++) {
+          [x[i].properties.term1, x[i].properties.term2].forEach(function (term_id) {
+              var term_clean = term_id.replace(/-/g, "_").replace(/\./g, "_");
+              if (experiment_type === 'Forest Edge to 0' && term_clean.indexOf('gf_') !== -1) {
+                image_map[term_clean] = ee.Image(0);
+              } else if (experiment_type === 'Forest Edge to 1' && term_clean.indexOf('gf_') !== -1) {
+                image_map[term_clean] = ee.Image(1);
+              } else {
+                  var term_url = "gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_"+term_id+".tif";
+                  image_map[term_clean] = ee.Image.loadGeoTIFF(term_url);
+                  datasets[term_clean] = image_map[term_clean];
+              }
+          });
+      }
+      for (i = 1; i < max_x; i++) {
+        var expression_str = x[i].properties.coef/x[i].properties.scale+"*("+(x[i].properties.id).replace(/-/g, "_").replace(/\./g, "_")+"-"+x[i].properties.mean+")";
+        var term_image = ee.Image().expression({
+            expression: expression_str,
+            map: image_map
+          });
+        carbon_image = carbon_image.add(term_image);
+      }
+      carbon_models['Original Model'] = carbon_image;
+      datasets[experiment_type] = carbon_image;
+      console.log(carbon_image);
+    });
 
   var legend_styles = {
     'black_to_red': ['000000', '005aff', '43c8c8', 'fff700', 'ff0000'],
@@ -74,7 +84,7 @@ terms.evaluate(function (x) {
   ui.root.widgets().reset([splitPanel]);
 
   var panel_list = [];
-  [[Map, 'left'], [linkedMap, 'right']].forEach(function(mapside, index) {
+  [[Map, 'left', 'Carbon'], [linkedMap, 'right', 'right']].forEach(function(mapside, index) {
       var active_context = {
         'last_layer': null,
         'raster': null,
@@ -100,60 +110,107 @@ terms.evaluate(function (x) {
         }
       });
 
-      var default_control_text = mapside[1]+' controls';
+      var default_control_text = mapside[2]+' controls';
       var controls_label = ui.Label({
         value: default_control_text,
         style: {
           backgroundColor: 'rgba(0, 0, 0, 0)',
         }
       });
-      var select = ui.Select({
-        items: Object.keys(datasets),
-        onChange: function(key, self) {
-            self.setDisabled(true);
-            var original_value = self.getValue();
-            self.setPlaceholder('loading ...');
-            console.log('loading  ' + key);
-            self.setValue(null, false);
-            if (active_context.last_layer !== null) {
-              active_context.map.remove(active_context.last_layer);
-              min_val.setDisabled(true);
-              max_val.setDisabled(true);
-            }
-            if (datasets[key] === '') {
-              self.setValue(original_value, false);
-              self.setDisabled(false);
-              return;
-            }
-            active_context.raster = datasets[key];
+      if (mapside[2] == 'right') {
+          var select = ui.Select({
+            items: Object.keys(datasets),
+            onChange: function(key, self) {
+                self.setDisabled(true);
+                var original_value = self.getValue();
+                self.setPlaceholder('loading ...');
+                console.log('loading  ' + key);
+                self.setValue(null, false);
+                if (active_context.last_layer !== null) {
+                  active_context.map.remove(active_context.last_layer);
+                  min_val.setDisabled(true);
+                  max_val.setDisabled(true);
+                }
+                if (datasets[key] === '') {
+                  self.setValue(original_value, false);
+                  self.setDisabled(false);
+                  return;
+                }
+                active_context.raster = datasets[key];
 
-            var mean_reducer = ee.Reducer.percentile([10, 90], ['p10', 'p90']);
-            var meanDictionary = active_context.raster.reduceRegion({
-              reducer: mean_reducer,
-              geometry: active_context.map.getBounds(true),
-              bestEffort: true,
-            });
+                var mean_reducer = ee.Reducer.percentile([10, 90], ['p10', 'p90']);
+                var meanDictionary = active_context.raster.reduceRegion({
+                  reducer: mean_reducer,
+                  geometry: active_context.map.getBounds(true),
+                  bestEffort: true,
+                });
 
-            ee.data.computeValue(meanDictionary, function (val) {
-              console.log('computing value for ' + key + " " + val);
-              console.log(val);
-              active_context.visParams = {
-                min: val.B0_p10,
-                max: val.B0_p90,
-                palette: active_context.visParams.palette,
-              };
-              active_context.last_layer = active_context.map.addLayer(
-                active_context.raster, active_context.visParams);
-              min_val.setValue(active_context.visParams.min, false);
-              max_val.setValue(active_context.visParams.max, false);
-              min_val.setDisabled(false);
-              max_val.setDisabled(false);
-              self.setValue(original_value, false);
-              self.setDisabled(false);
-            });
+                ee.data.computeValue(meanDictionary, function (val) {
+                  console.log('computing value for ' + key + " " + val);
+                  console.log(val);
+                  active_context.visParams = {
+                    min: val.B0_p10,
+                    max: val.B0_p90,
+                    palette: active_context.visParams.palette,
+                  };
+                  active_context.last_layer = active_context.map.addLayer(
+                    active_context.raster, active_context.visParams);
+                  min_val.setValue(active_context.visParams.min, false);
+                  max_val.setValue(active_context.visParams.max, false);
+                  min_val.setDisabled(false);
+                  max_val.setDisabled(false);
+                  self.setValue(original_value, false);
+                  self.setDisabled(false);
+                });
+            }
+          });
+          select.setPlaceholder('Choose a dataset...');
+        } else {
+            var select = ui.Select({
+            items: ['Original Model', 'Forest Edge to 0', 'Forest Edge to 1'],
+            onChange: function(key, self) {
+                self.setDisabled(true);
+                var original_value = self.getValue();
+                self.setPlaceholder('processing ...');
+
+                // swap out carbon model image
+
+                self.setValue(null, false);
+                if (active_context.last_layer !== null) {
+                  active_context.map.remove(active_context.last_layer);
+                  min_val.setDisabled(true);
+                  max_val.setDisabled(true);
+                }
+
+                active_context.raster = datasets[key];
+
+                var mean_reducer = ee.Reducer.percentile([10, 90], ['p10', 'p90']);
+                var meanDictionary = active_context.raster.reduceRegion({
+                  reducer: mean_reducer,
+                  geometry: active_context.map.getBounds(true),
+                  bestEffort: true,
+                });
+
+                ee.data.computeValue(meanDictionary, function (val) {
+                  console.log('computing value for ' + key + " " + val);
+                  console.log(val);
+                  active_context.visParams = {
+                    min: val.B0_p10,
+                    max: val.B0_p90,
+                    palette: active_context.visParams.palette,
+                  };
+                  active_context.last_layer = active_context.map.addLayer(
+                    active_context.raster, active_context.visParams);
+                  min_val.setValue(active_context.visParams.min, false);
+                  max_val.setValue(active_context.visParams.max, false);
+                  min_val.setDisabled(false);
+                  max_val.setDisabled(false);
+                  self.setValue(original_value, false);
+                  self.setDisabled(false);
+                });
+            }
+          });
         }
-      });
-
 
       var min_val = ui.Textbox(
         0, 0, function (value) {
@@ -176,7 +233,6 @@ terms.evaluate(function (x) {
         }
       }
       active_context.updateVisParams = updateVisParams;
-      select.setPlaceholder('Choose a dataset...');
       var range_button = ui.Button(
         'Detect Range', function (self) {
           self.setDisabled(true);
