@@ -258,7 +258,9 @@ def main():
 
     holdback_boxes = []
     for lat_lng_tuple in args.holdback_centers:
-        lat, lng = [float(x) for x in lat_lng_tuple.split(',')]
+        lat, lng = [
+            float(x) for x in lat_lng_tuple.replace('(', '').replace(
+                ')','').split(',')]
         LOGGER.debug(f'{lat} {lng}')
     return
     # default bounding box list with some reasonable bounds
