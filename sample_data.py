@@ -328,7 +328,7 @@ def main():
 
     target_gpkg_path = (
         f'sampled_points_'
-        f'{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.gpkg')
+        f'{datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.gpkg')
     LOGGER.info(f'saving  {len(sample_df)} to {target_gpkg_path}')
     sample_df.to_file(target_gpkg_path, driver="GPKG")
 
