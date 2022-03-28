@@ -185,26 +185,33 @@ def generate_sample_points(
         GeoSeries of sample and holdback points
     """
     # include the vector bounding box information to make a global list
-    if sample_polygon_path is not None:
-        print(f'load {sample_polygon_path}')
-        df = geopandas.read_file(sample_polygon_path)
+    sample_points = 0
+    sample_point_list = []
+    while sample_points < n_points:
+        if sample_polygon_path is not None:
+            print(f'load {sample_polygon_path}')
+            df = geopandas.read_file(sample_polygon_path)
 
-        if country_filter_list:
-            df = df[df['iso3'].isin(country_filter_list)]
+            if country_filter_list:
+                df = df[df['iso3'].isin(country_filter_list)]
 
-        geom = df['geometry'].intersection(bounding_box)
-        final_geom = geom.unary_union
-        final_geom_prep = prep(final_geom)
-        x_min, y_min, x_max, y_max = final_geom.bounds
-    else:
-        x_min, y_min, x_max, y_max = bounding_box.bounds
-        final_geom_prep = prep(bounding_box)
+            geom = df['geometry'].intersection(bounding_box)
+            final_geom = geom.unary_union
+            final_geom_prep = prep(final_geom)
+            x_min, y_min, x_max, y_max = final_geom.bounds
+        else:
+            x_min, y_min, x_max, y_max = bounding_box.bounds
+            final_geom_prep = prep(bounding_box)
 
-    x = numpy.random.uniform(x_min, x_max, n_points)
-    y = numpy.random.uniform(y_min, y_max, n_points)
-    points_gdf = geopandas.GeoSeries(filter(
-        final_geom_prep.contains, geopandas.points_from_xy(x, y)))
+        x = numpy.random.uniform(x_min, x_max, n_points)
+        y = numpy.random.uniform(y_min, y_max, n_points)
+        sample_point_list.append(geopandas.GeoSeries(filter(
+            final_geom_prep.contains, geopandas.points_from_xy(x, y))))
+        sample_points += sample_point_list[-1].size
+
+    points_gdf = geopandas.concat(sample_point_list, ignore_index=True)
     LOGGER.debug(f'points gdf {points_gdf.size}')
+
     sys.exit()
 
     # TODO: create bounds list
