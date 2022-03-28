@@ -263,8 +263,8 @@ def main():
                 ')', '').split(',')]
         holdback_boxes.append(
             shapely.geometry.box(
-                lng-args.holdback_margin, lng+args.holdback_margin,
-                lat-args.holdback_margin, lat+args.holdback_margin))
+                lng-args.holdback_margin, lat-args.holdback_margin,
+                lng+args.holdback_margin, lat+args.holdback_margin))
 
     LOGGER.debug(holdback_boxes)
 
