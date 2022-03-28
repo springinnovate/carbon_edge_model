@@ -1,8 +1,11 @@
 
 var datasets = {
     '***carbon model***': null,
-    'baccini_2014': ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_baccini_carbon_data_2014.tif');
+    'baccini_2014': ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_baccini_carbon_data_2014.tif')
 };
+
+datasets['baccini_2014'] = datasets['baccini_2014'].mask(
+  ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif').neq(ee.Image(0)));
 
 var terms = table.toList(table.size());
 
