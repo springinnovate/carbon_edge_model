@@ -256,12 +256,17 @@ def main():
                     f'{file_path} found at {pattern} is not a raster')
         raster_path_set.update(file_path_list)
 
-    holdback_boxes = []
     for lat_lng_tuple in args.holdback_centers:
         lat, lng = [
             float(x) for x in lat_lng_tuple.replace('(', '').replace(
                 ')','').split(',')]
         LOGGER.debug(f'{lat} {lng}')
+
+    holdback_boxes = [
+        shapely.geometry.box(
+            lng-args.holdback_margin, lng+args.holdback_margin,
+            lat-args.holdback_margin, lat+args.holdback_margin)]
+    LOGGER.debug(holdback_boxes)
     return
     # default bounding box list with some reasonable bounds
     raster_bounding_box_list = [(-179, -80, 179, 80)]
