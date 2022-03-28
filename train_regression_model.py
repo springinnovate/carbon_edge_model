@@ -363,16 +363,7 @@ def main():
         poly_features = PolynomialFeatures(
             POLY_ORDER, interaction_only=False, include_bias=False)
 
-    #n_components = int(n_predictors**2*.3)
-    #n_components = n_predictors
     for name, reg in [
-            #('ols', make_pipeline(poly_features, StandardScaler(), linear_model.LinearRegression())),
-            #('svm', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', dual=False))),
-            #('lasso', make_pipeline(poly_features, StandardScaler(), linear_model.Lasso(alpha=0.1, max_iter=max_iter))),
-            #('lasso lars', make_pipeline(poly_features, StandardScaler(), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter))),
-            # ('LinearSVR', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
-            # ('LassoLarsCV', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
-            # ('LassoLars', make_pipeline(spline_features, StandardScaler(), PCA(n_components=n_components), linear_model.LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
             ('LinearSVR', make_pipeline(poly_features, StandardScaler(),  LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-3, dual=False))),
             ('LassoLarsCV', make_pipeline(poly_features, StandardScaler(),  LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
             ('LassoLars', make_pipeline(poly_features, StandardScaler(),  LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
