@@ -215,8 +215,6 @@ def generate_sample_points(
         crs=sample_point_list[0].crs)
     LOGGER.debug(f'points gdf {points_gdf.size}')
 
-    sys.exit()
-
     # TODO: create bounds list
     # TODO: create shapely prepped objects for bounds list and holdback list
     # TODO: use the above in filtering points
@@ -328,7 +326,9 @@ def main():
     sample_df = sample_data(
         raster_path_set, filtered_gdf_points, target_box_wgs84)
 
-    target_gpkg_path = f'sampled_points_{"_".join([str(v) for v in args.holdback_bb])}_{len(sample_df)}.gpkg'
+    target_gpkg_path = (
+        f'sampled_points_'
+        f'{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.gpkg')
     LOGGER.info(f'saving  {len(sample_df)} to {target_gpkg_path}')
     sample_df.to_file(target_gpkg_path, driver="GPKG")
 
