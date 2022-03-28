@@ -209,8 +209,9 @@ def generate_sample_points(
         sample_point_list.append(geopandas.GeoSeries(filter(
             final_geom_prep.contains, geopandas.points_from_xy(x, y))))
         sample_points += sample_point_list[-1].size
+        break
 
-    points_gdf = geopandas.GeoDataFrame(
+    points_gdf = geopandas.GeoSeries(
         pandas.concat(sample_point_list, ignore_index=True),
         crs=sample_point_list[0].crs)
     LOGGER.debug(f'points gdf {points_gdf.size}')
@@ -227,6 +228,7 @@ def generate_sample_points(
 
     non_holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(lambda x: LOGGER.debug(x), points_gdf)))
+    #not holdback_bounds.contains(x)
     non_holdback_gdf['holdback'] = False
     LOGGER.debug(f'non holdback points: {non_holdback_gdf.size}')
 
