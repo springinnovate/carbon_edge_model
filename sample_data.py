@@ -225,7 +225,6 @@ def generate_sample_points(
     LOGGER.debug(f'holdback points: {holdback_gdf.size}')
     filtered_gdf = non_holdback_gdf.append(holdback_gdf, ignore_index=True)
     filtered_gdf = filtered_gdf.set_crs(osr.SRS_WKT_WGS84_LAT_LONG)
-    sys.exit()
     return filtered_gdf
 
 
@@ -299,19 +298,6 @@ def main():
         holdback_boxes, args.holdback_margin, args.n_samples,
         args.iso_names)
 
-    LOGGER.info(f'sample data with {len(filtered_gdf_points)}...')
-    sample_df = sample_data(
-        raster_path_set, filtered_gdf_points, target_box_wgs84)
-
-    target_gpkg_path = f'sampled_points_{"_".join([str(v) for v in args.holdback_bb])}_{len(sample_df)}.gpkg'
-    LOGGER.info(f'saving  {len(sample_df)} to {target_gpkg_path}')
-    sample_df.to_file(target_gpkg_path, driver="GPKG")
-
-    LOGGER.info(f'hashing {target_gpkg_path}')
-    ecoshard.hash_file(
-        target_gpkg_path, rename=True, hash_algorithm='md5', force=True,
-        hash_length=6)
-
     LOGGER.info('plot')
     LOGGER.debug(f" all {filtered_gdf_points}")
     LOGGER.debug(f" non holdback {filtered_gdf_points[filtered_gdf_points['holdback'] == False]}")
@@ -325,6 +311,23 @@ def main():
     print(w)
     w.plot(ax=ax, color='green', markersize=2.5)
     plt.show()
+
+
+
+    LOGGER.info(f'sample data with {len(filtered_gdf_points)}...')
+    sample_df = sample_data(
+        raster_path_set, filtered_gdf_points, target_box_wgs84)
+
+    target_gpkg_path = f'sampled_points_{"_".join([str(v) for v in args.holdback_bb])}_{len(sample_df)}.gpkg'
+    LOGGER.info(f'saving  {len(sample_df)} to {target_gpkg_path}')
+    sample_df.to_file(target_gpkg_path, driver="GPKG")
+
+    LOGGER.info(f'hashing {target_gpkg_path}')
+    ecoshard.hash_file(
+        target_gpkg_path, rename=True, hash_algorithm='md5', force=True,
+        hash_length=6)
+
+
 
     LOGGER.debug('all done')
 
