@@ -1,5 +1,6 @@
 
 var datasets = {
+    '***carbon model***': null,
     'baccini_2014': ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_baccini_carbon_data_2014.tif');
 };
 
@@ -36,7 +37,7 @@ terms.evaluate(function (x) {
       });
     carbon_image = carbon_image.add(term_image);
   }
-  datasets['carbon_model'] = carbon_image;
+  datasets['***carbon model***'] = carbon_image;
   console.log(carbon_image);
 
   var legend_styles = {
