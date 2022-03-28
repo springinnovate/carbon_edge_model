@@ -4,6 +4,7 @@ import glob
 import logging
 import os
 import time
+import datetime
 import sys
 
 from ecoshard import geoprocessing
