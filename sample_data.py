@@ -190,7 +190,7 @@ def generate_sample_points(
     sample_point_list = []
     while sample_points < n_points:
         if sample_polygon_path is not None:
-            print(f'load {sample_polygon_path}')
+            LOGGER.debug(f'load {sample_polygon_path}')
             df = geopandas.read_file(sample_polygon_path)
 
             if country_filter_list:
@@ -209,13 +209,11 @@ def generate_sample_points(
         sample_point_list.append(geopandas.GeoSeries(filter(
             final_geom_prep.contains, geopandas.points_from_xy(x, y))))
         sample_points += sample_point_list[-1].size
-        break
+        LOGGER.debug(f'{sample_points} so far')
 
     points_gdf = geopandas.GeoSeries(
         pandas.concat(sample_point_list, ignore_index=True),
         crs=sample_point_list[0].crs)
-    LOGGER.debug(f'points gdf {points_gdf.size}')
-    LOGGER.debug(f'{points_gdf}')
 
     # TODO: create bounds list
     # TODO: create shapely prepped objects for bounds list and holdback list
@@ -227,9 +225,9 @@ def generate_sample_points(
         holdback_boxes))
 
     non_holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
-        filter(lambda x: LOGGER.debug(x), points_gdf)))
-    #not holdback_bounds.contains(x)
+        filter(lambda x: not holdback_bounds.contains(x), points_gdf)))
     non_holdback_gdf['holdback'] = False
+
     LOGGER.debug(f'non holdback points: {non_holdback_gdf.size}')
 
     holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
