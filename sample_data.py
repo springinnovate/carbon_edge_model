@@ -233,7 +233,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='create spatial samples of data on a global scale')
     parser.add_argument('--sample_rasters', type=str, nargs='+', help='path/pattern to list of rasters to sample', required=True)
-    parser.add_argument('--holdback_bb', type=float, nargs=4, help='holdback bounding box in wgs84', required=True)
+    parser.add_argument('--holdback_centers', type=float, nargs='+', help='list of lat/lng bounding box centers to holdback', required=True)
     parser.add_argument('--holdback_margin', type=float, help='margin around the holdback box to ignore', required=True)
     parser.add_argument('--n_samples', type=int, help='number of point samples', required=True)
     parser.add_argument('--iso_names', type=str, nargs='+', help='set of countries to allow, default is all')
@@ -256,6 +256,11 @@ def main():
                     f'{file_path} found at {pattern} is not a raster')
         raster_path_set.update(file_path_list)
 
+    holdback_boxes = []
+    for lat_lng_tuple in args.holdback_centers:
+        lat, lng = [float(x) for x in lat_lng_tuple.split(',')]
+        LOGGER.debug(f'{lat} {lng}')
+    return
     # default bounding box list with some reasonable bounds
     raster_bounding_box_list = [(-179, -80, 179, 80)]
     basename_list = []
@@ -283,7 +288,8 @@ def main():
     LOGGER.info(f'generate {args.n_samples} sample points')
     filtered_gdf_points = generate_sample_points(
         raster_path_set, args.sample_vector_path, target_box_wgs84,
-        args.holdback_bb, args.holdback_margin, args.n_samples, args.iso_names)
+        args.holdback_centers, args.holdback_margin, args.n_samples,
+        args.iso_names)
 
     LOGGER.info(f'sample data with {len(filtered_gdf_points)}...')
     sample_df = sample_data(
