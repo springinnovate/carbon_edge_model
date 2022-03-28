@@ -4,6 +4,7 @@ import glob
 import logging
 import os
 import time
+import sys
 
 from ecoshard import geoprocessing
 from osgeo import gdal
@@ -162,7 +163,7 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
 #@profile
 def generate_sample_points(
         raster_path_list, sample_polygon_path, bounding_box,
-        holdback_bb, holdback_margin, n_points, country_filter_list=None):
+        holdback_boxes, holdback_margin, n_points, country_filter_list=None):
     """Create random sample points that are in bounds of the rasters.
 
     Args:
@@ -172,8 +173,8 @@ def generate_sample_points(
             limit the point selection or ``None``.
         bounding_box (4-float): minx, miny, maxx, maxy tuple of the total
             bounding box.
-        holdback_bb (4-float): minx, miny, maxx, maxy tuple of the holdback
-            box.
+        holdback_boxes (list of shapely.Box): list of boxes to indicate
+            holdback point regions
         holdback_margin (float): margin to holdback the points around the
             box so we don't have spatial correlation.
         n_points (int): number of samples.
@@ -204,27 +205,27 @@ def generate_sample_points(
     points_gdf = geopandas.GeoSeries(filter(
         final_geom_prep.contains, geopandas.points_from_xy(x, y)))
 
-    holdback_bounds = shapely.geometry.box(
-        holdback_bb[0]-holdback_margin,
-        holdback_bb[1]-holdback_margin,
-        holdback_bb[2]+holdback_margin,
-        holdback_bb[3]+holdback_margin)
+    # TODO: create bounds list
+    # TODO: create shapely prepped objects for bounds list and holdback list
+    # TODO: use the above in filtering points
 
-    holdback_box = shapely.geometry.box(
-        holdback_bb[0],
-        holdback_bb[1],
-        holdback_bb[2],
-        holdback_bb[3])
-    print(holdback_box)
+    holdback_bounds = shapely.prepared.prep(shapely.ops.unary_union([
+        box.buffer(holdback_margin) for box in holdback_boxes]))
+    prep_holdback_box_list = shapely.prepared.prep(shapely.ops.unary_union(
+        holdback_boxes))
+
     non_holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(lambda x: not holdback_bounds.contains(x), points_gdf)))
     non_holdback_gdf['holdback'] = False
+    LOGGER.debug(f'non holdback points: {non_holdback_gdf.size()}')
 
     holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
-        filter(holdback_box.contains, points_gdf)))
+        filter(prep_holdback_box_list.contains, points_gdf)))
     holdback_gdf['holdback'] = True
+    LOGGER.debug(f'holdback points: {holdback_gdf.size()}')
     filtered_gdf = non_holdback_gdf.append(holdback_gdf, ignore_index=True)
     filtered_gdf = filtered_gdf.set_crs(osr.SRS_WKT_WGS84_LAT_LONG)
+    sys.exit()
     return filtered_gdf
 
 
@@ -267,7 +268,7 @@ def main():
                 lat-args.holdback_margin, lat+args.holdback_margin))
 
     LOGGER.debug(holdback_boxes)
-    return
+
     # default bounding box list with some reasonable bounds
     raster_bounding_box_list = [(-179, -80, 179, 80)]
     basename_list = []
@@ -295,7 +296,7 @@ def main():
     LOGGER.info(f'generate {args.n_samples} sample points')
     filtered_gdf_points = generate_sample_points(
         raster_path_set, args.sample_vector_path, target_box_wgs84,
-        args.holdback_centers, args.holdback_margin, args.n_samples,
+        holdback_boxes, args.holdback_margin, args.n_samples,
         args.iso_names)
 
     LOGGER.info(f'sample data with {len(filtered_gdf_points)}...')
