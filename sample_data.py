@@ -12,6 +12,7 @@ from osgeo import osr
 from shapely.prepared import prep
 import ecoshard
 import geopandas
+import pandas
 import matplotlib.pyplot as plt
 import numpy
 import shapely
@@ -209,7 +210,9 @@ def generate_sample_points(
             final_geom_prep.contains, geopandas.points_from_xy(x, y))))
         sample_points += sample_point_list[-1].size
 
-    points_gdf = geopandas.concat(sample_point_list, ignore_index=True)
+    points_gdf = geopandas.GeoDataFrame(
+        pandas.concat(sample_point_list, ignore_index=True),
+        crs=sample_point_list[0].crs)
     LOGGER.debug(f'points gdf {points_gdf.size}')
 
     sys.exit()
