@@ -214,6 +214,7 @@ def generate_sample_points(
         pandas.concat(sample_point_list, ignore_index=True),
         crs=sample_point_list[0].crs)
     LOGGER.debug(f'points gdf {points_gdf.size}')
+    LOGGER.debug(f'{points_gdf}')
 
     # TODO: create bounds list
     # TODO: create shapely prepped objects for bounds list and holdback list
