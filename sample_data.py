@@ -221,12 +221,12 @@ def generate_sample_points(
     # TODO: use the above in filtering points
 
     holdback_bounds = shapely.prepared.prep(shapely.ops.unary_union([
-        box.buffer(0) for box in holdback_boxes]))
+        box.buffer(holdback_margin) for box in holdback_boxes]))
     prep_holdback_box_list = shapely.prepared.prep(shapely.ops.unary_union(
         holdback_boxes))
 
     non_holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
-        filter(lambda x: not holdback_bounds.contains(x), points_gdf)))
+        filter(lambda x: LOGGER.debug(x), points_gdf)))
     non_holdback_gdf['holdback'] = False
     LOGGER.debug(f'non holdback points: {non_holdback_gdf.size}')
 
