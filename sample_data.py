@@ -233,7 +233,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='create spatial samples of data on a global scale')
     parser.add_argument('--sample_rasters', type=str, nargs='+', help='path/pattern to list of rasters to sample', required=True)
-    parser.add_argument('--holdback_centers', type=float, nargs='+', help='list of lat/lng bounding box centers to holdback', required=True)
+    parser.add_argument('--holdback_centers', type=str, nargs='+', help='list of lat/lng bounding box centers to holdback', required=True)
     parser.add_argument('--holdback_margin', type=float, help='margin around the holdback box to ignore', required=True)
     parser.add_argument('--n_samples', type=int, help='number of point samples', required=True)
     parser.add_argument('--iso_names', type=str, nargs='+', help='set of countries to allow, default is all')
