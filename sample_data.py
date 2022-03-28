@@ -217,12 +217,12 @@ def generate_sample_points(
     non_holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(lambda x: not holdback_bounds.contains(x), points_gdf)))
     non_holdback_gdf['holdback'] = False
-    LOGGER.debug(f'non holdback points: {non_holdback_gdf.size()}')
+    LOGGER.debug(f'non holdback points: {non_holdback_gdf.size}')
 
     holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(prep_holdback_box_list.contains, points_gdf)))
     holdback_gdf['holdback'] = True
-    LOGGER.debug(f'holdback points: {holdback_gdf.size()}')
+    LOGGER.debug(f'holdback points: {holdback_gdf.size}')
     filtered_gdf = non_holdback_gdf.append(holdback_gdf, ignore_index=True)
     filtered_gdf = filtered_gdf.set_crs(osr.SRS_WKT_WGS84_LAT_LONG)
     sys.exit()
