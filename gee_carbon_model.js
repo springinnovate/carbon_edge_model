@@ -1,13 +1,13 @@
 
 var datasets = {
-    '***carbon model***': null,
-    'baccini_2014': ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_baccini_carbon_data_2014.tif')
+    'baccini_2014': ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_baccini_carbon_data_2014.tif'),
+    'masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif': ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif'),
 };
 
 var carbon_models = {
     'Original Model': null,
-    'Forest Edge to 0': null,
-    'Forest Edge to 1': null,
+    'Forest Edge to 0.1': null,
+    'Forest Edge to 0.4': null,
 }
 
 datasets['baccini_2014'] = datasets['baccini_2014'].mask(
@@ -19,7 +19,7 @@ var terms = table.toList(table.size());
 terms.evaluate(function (x) {
 
   //loop 3 times, original, 0 and 1,
-  ['Original Model', 'Forest Edge to 0', 'Forest Edge to 1'].forEach(function (experiment_type) {
+  ['Original Model', 'Forest Edge to 0.1', 'Forest Edge to 0.4'].forEach(function (experiment_type) {
       var image_map = {};
       var i = null;
       var max_x = x.length;
@@ -29,10 +29,10 @@ terms.evaluate(function (x) {
       for (i = 1; i < max_x; i++) {
           [x[i].properties.term1, x[i].properties.term2].forEach(function (term_id) {
               var term_clean = term_id.replace(/-/g, "_").replace(/\./g, "_");
-              if (experiment_type === 'Forest Edge to 0' && term_clean.indexOf('gf_') !== -1) {
-                image_map[term_clean] = ee.Image(0);
-              } else if (experiment_type === 'Forest Edge to 1' && term_clean.indexOf('gf_') !== -1) {
-                image_map[term_clean] = ee.Image(1);
+              if (experiment_type === 'Forest Edge to 0.1' && term_clean.indexOf('gf_') !== -1) {
+                image_map[term_clean] = ee.Image(0.1);
+              } else if (experiment_type === 'Forest Edge to 0.4' && term_clean.indexOf('gf_') !== -1) {
+                image_map[term_clean] = ee.Image(0.4);
               } else {
                   var term_url = "gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_"+term_id+".tif";
                   image_map[term_clean] = ee.Image.loadGeoTIFF(term_url);
@@ -50,7 +50,6 @@ terms.evaluate(function (x) {
       }
       carbon_models['Original Model'] = carbon_image;
       datasets[experiment_type] = carbon_image;
-      console.log(carbon_image);
     });
 
   var legend_styles = {
@@ -124,7 +123,6 @@ terms.evaluate(function (x) {
                 self.setDisabled(true);
                 var original_value = self.getValue();
                 self.setPlaceholder('loading ...');
-                console.log('loading  ' + key);
                 self.setValue(null, false);
                 if (active_context.last_layer !== null) {
                   active_context.map.remove(active_context.last_layer);
@@ -146,8 +144,6 @@ terms.evaluate(function (x) {
                 });
 
                 ee.data.computeValue(meanDictionary, function (val) {
-                  console.log('computing value for ' + key + " " + val);
-                  console.log(val);
                   active_context.visParams = {
                     min: val.B0_p10,
                     max: val.B0_p90,
@@ -167,7 +163,7 @@ terms.evaluate(function (x) {
           select.setPlaceholder('Choose a dataset...');
         } else {
             var select = ui.Select({
-            items: ['Original Model', 'Forest Edge to 0', 'Forest Edge to 1'],
+            items: ['Original Model', 'Forest Edge to 0.1', 'Forest Edge to 0.4'],
             onChange: function(key, self) {
                 self.setDisabled(true);
                 var original_value = self.getValue();
@@ -192,8 +188,6 @@ terms.evaluate(function (x) {
                 });
 
                 ee.data.computeValue(meanDictionary, function (val) {
-                  console.log('computing value for ' + key + " " + val);
-                  console.log(val);
                   active_context.visParams = {
                     min: val.B0_p10,
                     max: val.B0_p90,
@@ -210,6 +204,7 @@ terms.evaluate(function (x) {
                 });
             }
           });
+          select.setValue('Original Model');
         }
 
       var min_val = ui.Textbox(
@@ -245,8 +240,6 @@ terms.evaluate(function (x) {
             bestEffort: true,
           });
           ee.data.computeValue(meanDictionary, function (val) {
-            console.log('computing stats values');
-            console.log(val);
             min_val.setValue(val['B0_p10'], false);
             max_val.setValue(val['B0_p90'], true);
             self.setLabel(base_label)
@@ -367,7 +360,6 @@ terms.evaluate(function (x) {
           });
           ee.data.computeValue(point_sample, function (val) {
             if (val.features.length > 0) {
-              console.log(val.features);
               active_context.point_val.setValue(val.features[0].properties.B0.toString());
               if (active_context.last_point_layer !== null) {
                 active_context.map.remove(active_context.last_point_layer);
