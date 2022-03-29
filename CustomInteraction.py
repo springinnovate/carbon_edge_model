@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 
+
 class CustomInteraction(TransformerMixin, BaseEstimator):
     """Make user defined interaction between columns."""
 
@@ -23,9 +24,7 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
         feature_names_out : ndarray of str objects
             Transformed feature names.
         """
-        feature_names = []
-        for int_col in self.interaction_columns:
-            feature_names.append(input_features[int_col])
+        feature_names = input_features.copy()
 
         for int_col_index, int_col in enumerate(self.interaction_columns):
             for index, name in enumerate(input_features):
@@ -50,7 +49,10 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
         self : object
             Fitted transformer.
         """
-        self._n_output_features = len(self.interaction_columns)*(X.shape[1]+1)
+        # the original number of columns + number of interaction columns
+        # interacting with the original columns
+        self._n_output_features = (
+            X.shape[1] + len(self.interaction_columns)*X.shape[1])
         return self
 
     def transform(self, X):
@@ -79,16 +81,20 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
             `csr_matrix`.
         """
         n_samples = X.shape[0]
-        n_int_cols = len(self.interaction_columns)
         XP = np.empty(
-            shape=(n_samples, self._n_output_features), dtype=X.dtype, order='C',
+            shape=(n_samples, self._n_output_features),
+            dtype=X.dtype, order='C',
         )
 
-        XP[:, 0:len(self.interaction_columns)] = (
-            X[:, self.interaction_columns])
+        # get the base columns
+        XP[:, 0:len(X.shape[1])] = (
+            X[:, :])
+
+        # this loop interacts each interaction column with every other element
+        base_offset = X.shape[1]
         for int_col_index, int_col in enumerate(self.interaction_columns):
             for index in range(X.shape[1]):
-                xp_col = n_int_cols+int_col_index*X.shape[1]+index
+                xp_col = base_offset + int_col_index*X.shape[1]+index
                 XP[:, xp_col] = (
                     X[:, index] * X[:, int_col])
         return XP
