@@ -370,7 +370,10 @@ def main():
             ]:
 
         LOGGER.info(f'fitting data with {name}')
-        model = reg.fit(trainset[0], trainset[1], sample_weight=trainset[1]/max(trainset[1]))
+        kwargs = {
+            reg.steps[-1][0] + '__sample_weight': trainset[1]/max(trainset[1])
+            }
+        model = reg.fit(trainset[0], trainset[1], **kwargs)
         model_filename = f'{name}_model.dat'
         LOGGER.info(f'saving model to {model_filename}')
         with open(model_filename, 'wb') as model_file:
