@@ -371,7 +371,7 @@ def main():
 
         LOGGER.info(f'fitting data with {name}')
         kwargs = {
-            reg.steps[-1][0] + '__sample_weight': trainset[1]/max(trainset[1])
+            reg.steps[-1][0] + '__sample_weight': trainset[1].flatten()/max(trainset[1])
             }
         LOGGER.debug(kwargs)
         model = reg.fit(trainset[0], trainset[1], **kwargs)
