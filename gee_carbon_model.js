@@ -5,15 +5,14 @@ var datasets = {
 };
 
 var carbon_models = {
-    'Original Model': null,
-    'Forest Edge to 0.1': null,
-    'Forest Edge to 0.4': null,
+    'model_v2_full_climate': null,
+    'model_edge_only_interactions': null,
 }
 
 datasets['baccini_2014'] = datasets['baccini_2014'].mask(
   ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif').neq(ee.Image(0)));
 
-var terms = table.toList(table.size());
+var terms = model_v2_full_climate.toList(model_v2_full_climate.size());
 
 //Create Carbon Regression Image based on table coefficients
 terms.evaluate(function (x) {
@@ -26,20 +25,6 @@ terms.evaluate(function (x) {
 
       var carbon_image = ee.Image(x[0].properties.coef).rename('B0');
 
-      for (i = 1; i < max_x; i++) {
-          [x[i].properties.term1, x[i].properties.term2].forEach(function (term_id) {
-              var term_clean = term_id.replace(/-/g, "_").replace(/\./g, "_");
-              if (experiment_type === 'Forest Edge to 0.1' && term_clean.indexOf('gf_') !== -1) {
-                image_map[term_clean] = ee.Image(0.1);
-              } else if (experiment_type === 'Forest Edge to 0.4' && term_clean.indexOf('gf_') !== -1) {
-                image_map[term_clean] = ee.Image(0.4);
-              } else {
-                  var term_url = "gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_"+term_id+".tif";
-                  image_map[term_clean] = ee.Image.loadGeoTIFF(term_url);
-                  datasets[term_clean] = image_map[term_clean];
-              }
-          });
-      }
       for (i = 1; i < max_x; i++) {
         var expression_str = x[i].properties.coef/x[i].properties.scale+"*("+(x[i].properties.id).replace(/-/g, "_").replace(/\./g, "_")+"-"+x[i].properties.mean+")";
         var term_image = ee.Image().expression({
