@@ -87,8 +87,7 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
         )
 
         # get the base columns
-        XP[:, 0:len(X.shape[1])] = (
-            X[:, :])
+        XP[:, 0:X.shape[1]] = X[:, :]
 
         # this loop interacts each interaction column with every other element
         base_offset = X.shape[1]
