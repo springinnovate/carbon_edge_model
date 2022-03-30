@@ -59,48 +59,65 @@ Map.setCenter(0, 0, 2);
 
 var model_count = Object.keys(carbon_models).length;
 
+function make_carbon_model(model_id, term_list, edge_substring, edge_override_val) {
+  var i = null;
+  // First term is the intercept, and renaming the band B0 because raw
+  //image bands are also named that
+  var carbon_model_image = ee.Image(
+    term_list[0].properties.coef).rename('B0');
+  for (i = 1; i < term_list.length; i++) {
+
+    var term = term_list[i].properties;
+    // convert any - or . to _ so it can be evaluated
+    var term_equation = term.id;
+    var expression_str = (
+        term.coef/term.scale+"*("+
+        (term_equation).replace(/-/g, "_").replace(/\./g, "_")+
+        "-"+term.mean+")");
+
+    ['term1', 'term2'].forEach(function (term_index) {
+        var term_id = term[term_index];
+        var clean_term_id = term_id.replace(
+            /-/g, "_").replace(/\./g, "_");
+        if (clean_term_id.indexOf(edge_substring) !== -1) {
+            expression_str = expression_str.replace(clean_term_id, edge_override_val);
+        } else {
+            if (term_id in image_map) return;
+            image_map[clean_term_id] = ee.Image.loadGeoTIFF(
+                'gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_'+
+                term_id+".tif").rename('B0');
+            global_image_dict[clean_term_id] = image_map[clean_term_id];
+        }
+    });
+
+    var term_image = ee.Image().expression({
+        expression: expression_str,
+        map: image_map
+      });
+    // add this term to the regression calculation
+    carbon_model_image = carbon_model_image.add(term_image);
+  }
+  if (edge_override_val === null) {
+      global_model_dict[model_id] = carbon_model_image;
+      model_count -= 1;
+      if (model_count == 0) {
+        init_ui();
+      }
+  } else {
+    return carbon_model_image;
+  }
+}
+
+var model_term_map = {};
+
 Object.keys(carbon_models).forEach(function (model_id) {
     var table = carbon_models[model_id]
     var table_to_list = table.toList(table.size());
 
     //Create Carbon Regression Image based on table coefficients
     table_to_list.evaluate(function (term_list) {
-      var i = null;
-      // First term is the intercept, and renaming the band B0 because raw
-      //image bands are also named that
-      var carbon_model_image = ee.Image(
-        term_list[0].properties.coef).rename('B0');
-      for (i = 1; i < term_list.length; i++) {
-
-        var term = term_list[i].properties;
-        ['term1', 'term2'].forEach(function (term_index) {
-            var term_id = term[term_index];
-            var clean_term_id = term_id.replace(
-                /-/g, "_").replace(/\./g, "_");
-            if (term_id in image_map) return;
-            image_map[clean_term_id] = ee.Image.loadGeoTIFF(
-                'gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_'+
-                term_id+".tif").rename('B0');
-            global_image_dict[clean_term_id] = image_map[clean_term_id];
-        });
-
-        // convert any - or . to _ so it can be evaluated
-        var expression_str = (
-            term.coef/term.scale+"*("+
-            (term.id).replace(/-/g, "_").replace(/\./g, "_")+
-            "-"+term.mean+")");
-        var term_image = ee.Image().expression({
-            expression: expression_str,
-            map: image_map
-          });
-        // add this term to the regression calculation
-        carbon_model_image = carbon_model_image.add(term_image);
-      }
-      global_model_dict[model_id] = carbon_model_image;
-      model_count -= 1;
-      if (model_count == 0) {
-        init_ui();
-      }
+        model_term_map[model_id] = term_list;
+        make_carbon_model(model_id, term_list, null, null);
     });
 });
 
@@ -118,6 +135,7 @@ function init_ui() {
     ui.root.widgets().reset([splitPanel]);
     var panel_list = [];
 
+    var active_context_map = {};
     [[Map, 'left'], [linkedMap, 'right']].forEach(function(mapside, index) {
         var active_context = {
           'last_layer': null,
@@ -128,6 +146,7 @@ function init_ui() {
           'legend_panel': null,
           'visParams': null,
         };
+        active_context_map[mapside[1]] = active_context;
 
         active_context.map.style().set('cursor', 'crosshair');
         active_context.visParams = {
@@ -153,6 +172,7 @@ function init_ui() {
         });
         panel.add(controls_label);
         var select_widget_list = [];
+        var model_select_index = 1;
         var select_placeholder_list = ['Select data ...', 'Select model ...'];
         [global_image_dict, global_model_dict].forEach(
             function (local_image_dict, index) {
@@ -222,7 +242,17 @@ function init_ui() {
 
         carbon_panel.add(ui.Textbox(
           'using model', null, function (value) {
-            console.log(value);
+            var model_id = select_widget_list[model_select_index].getValue();
+            ;
+            var new_model = make_carbon_model(
+                model_id, model_term_map[model_id],
+                'gf_', value);
+            if (active_context.last_layer !== null) {
+                active_context.map.remove(active_context.last_layer);
+            }
+            active_context.raster = new_model;
+            active_context.last_layer = active_context.map.addLayer(
+                active_context.raster, active_context.visParams);
           }));
 
         panel.add(carbon_panel);
@@ -354,13 +384,22 @@ function init_ui() {
 
     var clone_to_right = ui.Button(
       'Use this range in both windows', function () {
-          panel_list[1][1].setValue(panel_list[0][1].getValue(), false)
-          panel_list[1][2].setValue(panel_list[0][2].getValue(), true)
+          var active_context = active_context_map['right'];
+          active_context.visParams.min = panel_list[0][1].getValue();
+          active_context.visParams.max = panel_list[0][2].getValue();
+          panel_list[1][1].setValue(active_context.visParams.min, false);
+          panel_list[1][2].setValue(active_context.visParams.max, false);
+          active_context.updateVisParams();
+
     });
     var clone_to_left = ui.Button(
       'Use this range in both windows', function () {
-          panel_list[0][1].setValue(panel_list[1][1].getValue(), false)
-          panel_list[0][2].setValue(panel_list[1][2].getValue(), true)
+          var active_context = active_context_map['left'];
+          active_context.visParams.min = panel_list[1][1].getValue();
+          active_context.visParams.max = panel_list[1][2].getValue();
+          panel_list[0][1].setValue(active_context.visParams.min, false);
+          panel_list[0][2].setValue(active_context.visParams.max, false);
+          active_context.updateVisParams();
     });
 
     //panel_list.push([panel, min_val, max_val, map, active_context]);
