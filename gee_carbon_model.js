@@ -69,11 +69,15 @@ Object.keys(carbon_models).forEach(function (model_id) {
       for (i = 1; i < term_list.length; i++) {
 
         var term = term_list[i].properties;
-        ['term1', 'term2'].forEach(function (term_id) {
-            if (term.term_id in image_map) return;
-            image_map[term.term_id] = ee.Image.loadGeoTIFF(
+        ['term1', 'term2'].forEach(function (term_index) {
+            var term_id = term[term_index];
+            var clean_term_id = term_id.replace(
+                /-/g, "_").replace(/\./g, "_");
+            if (term_id in image_map) return;
+            image_map[clean_term_id] = ee.Image.loadGeoTIFF(
                 'gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_'+
-                term.term_id);
+                term_id).rename('B0');
+            global_image_dict[clean_term_id] = image_map[clean_term_id];
         });
 
         // convert any - or . to _ so it can be evaluated
