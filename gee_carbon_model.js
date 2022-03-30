@@ -164,8 +164,8 @@ function init_ui() {
                       var original_value = self.getValue();
                       self.setPlaceholder('loading ...');
                       var other_index = (index+1)%2;
-                      select_widget_list[other_index].setValue(
-                        select_placeholder_list[other_index]);
+                      select_widget_list[other_index].setValue(null, false);
+                      select_widget_list[other_index].setPlaceholder(select_placeholder_list[other_index], false);
                       self.setValue(null, false);
                       if (active_context.last_layer !== null) {
                         active_context.map.remove(active_context.last_layer);
