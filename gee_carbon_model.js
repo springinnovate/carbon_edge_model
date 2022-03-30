@@ -20,6 +20,8 @@ global_image_dict['baccini_2014'] = global_image_dict['baccini_2014'].mask(
 // Load the carbon models
 var image_map = {};
 
+var global_model_dict = {};
+
 var first_panel = ui.Panel({
   style: {
     border: '10px',
@@ -94,7 +96,7 @@ Object.keys(carbon_models).forEach(function (model_id) {
         // add this term to the regression calculation
         carbon_model_image = carbon_model_image.add(term_image);
       }
-      global_image_dict[model_id] = carbon_model_image;
+      global_model_dict[model_id] = carbon_model_image;
       model_count -= 1;
       if (model_count == 0) {
         init_ui();
@@ -149,49 +151,62 @@ function init_ui() {
             backgroundColor: 'rgba(0, 0, 0, 0)',
           }
         });
-        var select = ui.Select({
-          items: Object.keys(global_image_dict),
-          onChange: function(key, self) {
-              self.setDisabled(true);
-              var original_value = self.getValue();
-              self.setPlaceholder('loading ...');
-              self.setValue(null, false);
-              if (active_context.last_layer !== null) {
-                active_context.map.remove(active_context.last_layer);
-                min_val.setDisabled(true);
-                max_val.setDisabled(true);
-              }
-              if (global_image_dict[key] == '') {
-                self.setValue(original_value, false);
-                self.setDisabled(false);
-                return
-              }
-              active_context.raster = global_image_dict[key];
+        panel.add(controls_label);
+        var select_widget_list = [];
+        var select_placeholder_list = ['Select data ...', 'Select model ...'];
+        [global_image_dict, global_model_dict].forEach(
+            function (local_image_dict, index) {
+              var select = ui.Select({
+                  placeholder: select_placeholder_list[index],
+                  items: Object.keys(local_image_dict),
+                  onChange: function(key, self) {
+                      self.setDisabled(true);
+                      var original_value = self.getValue();
+                      self.setPlaceholder('loading ...');
+                      var other_index = (index+1)%2;
+                      select_widget_list[other_index].setValue(
+                        select_placeholder_list[other_index]);
+                      self.setValue(null, false);
+                      if (active_context.last_layer !== null) {
+                        active_context.map.remove(active_context.last_layer);
+                        min_val.setDisabled(true);
+                        max_val.setDisabled(true);
+                      }
+                      if (local_image_dict[key] == '') {
+                        self.setValue(original_value, false);
+                        self.setDisabled(false);
+                        return
+                      }
+                      active_context.raster = local_image_dict[key];
 
-              var mean_reducer = ee.Reducer.percentile([10, 90], ['p10', 'p90']);
-              var meanDictionary = active_context.raster.reduceRegion({
-                reducer: mean_reducer,
-                geometry: active_context.map.getBounds(true),
-                bestEffort: true,
-              });
+                      var mean_reducer = ee.Reducer.percentile([10, 90], ['p10', 'p90']);
+                      var meanDictionary = active_context.raster.reduceRegion({
+                        reducer: mean_reducer,
+                        geometry: active_context.map.getBounds(true),
+                        bestEffort: true,
+                      });
 
-              ee.data.computeValue(meanDictionary, function (val) {
-                active_context.visParams = {
-                  min: val['B0_p10'],
-                  max: val['B0_p90'],
-                  palette: active_context.visParams.palette,
-                };
-                active_context.last_layer = active_context.map.addLayer(
-                  active_context.raster, active_context.visParams);
-                min_val.setValue(active_context.visParams.min, false);
-                max_val.setValue(active_context.visParams.max, false);
-                min_val.setDisabled(false);
-                max_val.setDisabled(false);
-                self.setValue(original_value, false);
-                self.setDisabled(false);
+                      ee.data.computeValue(meanDictionary, function (val) {
+                        active_context.visParams = {
+                          min: val['B0_p10'],
+                          max: val['B0_p90'],
+                          palette: active_context.visParams.palette,
+                        };
+                        active_context.last_layer = active_context.map.addLayer(
+                          active_context.raster, active_context.visParams);
+                        min_val.setValue(active_context.visParams.min, false);
+                        max_val.setValue(active_context.visParams.max, false);
+                        min_val.setDisabled(false);
+                        max_val.setDisabled(false);
+                        self.setValue(original_value, false);
+                        self.setDisabled(false);
+                      });
+                  }
               });
-          }
+              select_widget_list.push(select);
+              panel.add(select);
         });
+
 
         var min_val = ui.Textbox(
           0, 0, function (value) {
@@ -214,7 +229,6 @@ function init_ui() {
           }
         }
         active_context.updateVisParams = updateVisParams;
-        select.setPlaceholder('Choose a dataset...');
         var range_button = ui.Button(
           'Detect Range', function (self) {
             self.setDisabled(true);
@@ -234,8 +248,6 @@ function init_ui() {
             });
           });
 
-        panel.add(controls_label);
-        panel.add(select);
         panel.add(ui.Label({
             value: 'min',
             style:{'backgroundColor': 'rgba(0, 0, 0, 0)'}
