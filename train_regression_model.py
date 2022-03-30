@@ -364,15 +364,15 @@ def main():
             POLY_ORDER, interaction_only=False, include_bias=False)
 
     for name, reg in [
-            #('LinearSVR_v2', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='epsilon_insensitive', epsilon=1e-4, dual=True))),
-            ('LinearSVR_v3', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-4, dual=False))),
+            ('LinearSVR_v2', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='epsilon_insensitive', epsilon=1e-4, dual=True))),
+            #('LinearSVR_v3', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-4, dual=False))),
             #('LassoLarsCV', make_pipeline(poly_features, StandardScaler(),  LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
             #('LassoLars', make_pipeline(poly_features, StandardScaler(),  LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
             ]:
 
         LOGGER.info(f'fitting data with {name}')
         kwargs = {
-            reg.steps[-1][0] + '__sample_weight': (trainset[1].flatten()/max(trainset[1]))**2
+            reg.steps[-1][0] + '__sample_weight': (trainset[1].flatten()/max(trainset[1]))**1
             }
         LOGGER.debug(kwargs)
         model = reg.fit(trainset[0], trainset[1], **kwargs)
