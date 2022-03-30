@@ -8,12 +8,14 @@ var carbon_models = {
     'model_v2_full_climate': model_v2_full_climate,
     'model_edge_only_interactions': model_edge_only_interactions,
     'model_v3_weighted_full': model_v3_weighted_full,
+    'model_v6_weighted_dual_full': model_v6,
 }
 
 // Mask the baccini dataset to the only place we identified as forest
 // TODO: change to carbon model?
 global_image_dict['baccini_2014'] = global_image_dict['baccini_2014'].mask(
-    ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif').neq(ee.Image(0)));
+    ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif').neq(ee.Image(0)).and(
+        global_image_dict['baccini_2014'].neq(ee.Image(32767))));
 
 // Load the carbon models
 var image_map = {};
@@ -76,7 +78,7 @@ Object.keys(carbon_models).forEach(function (model_id) {
             if (term_id in image_map) return;
             image_map[clean_term_id] = ee.Image.loadGeoTIFF(
                 'gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_'+
-                term_id).rename('B0');
+                term_id+".tif").rename('B0');
             global_image_dict[clean_term_id] = image_map[clean_term_id];
         });
 
@@ -174,7 +176,6 @@ function init_ui() {
               });
 
               ee.data.computeValue(meanDictionary, function (val) {
-                console.log(val);
                 active_context.visParams = {
                   min: val['B0_p10'],
                   max: val['B0_p90'],
