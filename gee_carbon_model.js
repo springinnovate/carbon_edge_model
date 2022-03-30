@@ -207,6 +207,25 @@ function init_ui() {
               panel.add(select);
         });
 
+        var carbon_panel = ui.Panel({
+          layout: ui.Panel.Layout.Flow('vertical'),
+          style: {
+            padding: '0px',
+            backgroundColor: 'rgba(255, 255, 255, 0.4)'
+          }
+        });
+
+        carbon_panel.add(ui.Label({
+            value: 'override forest edge val',
+            style:{'backgroundColor': 'rgba(0, 0, 0, 0)'}
+          }));
+
+        carbon_panel.add(ui.Textbox(
+          'using model', null, function (value) {
+            console.log(value);
+          }));
+
+        panel.add(carbon_panel);
 
         var min_val = ui.Textbox(
           0, 0, function (value) {
