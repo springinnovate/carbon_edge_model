@@ -145,6 +145,7 @@ function init_ui() {
           'map': mapside[0],
           'legend_panel': null,
           'visParams': null,
+          'validation_layer': null,
         };
         active_context_map[mapside[1]] = active_context;
 
@@ -254,6 +255,49 @@ function init_ui() {
             active_context.last_layer = active_context.map.addLayer(
                 active_context.raster, active_context.visParams);
           }));
+
+        var validation_check = ui.Checkbox(
+            'compare validation data', false, function (checked, self) {
+                console.log(checked);
+                var max_agb = ee.Number(forest_validation_points.reduceColumns(ee.Reducer.max(), ['AGB']).get('max'));
+                var fp = forest_validation_points.map(function (feature) {
+                    return feature.set('style', {
+                      pointSize: ee.Number(feature.get('AGB')).divide(max_agb).multiply(20),
+                  });
+                });
+                fp = fp.style({
+                  styleProperty: 'style',
+                  neighborhood: 8  // maximum "pointSize" + "width" among features
+                });
+
+                console.log('computing validation layer');
+                var validation_samples = active_context.raster.sampleRegions({
+                  collection: forest_validation_points,
+                  //scale: 10,
+                  geometries: true
+                }).limit(1000);
+                console.log(validation_samples);
+                console.log(forest_validation_points.limit(1000));
+                validation_samples = validation_samples.map(function (feature) {
+                  return feature.set('style', {
+                    pointSize: ee.Number(feature.get('AGB')).divide(feature.get('B0')).multiply(4),
+                    //pointSize: 100,
+                  });
+                });
+                validation_samples = validation_samples.style({
+                  styleProperty: 'style',
+                  neighborhood: 8  // maximum "pointSize" + "width" among features
+                });
+
+                console.log('adding validation layer');
+                if (active_context.validation_layer !== null) {
+                    active_context.map.remove(active_context.validation_layer);
+                }
+                active_context.validation_layer = validation_samples;
+                active_context.map.addLayer(active_context.validation_layer);
+                //active_context.map.addLayer(forest_validation_points.limit(1000));
+            });
+        carbon_panel.add(validation_check);
 
         panel.add(carbon_panel);
 
@@ -381,19 +425,6 @@ function init_ui() {
         build_legend_panel();
         active_context.build_legend_panel = build_legend_panel;
 
-        var max_agb = ee.Number(forest_validation_points.reduceColumns(ee.Reducer.max(), ['AGB']).get('max'));
-        //console.log(max_agb);
-
-        var fp = forest_validation_points.map(function (feature) {
-            return feature.set('style', {
-              pointSize: ee.Number(feature.get('AGB')).divide(max_agb).multiply(20),
-          });
-        });
-        fp = fp.style({
-          styleProperty: 'style',
-          neighborhood: 8  // maximum "pointSize" + "width" among features
-        });
-        active_context.map.addLayer(fp);
     });
 
     var clone_to_right = ui.Button(
