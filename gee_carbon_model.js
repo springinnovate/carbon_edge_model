@@ -55,7 +55,7 @@ function changeColorScheme(key, active_context) {
 };
 
 var linkedMap = ui.Map();
-Map.setCenter(0, 0, 2);
+Map.setCenter(0, 0, 3);
 
 var model_count = Object.keys(carbon_models).length;
 
@@ -380,6 +380,20 @@ function init_ui() {
         active_context.map.setControlVisibility({"mapTypeControl": true});
         build_legend_panel();
         active_context.build_legend_panel = build_legend_panel;
+
+        var max_agb = ee.Number(forest_validation_points.reduceColumns(ee.Reducer.max(), ['AGB']).get('max'));
+        //console.log(max_agb);
+
+        var fp = forest_validation_points.map(function (feature) {
+            return feature.set('style', {
+              pointSize: ee.Number(feature.get('AGB')).divide(max_agb).multiply(20),
+          });
+        });
+        fp = fp.style({
+          styleProperty: 'style',
+          neighborhood: 8  // maximum "pointSize" + "width" among features
+        });
+        active_context.map.addLayer(fp);
     });
 
     var clone_to_right = ui.Button(
