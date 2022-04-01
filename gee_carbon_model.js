@@ -173,13 +173,18 @@ function init_ui() {
         var select_widget_list = [];
         var model_select_index = 1;
         var select_placeholder_list = ['Select data ...', 'Select model ...'];
-        [global_image_dict, global_model_dict].forEach(
-            function (local_image_dict, index) {
+        [[global_image_dict, 'image'], [global_model_dict, 'model']].forEach(
+            function (payload, index) {
+                var local_image_dict = payload[0];
+                var image_type = payload[1];
                 var select = ui.Select({
                     placeholder: select_placeholder_list[index],
                     items: Object.keys(local_image_dict),
                     onChange: function(key, self) {
                         self.setDisabled(true);
+                        active_context.validation_check.setDisabled(true);
+                        active_context.model_edge_override.setDisabled(
+                            true);
                         var original_value = self.getValue();
                         self.setPlaceholder('loading ...');
                         var other_index = (index+1)%2;
@@ -232,8 +237,11 @@ function init_ui() {
                         self.setValue(original_value, false);
                         self.setDisabled(false);
 
-                        active_context.model_edge_override.setDisabled(false);
-                        active_context.validation_check .setDisabled(false);
+                        if (image_type === 'model') {
+                            active_context.model_edge_override.setDisabled(
+                                false);
+                        }
+                        active_context.validation_check.setDisabled(false);
 
                     });
                 }
@@ -276,7 +284,7 @@ function init_ui() {
         active_context.model_edge_override = model_edge_override;
 
         var validation_check = ui.Checkbox({
-            placeholder: 'compare validation data',
+            label: 'compare validation data',
             value: false,
             disabled: true,
             onChange: function (checked, self) {
