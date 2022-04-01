@@ -146,6 +146,7 @@ function init_ui() {
             'visParams': null,
             'validation_layer': null,
             'validation_check': null,
+            'active_map_layer_id': null,
         };
         active_context_map[mapside[1]] = active_context;
 
@@ -183,6 +184,7 @@ function init_ui() {
                     placeholder: select_placeholder_list[index],
                     items: Object.keys(local_image_dict),
                     onChange: function(key, self) {
+                        active_context.active_map_layer_id = key;
                         self.setDisabled(true);
                         active_context.validation_check.setDisabled(true);
                         active_context.model_edge_override.setDisabled(
@@ -266,12 +268,10 @@ function init_ui() {
             disabled: true,
             onChange: function (checked, self) {
                 // set up a loop to do all the points one batch at a time
-                console.log(forest_validation_points.size());
                 var chunksize = 100;
                 var validation_collection = null;
-                for (var i = 0; i < 2; i++) { //forest_validation_points_size/chunksize; i++) {
+                for (var i = 0; i < forest_validation_points_size/chunksize; i++) {
                     var offset = i*chunksize
-                    console.log(offset);
 
                     var forest_val_sublist = forest_validation_points.toList(chunksize, offset);
                     var validation_subset = active_context.raster.sampleRegions({
@@ -289,53 +289,28 @@ function init_ui() {
                         validation_collection = validation_collection.merge(validation_subset);
                     }
                 }
-                console.log('creating validatiaon layer visualization');
-                console.log(validation_collection);
-
-                var yValues = validation_collection.toArray(['AGB', 'B0']);
 
                 var chart =
                     ui.Chart.feature
                         .byFeature({
                           features: validation_collection,
-                          xProperty: 'label',
-                          yProperties: ['01_tmean', '07_tmean']
+                          xProperty: 'AGB',
+                          yProperties: ['B0'],
                         })
-                        .setSeriesNames(['Jan', 'Jul'])
                         .setChartType('ScatterChart')
                         .setOptions({
-                          title: 'Average Monthly Temperature by Ecoregion',
+                          title: 'Actual Biomass vs ' + active_context.active_map_layer_id,
                           hAxis:
-                              {title: 'Ecoregion', titleTextStyle: {italic: false, bold: true}},
+                              {title: 'Above Ground Biomass?', titleTextStyle: {italic: false, bold: true}},
                           vAxis: {
-                            title: 'Temperature (°C)',
+                            title: 'Raster Value',
                             titleTextStyle: {italic: false, bold: true}
                           },
-                          pointSize: 10,
-                          colors: ['1d6b99', 'cf513e'],
+                          pointSize: 3,
+                          colors: ['009900'],
                         });
-                console.log(yValues);
+                print(chart);
 
-                /*
-                validation_collection = validation_collection.map(function (feature) {
-                    return feature.set('style', {
-                        pointSize: ee.Number(feature.get('AGB')).subtract(feature.get('B0')).abs().divide(max_radius).min(max_radius),
-                        color: agb_vs_b0_color.get(ee.Number(feature.get('AGB')).lt(ee.Number(feature.get('B0')))),
-                    });
-                });
-                validation_collection = validation_collection.style({
-                    styleProperty: 'style',
-                    neighborhood: max_radius*2,
-                });
-
-                if (active_context.validation_layer !== null) {
-                    active_context.map.remove(active_context.validation_layer);
-                }
-                active_context.validation_layer = active_context.map.addLayer(
-                    validation_collection, {
-                        name: 'validation points',
-                    }
-                );*/
             }
         });
         active_context.validation_check = validation_check;
