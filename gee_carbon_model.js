@@ -231,6 +231,10 @@ function init_ui() {
                         max_val.setDisabled(false);
                         self.setValue(original_value, false);
                         self.setDisabled(false);
+
+                        active_context.model_edge_override.setDisabled(false);
+                        active_context.validation_check .setDisabled(false);
+
                     });
                 }
             });
@@ -251,8 +255,10 @@ function init_ui() {
             style:{'backgroundColor': 'rgba(0, 0, 0, 0)'}
         }));
 
-        carbon_panel.add(ui.Textbox(
-            'using model', null, function (value) {
+        var model_edge_override = ui.Textbox({
+            placeholder: 'using model',
+            disabled: true,
+            onChange: function (value) {
                 var model_id = select_widget_list[model_select_index].getValue();
                 var new_model = make_carbon_model(
                     model_id, model_term_map[model_id],
@@ -263,11 +269,17 @@ function init_ui() {
                 active_context.raster = new_model;
                 active_context.last_layer = active_context.map.addLayer(
                     active_context.raster, active_context.visParams);
+                }
             }
-        ));
+        );
+        carbon_panel.add(model_edge_override);
+        active_context.model_edge_override = model_edge_override;
 
-        var validation_check = ui.Checkbox(
-            'compare validation data', false, function (checked, self) {
+        var validation_check = ui.Checkbox({
+            placeholder: 'compare validation data',
+            value: false,
+            disabled: true,
+            onChange: function (checked, self) {
                 // set up a loop to do all the points one batch at a time
                 var validation_samples = active_context.raster.sampleRegions({
                     collection: forest_validation_points,
@@ -295,9 +307,12 @@ function init_ui() {
                     active_context.map.remove(active_context.validation_layer);
                 }
                 active_context.validation_layer = active_context.map.addLayer(
-                    validation_samples, 'validation points');
+                    validation_samples, {
+                        name: 'validation points',
+                    }
+                );
             }
-        );
+        });
         active_context.validation_check = validation_check;
         carbon_panel.add(validation_check);
 
