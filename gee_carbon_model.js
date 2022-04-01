@@ -1,3 +1,5 @@
+var forest_validation_points_size = 15318;
+
 var global_image_dict = {
     'baccini_2014': ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_baccini_carbon_data_2014.tif'),
     'masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif': ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif'),
@@ -258,6 +260,87 @@ function init_ui() {
             }
         });
 
+        var validation_check = ui.Checkbox({
+            label: 'compare validation data',
+            value: false,
+            disabled: true,
+            onChange: function (checked, self) {
+                // set up a loop to do all the points one batch at a time
+                console.log(forest_validation_points.size());
+                var chunksize = 100;
+                var validation_collection = null;
+                for (var i = 0; i < 2; i++) { //forest_validation_points_size/chunksize; i++) {
+                    var offset = i*chunksize
+                    console.log(offset);
+
+                    var forest_val_sublist = forest_validation_points.toList(chunksize, offset);
+                    var validation_subset = active_context.raster.sampleRegions({
+                        collection: forest_val_sublist,
+                        geometries: true
+                    });
+                    var agb_vs_b0_color = ee.Dictionary({
+                        1: 'blue',
+                        0: 'red',
+                    });
+                    var max_radius = 20;
+                    if (validation_collection === null) {
+                        validation_collection = validation_subset;
+                    } else {
+                        validation_collection = validation_collection.merge(validation_subset);
+                    }
+                }
+                console.log('creating validatiaon layer visualization');
+                console.log(validation_collection);
+
+                var yValues = validation_collection.toArray(['AGB', 'B0']);
+
+                var chart =
+                    ui.Chart.feature
+                        .byFeature({
+                          features: validation_collection,
+                          xProperty: 'label',
+                          yProperties: ['01_tmean', '07_tmean']
+                        })
+                        .setSeriesNames(['Jan', 'Jul'])
+                        .setChartType('ScatterChart')
+                        .setOptions({
+                          title: 'Average Monthly Temperature by Ecoregion',
+                          hAxis:
+                              {title: 'Ecoregion', titleTextStyle: {italic: false, bold: true}},
+                          vAxis: {
+                            title: 'Temperature (°C)',
+                            titleTextStyle: {italic: false, bold: true}
+                          },
+                          pointSize: 10,
+                          colors: ['1d6b99', 'cf513e'],
+                        });
+                console.log(yValues);
+
+                /*
+                validation_collection = validation_collection.map(function (feature) {
+                    return feature.set('style', {
+                        pointSize: ee.Number(feature.get('AGB')).subtract(feature.get('B0')).abs().divide(max_radius).min(max_radius),
+                        color: agb_vs_b0_color.get(ee.Number(feature.get('AGB')).lt(ee.Number(feature.get('B0')))),
+                    });
+                });
+                validation_collection = validation_collection.style({
+                    styleProperty: 'style',
+                    neighborhood: max_radius*2,
+                });
+
+                if (active_context.validation_layer !== null) {
+                    active_context.map.remove(active_context.validation_layer);
+                }
+                active_context.validation_layer = active_context.map.addLayer(
+                    validation_collection, {
+                        name: 'validation points',
+                    }
+                );*/
+            }
+        });
+        active_context.validation_check = validation_check;
+        panel.add(validation_check);
+
         carbon_panel.add(ui.Label({
             value: 'override forest edge val',
             style:{'backgroundColor': 'rgba(0, 0, 0, 0)'}
@@ -282,47 +365,6 @@ function init_ui() {
         );
         carbon_panel.add(model_edge_override);
         active_context.model_edge_override = model_edge_override;
-
-        var validation_check = ui.Checkbox({
-            label: 'compare validation data',
-            value: false,
-            disabled: true,
-            onChange: function (checked, self) {
-                // set up a loop to do all the points one batch at a time
-                var validation_samples = active_context.raster.sampleRegions({
-                    collection: forest_validation_points,
-                    geometries: true
-                }).limit(500);
-                console.log(validation_samples);
-                var feature  = validation_samples.first();
-                var agb_vs_b0_color = ee.Dictionary({
-                    1: 'blue',
-                    0: 'red',
-                });
-                var max_radius = 20;
-                validation_samples = validation_samples.map(function (feature) {
-                    return feature.set('style', {
-                        pointSize: ee.Number(feature.get('AGB')).subtract(feature.get('B0')).abs().divide(max_radius).min(max_radius),
-                        color: agb_vs_b0_color.get(ee.Number(feature.get('AGB')).lt(ee.Number(feature.get('B0')))),
-                    });
-                });
-                validation_samples = validation_samples.style({
-                    styleProperty: 'style',
-                    neighborhood: max_radius*2,
-                });
-
-                if (active_context.validation_layer !== null) {
-                    active_context.map.remove(active_context.validation_layer);
-                }
-                active_context.validation_layer = active_context.map.addLayer(
-                    validation_samples, {
-                        name: 'validation points',
-                    }
-                );
-            }
-        });
-        active_context.validation_check = validation_check;
-        carbon_panel.add(validation_check);
 
         panel.add(carbon_panel);
 
