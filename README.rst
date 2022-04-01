@@ -48,8 +48,8 @@ In this example, every file matched in the ``../masked_*.tif`` pattern, will gen
 
 Step 4 -- Sample rasters into point dataset
 *******************************************
-
 Rasters are then sampled into a point dataset and separated by base points and holdback test set. The following command samples all the rasters in the ``processed_rasters`` directory:
+
 
 ``python sample_data.py --sample_rasters processed_rasters/*.tif --holdback_bb 15.0 -9 33.0 9 --holdback_margin 2.0 --n_samples 100000 --sample_vector_path countries.gpkg``
 
@@ -408,19 +408,3 @@ License
 -------
 
 This software is permissively licensed under The Apache 2.0 open source license.
-
-
-inputs:
-  landcover
-  prob
-  what to flip it to
-
-
-raster a
-raster b
-{
-  [for value in a
-    if b > threshold, flip a to something, else something else]
-}
-
-landcover in a, value > threshold, value < threshold

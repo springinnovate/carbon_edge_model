@@ -303,7 +303,6 @@ function init_ui() {
                 });
                 active_context.chart_panel.add(chart);
                 active_context_map.add(active_context.chart_panel);
-                //print(chart);
 
                 var agb_vs_b0_color = ee.Dictionary({
                     1: 'blue',
