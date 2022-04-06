@@ -75,7 +75,8 @@ def filter_raster(base_raster_path, expected_max_edge_effect_km, target_path):
     LOGGER.debug(f'making convolution for {raw_gf_path}')
 
     geoprocessing.convolve_2d(
-        (base_raster_path, 1), (kernel_raster_path, 1), raw_gf_path)
+        (base_raster_path, 1), (kernel_raster_path, 1), raw_gf_path,
+        normalize_kernel=True)
 
     def _mask_op(raw_gf, base_array):
         result = numpy.where(base_array == 1, raw_gf, -1.0)
