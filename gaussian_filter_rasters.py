@@ -108,8 +108,11 @@ def main():
     raster_path_list = [
         raster_path for raster_pattern in args.raster_path_list
         for raster_path in glob.glob(raster_pattern)]
+    n_bands = sum([
+        geoprocessing.get_raster_info(raster_path)['n_bands']
+        for raster_path in raster_path_list])
     n_workers = min(
-        len(raster_path_list)*len(args.kernel_distance_list),
+        n_bands*len(args.kernel_distance_list),
         multiprocessing.cpu_count())
 
     task_graph = taskgraph.TaskGraph('.', n_workers, 15)
