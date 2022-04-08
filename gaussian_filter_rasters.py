@@ -119,7 +119,7 @@ def main():
         basename = os.path.basename(raster_path)
         base_dir = os.path.dirname(raster_path)
         raster_info = geoprocessing.get_raster_info(raster_path)
-        n_bands = len(raster_info['n_bands'])
+        n_bands = raster_info['n_bands']
         for expected_max_edge_effect_km in args.kernel_distance_list:
             for band_id in range(1, n_bands+1):
                 if n_bands > 1:
