@@ -129,6 +129,8 @@ def main():
                 gf_path = os.path.join(
                     base_dir,
                     f'gf_{expected_max_edge_effect_km}{band_str}_{basename}')
+                LOGGER.debug(gf_path)
+                continue
                 task_graph.add_task(
                     func=filter_raster,
                     args=(
