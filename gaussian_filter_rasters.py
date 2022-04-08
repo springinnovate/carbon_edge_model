@@ -62,8 +62,10 @@ def _process_gf(raw_raster_path, mask_raster_path, scale, target_raster_path):
         target_raster_path, gdal.GDT_Float32, -1)
 
 
-def filter_raster(base_raster_path, expected_max_edge_effect_km, target_path):
+def filter_raster(
+        base_raster_path_band, expected_max_edge_effect_km, target_path):
     """Gaussian filter base by expected max edge to target_path."""
+    base_raster_path, base_raster_band = base_raster_path_band
     pixel_size = geoprocessing.get_raster_info(base_raster_path)['pixel_size']
     pixel_radius = 1000*expected_max_edge_effect_km/pixel_size[0]
     basename = os.path.basename(target_path)
@@ -75,16 +77,16 @@ def filter_raster(base_raster_path, expected_max_edge_effect_km, target_path):
     LOGGER.debug(f'making convolution for {raw_gf_path}')
 
     geoprocessing.convolve_2d(
-        (base_raster_path, 1), (kernel_raster_path, 1), raw_gf_path,
-        normalize_kernel=True)
+        (base_raster_path, base_raster_band), (kernel_raster_path, 1),
+        raw_gf_path, normalize_kernel=True)
 
     def _mask_op(raw_gf, base_array):
         result = numpy.where(base_array == 1, raw_gf, -1.0)
         return result
 
     geoprocessing.raster_calculator(
-        [(raw_gf_path, 1), (base_raster_path, 1)], _mask_op, target_path,
-        gdal.GDT_Float32, -1.0)
+        [(raw_gf_path, 1), (base_raster_path, base_raster_band)], _mask_op,
+        target_path, gdal.GDT_Float32, -1.0)
 
     os.remove(kernel_raster_path)
     os.remove(raw_gf_path)
@@ -116,16 +118,24 @@ def main():
         LOGGER.debug(f'process {raster_path}')
         basename = os.path.basename(raster_path)
         base_dir = os.path.dirname(raster_path)
+        raster_info = geoprocessing.get_raster_info(raster_path)
+        n_bands = len(raster_info['n_bands'])
         for expected_max_edge_effect_km in args.kernel_distance_list:
-            gf_path = os.path.join(
-                base_dir, f'gf_{expected_max_edge_effect_km}_{basename}')
-            task_graph.add_task(
-                func=filter_raster,
-                args=(
-                    raster_path, expected_max_edge_effect_km,
-                    gf_path),
-                target_path_list=[gf_path],
-                task_name=f'filter raster {gf_path}')
+            for band_id in range(1, n_bands+1):
+                if n_bands > 1:
+                    band_str = f'_{band_id}'
+                else:
+                    band_str = ''
+                gf_path = os.path.join(
+                    base_dir,
+                    f'gf_{expected_max_edge_effect_km}{band_str}_{basename}')
+                task_graph.add_task(
+                    func=filter_raster,
+                    args=(
+                        (raster_path, band_id), expected_max_edge_effect_km,
+                        gf_path),
+                    target_path_list=[gf_path],
+                    task_name=f'filter raster {gf_path}')
 
     task_graph.join()
     task_graph.close()
