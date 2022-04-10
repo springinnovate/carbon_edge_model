@@ -5,7 +5,6 @@ import logging
 import os
 import time
 import datetime
-import sys
 
 from ecoshard import geoprocessing
 from osgeo import gdal
@@ -157,12 +156,10 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
                 if nodata is not None:
                     raster_data[numpy.isclose(raster_data, nodata)] = 0.0
                 gdf_points.loc[local_points_index, basename] = raster_data
-                #gdf_points = gdf_points.loc[local_points_index]
 
     return gdf_points
 
 
-#@profile
 def generate_sample_points(
         raster_path_list, sample_polygon_path, bounding_box,
         holdback_boxes, holdback_margin, n_points, country_filter_list=None):
@@ -310,16 +307,12 @@ def main():
         holdback_boxes, args.holdback_margin, args.n_samples,
         args.iso_names)
 
-    LOGGER.info('plot')
-    LOGGER.debug(f" all {filtered_gdf_points}")
-    LOGGER.debug(f" non holdback {filtered_gdf_points[filtered_gdf_points['holdback'] == False]}")
-    LOGGER.debug(f" holdback {filtered_gdf_points[filtered_gdf_points['holdback'] == True]}")
     fig, ax = plt.subplots(figsize=(12, 10))
     ax.set_title(f'{len(filtered_gdf_points)} points')
-    v = filtered_gdf_points[filtered_gdf_points['holdback']==False]
+    v = filtered_gdf_points[filtered_gdf_points['holdback'] is False]
     v.plot(ax=ax, color='blue', markersize=2.5)
 
-    w = filtered_gdf_points[filtered_gdf_points['holdback']==True]
+    w = filtered_gdf_points[filtered_gdf_points['holdback'] is True]
     print(w)
     w.plot(ax=ax, color='green', markersize=2.5)
     plt.show()
