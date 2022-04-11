@@ -221,22 +221,22 @@ def generate_sample_points(
 
     holdback_bounds = shapely.prepared.prep(shapely.ops.unary_union([
         box.buffer(holdback_margin) for box in holdback_boxes]))
-    prep_holdback_box_list = shapely.prepared.prep(shapely.ops.unary_union(
-        holdback_boxes))
 
-    non_holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
+    point_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
         filter(lambda x: not holdback_bounds.contains(x), points_gdf)))
-    non_holdback_gdf['holdback'] = False
+    point_gdf['holdback'] = False
 
-    LOGGER.debug(f'non holdback points: {non_holdback_gdf.size}')
+    LOGGER.debug(f'non holdback points: {point_gdf.size}')
 
-    holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
-        filter(prep_holdback_box_list.contains, points_gdf)))
-    holdback_gdf['holdback'] = True
-    LOGGER.debug(f'holdback points: {holdback_gdf.size}')
-    filtered_gdf = non_holdback_gdf.append(holdback_gdf, ignore_index=True)
-    filtered_gdf = filtered_gdf.set_crs(osr.SRS_WKT_WGS84_LAT_LONG)
-    return filtered_gdf
+    for holdback_index, holdback_box in enumerate(holdback_boxes):
+        holdback_gdf = geopandas.GeoDataFrame(geometry=geopandas.GeoSeries(
+            filter(holdback_box.contains, points_gdf)))
+        holdback_gdf['holdback'] = True
+        holdback_gdf['index'] = holdback_index
+        #LOGGER.debug(f'holdback points: {holdback_gdf.size}')
+        point_gdf = point_gdf.append(holdback_gdf, ignore_index=True)
+    point_gdf = point_gdf.set_crs(osr.SRS_WKT_WGS84_LAT_LONG)
+    return point_gdf
 
 
 def main():
