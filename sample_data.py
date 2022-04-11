@@ -31,7 +31,6 @@ logging.getLogger('fiona').setLevel(logging.WARN)
 gdal.SetCacheMax(2**27)
 
 
-#@profile
 def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
     """Sample raster paths given the points.
 
@@ -71,15 +70,18 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
             raster = gdal.OpenEx(raster_path)
             band = raster.GetRasterBand(band_index)
             LOGGER.debug(f'processing {basename}')
-            n_total = raster_info['raster_size'][0]*raster_info['raster_size'][1]
+            n_total = (
+                raster_info['raster_size'][0]*raster_info['raster_size'][1])
             n_processed = 0
             for offset_dict in geoprocessing.iterblocks(
                     (raster_path, 1), offset_only=True, largest_block=2**29):
                 if time.time()-last_time > 5:
                     LOGGER.debug(
-                        f'{n_processed/n_total*100:.2f}% complete for {basename} {n_processed} {n_total}')
+                        f'{n_processed/n_total*100:.2f}% complete for '
+                        f'{basename} {n_processed} {n_total}')
                     last_time = time.time()
-                n_processed += offset_dict['win_xsize']*offset_dict['win_ysize']
+                n_processed += (
+                    offset_dict['win_xsize']*offset_dict['win_ysize'])
                 LOGGER.debug(offset_dict)
                 local_bb_key = (
                     gt, offset_dict['xoff'], offset_dict['yoff'],
@@ -93,9 +95,11 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
                             gt, offset_dict['xoff']+offset_dict['win_xsize'],
                             offset_dict['yoff']+offset_dict['win_ysize']))
                     local_bb_wgs84 = geoprocessing.transform_bounding_box(
-                        local_bb,
-                        raster_info['projection_wkt'], osr.SRS_WKT_WGS84_LAT_LONG)
-                    LOGGER.debug(f'{local_bb} vs {local_bb_wgs84} offset_dict {offset_dict} geotransform {gt}')
+                        local_bb, raster_info['projection_wkt'],
+                        osr.SRS_WKT_WGS84_LAT_LONG)
+                    LOGGER.debug(
+                        f'{local_bb} vs {local_bb_wgs84} offset_dict '
+                        f'{offset_dict} geotransform {gt}')
 
                     local_box_wgs84 = shapely.geometry.box(
                         local_bb_wgs84[0],
@@ -111,8 +115,10 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
                         continue
 
                     local_points = gdf_points.cx[
-                        intersect_box_wgs84.bounds[0]:intersect_box_wgs84.bounds[2],
-                        intersect_box_wgs84.bounds[1]:intersect_box_wgs84.bounds[3],
+                        intersect_box_wgs84.bounds[0]:
+                            intersect_box_wgs84.bounds[2],
+                        intersect_box_wgs84.bounds[1]:
+                            intersect_box_wgs84.bounds[3],
                         ]
                     local_points = local_points.set_crs(
                         osr.SRS_WKT_WGS84_LAT_LONG)
@@ -213,10 +219,6 @@ def generate_sample_points(
         pandas.concat(sample_point_list, ignore_index=True),
         crs=sample_point_list[0].crs)
 
-    # TODO: create bounds list
-    # TODO: create shapely prepped objects for bounds list and holdback list
-    # TODO: use the above in filtering points
-
     holdback_bounds = shapely.prepared.prep(shapely.ops.unary_union([
         box.buffer(holdback_margin) for box in holdback_boxes]))
     prep_holdback_box_list = shapely.prepared.prep(shapely.ops.unary_union(
@@ -237,18 +239,27 @@ def generate_sample_points(
     return filtered_gdf
 
 
-#@profile
 def main():
     parser = argparse.ArgumentParser(
         description='create spatial samples of data on a global scale')
-    parser.add_argument('--sample_rasters', type=str, nargs='+', help='path/pattern to list of rasters to sample', required=True)
-    parser.add_argument('--holdback_centers', type=str, nargs='+', help='list of lat/lng bounding box centers to holdback', required=True)
-    parser.add_argument('--holdback_margin', type=float, help='margin around the holdback box to ignore', required=True)
-    parser.add_argument('--n_samples', type=int, help='number of point samples', required=True)
-    parser.add_argument('--iso_names', type=str, nargs='+', help='set of countries to allow, default is all')
     parser.add_argument(
-        '--sample_vector_path', type=str,
-        help='path to a vector to limit sample points, if left off, samples to bounding box of rasters')
+        '--sample_rasters', type=str, nargs='+',
+        help='path/pattern to list of rasters to sample', required=True)
+    parser.add_argument(
+        '--holdback_centers', type=str, nargs='+',
+        help='list of lat/lng bounding box centers to holdback', required=True)
+    parser.add_argument(
+        '--holdback_margin', type=float,
+        help='margin around the holdback box to ignore', required=True)
+    parser.add_argument(
+        '--n_samples', type=int, help='number of point samples', required=True)
+    parser.add_argument(
+        '--iso_names', type=str, nargs='+',
+        help='set of countries to allow, default is all')
+    parser.add_argument(
+        '--sample_vector_path', type=str, help=(
+            'path to a vector to limit sample points, if left off, samples '
+            'to bounding box of rasters'))
 
     args = parser.parse_args()
 
