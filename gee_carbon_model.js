@@ -303,7 +303,7 @@ function init_ui() {
                 active_context.chart_panel = ui.Panel({
                     layout: ui.Panel.Layout.Flow('horizontal'),
                     style: {
-                        position: 'middle-left',
+                        position: 'middle-'+mapside[1],
                         padding: '0px',
                         backgroundColor: 'rgba(255, 255, 255, 0.4)'
                     }
