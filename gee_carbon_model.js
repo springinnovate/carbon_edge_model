@@ -279,11 +279,11 @@ function init_ui() {
                         })
                         .setChartType('ScatterChart')
                         .setOptions({
-                          title: 'Actual Biomass vs ' + active_context.active_map_layer_id,
+                          title: 'AGB vs ' + active_context.active_map_layer_id,
                           hAxis:
-                              {title: 'Above Ground Biomass?', titleTextStyle: {italic: false, bold: true}},
+                              {title: 'Above Ground Biomass', titleTextStyle: {italic: false, bold: true}},
                           vAxis: {
-                            title: 'Raster Value',
+                            title: 'Raster Value\n'+active_context.active_map_layer_id,
                             titleTextStyle: {italic: false, bold: true}
                           },
                           pointSize: 3,
@@ -302,7 +302,7 @@ function init_ui() {
                     }
                 });
                 active_context.chart_panel.add(chart);
-                active_context_map.add(active_context.chart_panel);
+                active_context.map.add(active_context.chart_panel);
 
                 var agb_vs_b0_color = ee.Dictionary({
                     1: 'blue',
