@@ -182,6 +182,14 @@ function init_ui() {
                     placeholder: select_placeholder_list[index],
                     items: Object.keys(local_image_dict),
                     onChange: function(key, self) {
+                        if (active_context.chart_panel !== null) {
+                            active_context.map.remove(active_context.chart_panel);
+                            active_context.chart_panel = null;
+                            active_context.map.remove(active_context.validation_layer);
+                            active_context.validation_layer = null;
+                            active_context.validation_check.setValue(false, false);
+                        }
+
                         active_context.active_map_layer_id = key;
                         self.setDisabled(true);
                         active_context.validation_check.setDisabled(true);
@@ -194,14 +202,6 @@ function init_ui() {
                         select_widget_list[other_index].setPlaceholder(
                             select_placeholder_list[other_index], false);
                         self.setValue(null, false);
-
-                        if (active_context.validation_layer !== null)  {
-                            active_context.map.remove(
-                                active_context.validation_layer);
-                            active_context.validation_layer = null;
-                            active_context.validation_check.setValue(
-                                false, false);
-                        }
 
                     if (active_context.last_layer !== null) {
                         active_context.map.remove(active_context.last_layer);
