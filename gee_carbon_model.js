@@ -11,9 +11,9 @@ var carbon_models = {
 };
 
 // Mask the baccini dataset to the only place we identified as forest
-global_image_dict.baccini_2014 = global_image_dict['baccini_2014'].mask(
+global_image_dict.baccini_2014 = global_image_dict.baccini_2014.mask(
     ee.Image.loadGeoTIFF('gs://ecoshard-root/global_carbon_regression_2/cog/cog_wgs84_masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7.tif').neq(ee.Image(0)).and(
-        global_image_dict['baccini_2014'].neq(ee.Image(32767))));
+        global_image_dict.baccini_2014.neq(ee.Image(32767))));
 
 // Load the carbon models
 var image_map = {};
@@ -265,6 +265,16 @@ function init_ui() {
             value: false,
             disabled: true,
             onChange: function (checked, self) {
+                if (active_context.chart_panel !== null) {
+                    active_context.map.remove(active_context.chart_panel);
+                    active_context.chart_panel = null;
+                    active_context.map.remove(active_context.validation_layer);
+                    active_context.validation_layer = null;
+                }
+                if (!checked) {
+                    return;
+                }
+
                 var validation_collection = active_context.raster.sampleRegions({
                     collection: forest_validation_points,
                     geometries: true
@@ -289,10 +299,7 @@ function init_ui() {
                           pointSize: 3,
                           colors: ['009900'],
                         });
-                //make a chart panel
-                if (active_context.chart_panel !== null) {
-                    active_context.map.remove(active_context.chart_panel);
-                }
+
                 active_context.chart_panel = ui.Panel({
                     layout: ui.Panel.Layout.Flow('horizontal'),
                     style: {
