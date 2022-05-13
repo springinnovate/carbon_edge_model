@@ -339,8 +339,10 @@ def main():
     parser.add_argument(
         '--prefix', type=str, default='', help='add prefix to output files')
     parser.add_argument(
-        '--interaction_columns', type=str, nargs='+',
-        help='interaction_columns')
+        '--interaction_ids', type=str, nargs='+', help=(
+            'if selected creates interactions only between these columns and '
+            'all other fields, if not selected all fields are interacted with '
+            'each other in a second order polynomial'))
     args = parser.parse_args()
 
     predictor_response_table = pandas.read_csv(args.predictor_response_table)
@@ -353,12 +355,12 @@ def main():
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
     LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
-    if len(args.interaction_columns) > 0:
+    if len(args.interaction_ids) > 0:
         interaction_indexes = [
             predictor_id_list.index(predictor_id)
-            for predictor_id in args.interaction_columns]
+            for predictor_id in args.interaction_ids]
         poly_features = CustomInteraction(
-            interaction_columns=interaction_indexes)
+            interaction_col_indexes=interaction_indexes)
     else:
         poly_features = PolynomialFeatures(
             POLY_ORDER, interaction_only=False, include_bias=False)

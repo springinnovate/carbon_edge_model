@@ -5,8 +5,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 class CustomInteraction(TransformerMixin, BaseEstimator):
     """Make user defined interaction between columns."""
 
-    def __init__(self, *, interaction_columns=tuple()):
-        self.interaction_columns = interaction_columns
+    def __init__(self, *, interaction_col_indexes=tuple()):
+        self.interaction_col_indexes = interaction_col_indexes
 
     def get_feature_names_out(self, input_features=None):
         """Get output feature names for transformation.
@@ -26,7 +26,7 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
         """
         feature_names = input_features.copy()
 
-        for int_col_index, int_col in enumerate(self.interaction_columns):
+        for int_col_index, int_col in enumerate(self.interaction_col_indexes):
             for index, name in enumerate(input_features):
                 if index == int_col:
                     feature_names.append(f'{name}**2')
@@ -52,7 +52,7 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
         # the original number of columns + number of interaction columns
         # interacting with the original columns
         self._n_output_features = (
-            X.shape[1] + len(self.interaction_columns)*X.shape[1])
+            X.shape[1] + len(self.interaction_col_indexes)*X.shape[1])
         return self
 
     def transform(self, X):
@@ -91,7 +91,7 @@ class CustomInteraction(TransformerMixin, BaseEstimator):
 
         # this loop interacts each interaction column with every other element
         base_offset = X.shape[1]
-        for int_col_index, int_col in enumerate(self.interaction_columns):
+        for int_col_index, int_col in enumerate(self.interaction_col_indexes):
             for index in range(X.shape[1]):
                 xp_col = base_offset + int_col_index*X.shape[1]+index
                 XP[:, xp_col] = (
