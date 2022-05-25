@@ -44,6 +44,7 @@ def main():
 
     task_graph = taskgraph.TaskGraph(
         '.', min(multiprocessing.cpu_count(), n_bands))
+    task_graph.join()
 
     for band_index, target_path in enumerate(target_path_list):
         task_graph.add_task(
@@ -61,5 +62,5 @@ def main():
 def passthrough_op(x): return x
 
 
-if __name__:
+if __name__ == '__main__':
     main()
