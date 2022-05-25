@@ -78,7 +78,7 @@ def filter_raster(
 
     geoprocessing.convolve_2d(
         (base_raster_path, base_raster_band), (kernel_raster_path, 1),
-        raw_gf_path, normalize_kernel=True)
+        raw_gf_path, normalize_kernel=True, largest_block=2**23)
 
     def _mask_op(raw_gf, base_array):
         result = numpy.where(base_array == 1, raw_gf, -1.0)
