@@ -50,7 +50,7 @@ def main():
         task_graph.add_task(
             func=geoprocessing.raster_calculator,
             args=[
-                (args.base_path, band_index+1), passthrough_op, target_path,
+                [(args.base_path, band_index+1)], passthrough_op, target_path,
                 raster_info['datatype'], raster_info['nodata'][band_index]],
             target_path_list=[target_path],
             task_name=f'extract band {band_index}')
