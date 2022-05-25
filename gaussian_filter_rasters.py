@@ -115,7 +115,7 @@ def main():
         n_bands*len(args.kernel_distance_list),
         multiprocessing.cpu_count())
 
-    task_graph = taskgraph.TaskGraph('.', n_workers, 15)
+    task_graph = taskgraph.TaskGraph('.', 0, 15)
 
     for raster_path in raster_path_list:
         LOGGER.debug(f'process {raster_path}')
@@ -140,6 +140,7 @@ def main():
                         gf_path),
                     target_path_list=[gf_path],
                     task_name=f'filter raster {gf_path}')
+                task_graph.join()
 
     task_graph.join()
     task_graph.close()
