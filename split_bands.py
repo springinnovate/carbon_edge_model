@@ -37,7 +37,7 @@ def main():
             os.path.basename(args.base_path))
         for band_index in range(n_bands)]
 
-    if any([os.path.exist(path) for path in target_path_list]):
+    if any([os.path.exists(path) for path in target_path_list]):
         raise ValueError(
             f"expected paths arlready exist, don't want to overwrite: "
             f"{target_path_list}")
