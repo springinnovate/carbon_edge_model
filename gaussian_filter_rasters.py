@@ -80,13 +80,16 @@ def filter_raster(
         (base_raster_path, base_raster_band), (kernel_raster_path, 1),
         raw_gf_path, normalize_kernel=True, largest_block=2**24)
 
+    output_nodata = -1.0
+
     def _mask_op(raw_gf, base_array):
-        result = numpy.where(base_array == 1, raw_gf, -1.0)
+        result = numpy.where(base_array == 1, raw_gf, output_nodata)
         return result
 
+    LOGGER.debug('convolution complete, making out non-nodata')
     geoprocessing.raster_calculator(
         [(raw_gf_path, 1), (base_raster_path, base_raster_band)], _mask_op,
-        target_path, gdal.GDT_Float32, -1.0)
+        target_path, gdal.GDT_Float32, output_nodata)
 
     os.remove(kernel_raster_path)
     os.remove(raw_gf_path)
