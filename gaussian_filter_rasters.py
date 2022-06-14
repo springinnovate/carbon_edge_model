@@ -83,8 +83,12 @@ def filter_raster(
     output_nodata = -1.0
 
     def _mask_op(raw_gf, base_array):
-        result = numpy.where(base_array == 1, raw_gf, output_nodata)
-        return result
+        """Mask out raw_gf where base_array == 1."""
+        nodata_mask = base_array != 1
+        if not numpy.all(nodata_mask):
+            raw_gf[nodata_mask] = output_nodata
+            return raw_gf
+        return None
 
     LOGGER.debug('convolution complete, making out non-nodata')
     geoprocessing.raster_calculator(
