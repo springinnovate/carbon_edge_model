@@ -318,6 +318,7 @@ def main():
         holdback_boxes, args.holdback_margin, args.n_samples,
         args.iso_names)
     LOGGER.info(filtered_gdf_points['holdback'] is False)
+    LOGGER.info(filtered_gdf_points)
 
     fig, ax = plt.subplots(figsize=(12, 10))
     ax.set_title(f'{len(filtered_gdf_points)} points')
