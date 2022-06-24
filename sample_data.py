@@ -317,7 +317,7 @@ def main():
         raster_path_set, args.sample_vector_path, target_box_wgs84,
         holdback_boxes, args.holdback_margin, args.n_samples,
         args.iso_names)
-    LOGGER.info(filtered_gdf_points.columns)
+    LOGGER.info(filtered_gdf_points['holdback'] is False)
 
     fig, ax = plt.subplots(figsize=(12, 10))
     ax.set_title(f'{len(filtered_gdf_points)} points')
