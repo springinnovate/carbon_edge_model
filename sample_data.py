@@ -322,10 +322,10 @@ def main():
 
     fig, ax = plt.subplots(figsize=(12, 10))
     ax.set_title(f'{len(filtered_gdf_points)} points')
-    v = filtered_gdf_points[filtered_gdf_points['holdback'] is False]
+    v = filtered_gdf_points[filtered_gdf_points['holdback'] == False]
     v.plot(ax=ax, color='blue', markersize=2.5)
 
-    w = filtered_gdf_points[filtered_gdf_points['holdback'] is True]
+    w = filtered_gdf_points[filtered_gdf_points['holdback'] == True]
     print(w)
     w.plot(ax=ax, color='green', markersize=2.5)
     plt.show()
