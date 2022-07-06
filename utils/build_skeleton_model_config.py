@@ -6,7 +6,7 @@ import geopandas
 
 
 def main():
-    parser = argparse.ArgumentParser(description='DNN model trainer')
+    parser = argparse.ArgumentParser(description='Construct model skeleton')
     parser.add_argument('geopandas_data', type=str, help=(
         'path to geopandas structure to train on'))
     parser.add_argument(
