@@ -260,6 +260,9 @@ def main():
         '--sample_vector_path', type=str, help=(
             'path to a vector to limit sample points, if left off, samples '
             'to bounding box of rasters'))
+    parser.add_argument(
+        '--sample_point_path', type=str,
+        help='if provided, use this for sample points rather than generate one')
 
     args = parser.parse_args()
 
@@ -313,10 +316,13 @@ def main():
     LOGGER.debug(f'target box in wgs84: {target_box_wgs84}')
 
     LOGGER.info(f'generate {args.n_samples} sample points')
-    filtered_gdf_points = generate_sample_points(
-        raster_path_set, args.sample_vector_path, target_box_wgs84,
-        holdback_boxes, args.holdback_margin, args.n_samples,
-        args.iso_names)
+    if args.sample_point_path:
+        filtered_gdf_points = geopandas.read_file(args.sample_point_path)
+    else:
+        filtered_gdf_points = generate_sample_points(
+            raster_path_set, args.sample_vector_path, target_box_wgs84,
+            holdback_boxes, args.holdback_margin, args.n_samples,
+            args.iso_names)
     LOGGER.info(filtered_gdf_points['holdback'] == False)
     LOGGER.info(filtered_gdf_points)
 

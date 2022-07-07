@@ -77,7 +77,6 @@ def load_data(
             gdf = pickle.load(geopandas_file).copy()
 
     rejected_outliers = {}
-    del gdf['index']
     gdf.to_csv('dropped_base.csv')
     for column_id in gdf.columns:
         if gdf[column_id].dtype in (int, float, complex):
@@ -344,6 +343,7 @@ def main():
             'if selected creates interactions only between these columns and '
             'all other fields, if not selected all fields are interacted with '
             'each other in a second order polynomial'))
+    parser.add_argument('--polynomial', action='store_true')
     args = parser.parse_args()
 
     predictor_response_table = pandas.read_csv(args.predictor_response_table)
@@ -356,19 +356,23 @@ def main():
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
     LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
-    if len(args.interaction_ids) > 0:
+    if args.interaction_ids:
         interaction_indexes = [
             predictor_id_list.index(predictor_id)
             for predictor_id in args.interaction_ids]
         poly_features = CustomInteraction(
             interaction_col_indexes=interaction_indexes)
     else:
+        if args.polynomial:
+            order = POLY_ORDER
+        else:
+            order = 1
         poly_features = PolynomialFeatures(
-            POLY_ORDER, interaction_only=False, include_bias=False)
+            order, interaction_only=False, include_bias=False)
 
     for name, reg in [
-            #('LinearSVR_v2', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='epsilon_insensitive', epsilon=1e-4, dual=True))),
-            ('LinearSVR_v3', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-4, dual=False))),
+            ('LinearSVR_v2', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='epsilon_insensitive', epsilon=1e-4, dual=True))),
+            #('LinearSVR_v3', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=1e-4, dual=False))),
             #('LassoLarsCV', make_pipeline(poly_features, StandardScaler(),  LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
             #('LassoLars', make_pipeline(poly_features, StandardScaler(),  LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
             ]:
