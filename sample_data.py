@@ -244,15 +244,15 @@ def main():
         description='create spatial samples of data on a global scale')
     parser.add_argument(
         '--sample_rasters', type=str, nargs='+',
-        help='path/pattern to list of rasters to sample', required=True)
+        help='path/pattern to list of rasters to sample')
     parser.add_argument(
         '--holdback_centers', type=str, nargs='+',
-        help='list of lat/lng bounding box centers to holdback', required=True)
+        help='list of lat/lng bounding box centers to holdback')
     parser.add_argument(
         '--holdback_margin', type=float,
-        help='margin around the holdback box to ignore', required=True)
+        help='margin around the holdback box to ignore')
     parser.add_argument(
-        '--n_samples', type=int, help='number of point samples', required=True)
+        '--n_samples', type=int, help='number of point samples')
     parser.add_argument(
         '--iso_names', type=str, nargs='+',
         help='set of countries to allow, default is all')
@@ -278,18 +278,6 @@ def main():
                 raise ValueError(
                     f'{file_path} found at {pattern} is not a raster')
         raster_path_set.update(file_path_list)
-
-    holdback_boxes = []
-    for lat_lng_tuple in args.holdback_centers:
-        lat, lng = [
-            float(x) for x in lat_lng_tuple.replace('(', '').replace(
-                ')', '').split(',')]
-        holdback_boxes.append(
-            shapely.geometry.box(
-                lng-args.holdback_margin, lat-args.holdback_margin,
-                lng+args.holdback_margin, lat+args.holdback_margin))
-
-    LOGGER.debug(holdback_boxes)
 
     # default bounding box list with some reasonable bounds
     raster_bounding_box_list = [(-179, -80, 179, 80)]
@@ -319,6 +307,17 @@ def main():
     if args.sample_point_path:
         filtered_gdf_points = geopandas.read_file(args.sample_point_path)
     else:
+        holdback_boxes = []
+        for lat_lng_tuple in args.holdback_centers:
+            lat, lng = [
+                float(x) for x in lat_lng_tuple.replace('(', '').replace(
+                    ')', '').split(',')]
+            holdback_boxes.append(
+                shapely.geometry.box(
+                    lng-args.holdback_margin, lat-args.holdback_margin,
+                    lng+args.holdback_margin, lat+args.holdback_margin))
+
+        LOGGER.debug(holdback_boxes)
         filtered_gdf_points = generate_sample_points(
             raster_path_set, args.sample_vector_path, target_box_wgs84,
             holdback_boxes, args.holdback_margin, args.n_samples,
