@@ -294,12 +294,13 @@ def r2_analysis(
     return r2_adjusted, reg, predictor_id_list
 
 
-def _write_coeficient_table(poly_features, predictor_id_list, prefix, name, reg):
+def _write_coeficient_table(
+        poly_features, predictor_id_list, prefix, name, reg):
     poly_feature_id_list = poly_features.get_feature_names_out(
         predictor_id_list)
     with open(os.path.join(
+            FIG_DIR,
             f"{prefix}coef_{name}.csv"), 'w') as table_file:
-        print(f'LENGTH OF REG {len(reg)}')
         intercept = reg[-1].intercept_
         try:
             intercept = intercept[0]

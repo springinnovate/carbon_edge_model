@@ -95,7 +95,7 @@ def main():
         raster_path
         for raster_pattern in args.raster_path_pattern
         for raster_path in glob.glob(raster_pattern)]
-    bounding_box = _limited_bounding_box_union(raster_path_list)
+    #bounding_box = _limited_bounding_box_union(raster_path_list)
 
     for raster_path in raster_path_list:
         LOGGER.info(f'process {raster_path}')
@@ -107,7 +107,7 @@ def main():
                 raster_path, (args.pixel_size, -args.pixel_size),
                 target_raster_path, 'near'),
             kwargs={
-                'target_bb': bounding_box,
+                'target_bb': GLOBAL_ECKERT_IV_BB,
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 },
             target_path_list=[target_raster_path],
