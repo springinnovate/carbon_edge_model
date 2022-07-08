@@ -400,9 +400,7 @@ def main():
         for expected_values, modeled_values, n, prefix in [
                 (holdbackset[1].flatten(), model.predict(holdbackset[0]).flatten(), holdbackset[0].shape[0], 'holdback'),
                 (trainset[1].flatten(), model.predict(trainset[0]).flatten(), trainset[0].shape[0], 'training'),
-                ] + [
-                    ((local_hb_set[1].flatten(), model.predict(local_hb_set[0]).flatten(), local_hb_set[0].shape[0], f'holdback_{index+1}')
-                     for index, local_hb_set in enumerate(holdback_area_list))]:
+                ]:
             try:
                 z = numpy.polyfit(expected_values, modeled_values, 1)
             except ValueError as e:
@@ -416,8 +414,9 @@ def main():
                 trendline_func(expected_values),
                 "r--", linewidth=1.5)
             plt.scatter(expected_values, modeled_values, c='g', s=0.25)
-            plt.ylim(
-                min(expected_values), max(expected_values))
+            plt.xlim(0, 400)
+            plt.ylim(0, 400)
+            #plt.ylim(min(expected_values), max(expected_values))
             r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
             r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
             LOGGER.info(f'{name}-{prefix} adjusted R^2: {r2_adjusted:.3f}')
@@ -426,7 +425,38 @@ def main():
             plt.savefig(os.path.join(
                 FIG_DIR, f'{args.prefix}{name}_{prefix}.png'))
             plt.close()
-            r2_table.write(f'{args.prefix}_{prefix},{r2},{r2_adjusted}\n')
+            r2_table.write(f'{args.prefix}{prefix},{r2},{r2_adjusted}\n')
+
+        plt.xlabel('expected values')
+        plt.ylabel('model output')
+        plt.title(
+            f'Separate Holdback {args.prefix} {name}\n$R^2={r2:.3f}$ -- Adjusted $R^2={r2_adjusted:.3f}$')
+        for expected_values, modeled_values, n, prefix, color in [
+                    (local_hb_set[1].flatten(), model.predict(local_hb_set[0]).flatten(), local_hb_set[0].shape[0], f'holdback_{index+1}')
+                     for index, local_hb_set in enumerate(holdback_area_list)]:
+            try:
+                z = numpy.polyfit(expected_values, modeled_values, 1)
+            except ValueError as e:
+                # this guards against a poor polyfit line
+                print(e)
+            trendline_func = numpy.poly1d(z)
+
+            plt.plot(
+                expected_values,
+                trendline_func(expected_values),
+                "r--", linewidth=1.5)
+            plt.scatter(expected_values, modeled_values, c='g', s=0.25)
+            #plt.ylim(min(expected_values), max(expected_values))
+            r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
+            r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
+            LOGGER.info(f'{name}-{prefix} adjusted R^2: {r2_adjusted:.3f}')
+            r2_table.write(f'{args.prefix}{prefix},{r2},{r2_adjusted}\n')
+
+        plt.xlim(0, 400)
+        plt.ylim(0, 400)
+        plt.savefig(os.path.join(
+            FIG_DIR, f'{args.prefix}{name}_holdback_inidividual.png'))
+        plt.close()
 
         model_structure = {
             'model': model,
