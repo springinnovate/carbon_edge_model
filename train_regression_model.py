@@ -95,9 +95,21 @@ def load_data(
     LOGGER.debug(predictor_response_table)
     dataset_map = {}
     fields_to_drop_list = []
-    for train_holdback_type, train_holdback_val in [
-            ('holdback', [True, 'TRUE']), ('train', [False, 'FALSE'])]:
+    holdback_area_list = []
+    for train_holdback_type, train_holdback_val, train_holdback_id in [
+            ('train', [False, 'FALSE'], None),
+            ('holdback', [True, 'TRUE'], None),
+            ('holdback_1', [True, 'TRUE'], 1),
+            ('holdback_2', [True, 'TRUE'], 2),
+            ('holdback_3', [True, 'TRUE'], 3),
+            ('holdback_4', [True, 'TRUE'], 4),
+            ('holdback_5', [True, 'TRUE'], 5),
+            ('holdback_6', [True, 'TRUE'], 6),
+            ]:
         gdf_filtered = gdf[gdf['holdback'].isin(train_holdback_val)]
+        if train_holdback_id:
+            gdf_filtered = gdf_filtered[
+                gdf_filtered['holdback_id'] == train_holdback_id]
 
         # drop fields that request it
         for index, row in predictor_response_table[~predictor_response_table['include'].isnull()].iterrows():
@@ -251,13 +263,17 @@ def load_data(
         dataset_map[train_holdback_type] = (x_tensor.T, y_tensor.T)
         dataset_map[f'{train_holdback_type}_params'] = parameter_stats
 
+        if train_holdback_id is not None:
+            holdback_area_list.append(dataset_map[train_holdback_type])
+
     gdf_filtered.to_csv('gdf_filtered.csv')
     return (
         predictor_response_table['predictor'].count(),
         predictor_response_table['response'].count(),
         id_list_by_parameter_type['predictor'],
         id_list_by_parameter_type['response'],
-        dataset_map['train'], dataset_map['holdback'], rejected_outliers,
+        dataset_map['train'], dataset_map['holdback'], holdback_area_list,
+        rejected_outliers,
         dataset_map['train_params'])
 
 
@@ -269,29 +285,6 @@ def list_outliers(data, m=100.):
     # p50 to p99 is 2.32635 sigma
     rSig = (p99-p1)/(2*2.32635)
     return numpy.unique(data[numpy.abs(data - p50) > rSig*m])
-
-
-def r2_analysis(
-        geopandas_data_path, n_rows,
-        predictor_response_table_path, allowed_set, reg):
-    """Calculate adjusted R2 given the allowed set."""
-    (n_predictors, n_response, predictor_id_list, response_id_list,
-     trainset, testset, rejected_outliers,
-     parameter_stats) = load_data(
-        geopandas_data_path, n_rows,
-        predictor_response_table_path, allowed_set)
-    LOGGER.info(f'got {n_predictors} predictors, doing fit')
-    LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
-    model = reg.fit(trainset[0], trainset[1])
-    expected_values = trainset[1].flatten()
-    LOGGER.info('fit complete, calculate r2')
-    modeled_values = model.predict(trainset[0]).flatten()
-
-    r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
-    k = trainset[0].shape[1]
-    n = trainset[0].shape[0]
-    r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
-    return r2_adjusted, reg, predictor_id_list
 
 
 def _write_coeficient_table(
@@ -353,7 +346,8 @@ def main():
     #spline_features = SplineTransformer(degree=2, n_knots=3)
     max_iter = 50000
     (n_predictors, n_response, predictor_id_list, response_id_list,
-     trainset, testset, rejected_outliers, parameter_stats) = load_data(
+     trainset, holdbackset, holdback_area_list, rejected_outliers,
+     parameter_stats) = load_data(
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
     LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
@@ -400,10 +394,15 @@ def main():
             poly_features, predictor_id_list, args.prefix, name, reg)
 
         k = trainset[0].shape[1]
+
+        r2_table = open(os.path.join(FIG_DIR, f'r2_summary.csv'), 'a')
+        #r2_table.write('model,r2,r2_adjusted\n')
         for expected_values, modeled_values, n, prefix in [
-                (testset[1].flatten(), model.predict(testset[0]).flatten(), testset[0].shape[0], 'holdback'),
+                (holdbackset[1].flatten(), model.predict(holdbackset[0]).flatten(), holdbackset[0].shape[0], 'holdback'),
                 (trainset[1].flatten(), model.predict(trainset[0]).flatten(), trainset[0].shape[0], 'training'),
-                ]:
+                ] + [
+                    ((local_hb_set[1].flatten(), model.predict(local_hb_set[0]).flatten(), local_hb_set[0].shape[0], f'holdback_{index+1}')
+                     for index, local_hb_set in enumerate(holdback_area_list))]:
             try:
                 z = numpy.polyfit(expected_values, modeled_values, 1)
             except ValueError as e:
@@ -421,18 +420,19 @@ def main():
                 min(expected_values), max(expected_values))
             r2 = sklearn.metrics.r2_score(expected_values, modeled_values)
             r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
-            if prefix == 'holdback':
-                LOGGER.info(f'{name}-{prefix} adjusted R^2: {r2_adjusted:.3f}')
+            LOGGER.info(f'{name}-{prefix} adjusted R^2: {r2_adjusted:.3f}')
             plt.title(
                 f'{args.prefix}{prefix} {name}\n$R^2={r2:.3f}$ -- Adjusted $R^2={r2_adjusted:.3f}$')
             plt.savefig(os.path.join(
                 FIG_DIR, f'{args.prefix}{name}_{prefix}.png'))
             plt.close()
+            r2_table.write(f'{args.prefix}_{prefix},{r2},{r2_adjusted}\n')
 
         model_structure = {
             'model': model,
             'predictor_id_list': predictor_id_list,
         }
+        r2_table.close()
 
     LOGGER.debug('all done')
 
