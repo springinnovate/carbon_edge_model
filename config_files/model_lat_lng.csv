@@ -1,0 +1,4 @@
+predictor,response,include,exclude,min,max,group,target,filter_only
+,baccini_carbon_data_2014_compressed,,,10,400,,,
+lon,,,,,,,,
+lat,,,,,,,,

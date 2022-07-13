@@ -339,6 +339,11 @@ def regression_results(y_true, y_pred, n, k):
     # print('RMSE: ', round(np.sqrt(mse),4))
 
 
+def clip_to_range(series, min_val, max_val):
+    series[series < min_val] = min_val
+    series[series > max_val] = max_val
+    return series
+
 def main():
     parser = argparse.ArgumentParser(description='DNN model trainer')
     parser.add_argument('geopandas_data', type=str, help=(
@@ -400,7 +405,7 @@ def main():
         LOGGER.debug(trainset[0])
         LOGGER.debug(trainset[1])
         model = reg.fit(trainset[0], trainset[1], **kwargs)
-        model_filename = f'{name}_model.dat'
+        model_filename = f'{args.prefix}_{name}_model.dat'
         LOGGER.info(f'saving model to {model_filename}')
         with open(model_filename, 'wb') as model_file:
             model_to_pickle = {
@@ -416,10 +421,10 @@ def main():
         k = trainset[0].shape[1]
 
         r2_table = open(os.path.join(FIG_DIR, f'r2_summary.csv'), 'a')
-        #r2_table.write('model,r2,r2_adjusted\n')
+        r2_table.write('model,r2,r2_adjusted,explained_variance,mean_absolute_error,mse,mean_squared_log_error,median_absolute_error\n')
         for expected_values, modeled_values, n, prefix in [
-                (holdbackset[1].flatten(), model.predict(holdbackset[0]).flatten(), holdbackset[0].shape[0], 'holdback'),
-                (trainset[1].flatten(), model.predict(trainset[0]).flatten(), trainset[0].shape[0], 'training'),
+                (trainset[1].flatten(), clip_to_range(model.predict(trainset[0]).flatten(), 10, 400), trainset[0].shape[0], 'training'),
+                (holdbackset[1].flatten(), clip_to_range(model.predict(holdbackset[0]).flatten(), 10, 400), holdbackset[0].shape[0], 'holdback'),
                 ]:
             try:
                 z = numpy.polyfit(expected_values, modeled_values, 1)
@@ -446,7 +451,7 @@ def main():
             plt.savefig(os.path.join(
                 FIG_DIR, f'{args.prefix}{name}_{prefix}.png'))
             plt.close()
-            r2_table.write(f'{r2},{r2_adjusted},{explained_variance},{mean_absolute_error},{mse},{mean_squared_log_error},{median_absolute_error}\n')
+            r2_table.write(f'{prefix}_{args.prefix},{r2},{r2_adjusted},{explained_variance},{mean_absolute_error},{mse},{mean_squared_log_error},{median_absolute_error}\n')
             #r2_table.write(f'{prefix}_{args.prefix},{r2},{r2_adjusted}\n')
 
 
@@ -455,7 +460,7 @@ def main():
         plt.title(
             f'Separate Holdback {args.prefix} {name}\n$R^2={r2:.3f}$ -- Adjusted $R^2={r2_adjusted:.3f}$')
         for expected_values, modeled_values, n, prefix, color in [
-                    (local_hb_set[1].flatten(), model.predict(local_hb_set[0]).flatten(), local_hb_set[0].shape[0], f'holdback_{index+1}', color)
+                    (local_hb_set[1].flatten(), clip_to_range(model.predict(local_hb_set[0]).flatten(), 10, 400), local_hb_set[0].shape[0], f'holdback_{index+1}', color)
                      for index, (local_hb_set, color) in enumerate(zip(holdback_area_list, ['b', 'g', 'r', 'c', 'm', 'y']))]:
             try:
                 z = numpy.polyfit(expected_values, modeled_values, 1)
@@ -481,10 +486,6 @@ def main():
             FIG_DIR, f'{args.prefix}{name}_holdback_inidividual.png'))
         plt.close()
 
-        model_structure = {
-            'model': model,
-            'predictor_id_list': predictor_id_list,
-        }
         r2_table.close()
 
     LOGGER.debug('all done')
