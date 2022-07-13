@@ -137,4 +137,11 @@ Given the sample point dataset and a model configuration file created above, a r
 
 This will train the model with several techniques that will get logged to the console. Each model reports its fitness with a scatterplot figure located at ``fig_dir/[regression model]_[training|holdback].png`` which contains the fit line, R^2 and adjusted R^2 and information whether it was the training or holdback test set.
 
-more to come.
+The saved model will be located at ``[prefix]_model.dat`` in the current
+working directory and can be used in the next step.
+
+Step 7 -- Run the model on custom forest cover
+**********************************************
+
+To run the model the user provides a path to the model created in Step 6,
+ensures the base model data are
