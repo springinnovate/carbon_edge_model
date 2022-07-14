@@ -409,7 +409,8 @@ def main():
             reg.steps[-1][0] + '__sample_weight': (trainset[1].flatten()/max(trainset[1]))**1
             }
         LOGGER.debug(kwargs)
-        LOGGER.debug(trainset[0])
+        LOGGER.debug(f'trainset 0: :::::: {trainset[0]}')
+        LOGGER.debug(f'trainset 0: :::::: {trainset[0].shape}')
         LOGGER.debug(trainset[1])
         model = reg.fit(trainset[0], trainset[1], **kwargs)
         model_filename = f'{args.prefix}_{name}_model.dat'

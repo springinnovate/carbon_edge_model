@@ -110,11 +110,11 @@ def main():
     nodata = -1
 
     def _apply_model(*raster_array):
-        valid_mask = numpy.any(
+        valid_mask = numpy.all(
             numpy.greater(numpy.asarray(raster_array), 0), axis=(0,))
         result = numpy.full(valid_mask.shape, nodata)
         value_list = numpy.asarray([
-            array[valid_mask] for array in raster_array])
+            array[valid_mask] for array in raster_array]).transpose()
         LOGGER.debug(f'len of valuelist: {value_list.shape}')
         result[valid_mask] = train_regression_model.clip_to_range(
             model['model'].predict(value_list), 10, 400)
