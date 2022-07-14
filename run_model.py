@@ -109,7 +109,7 @@ def main():
     LOGGER.info('apply model')
     nodata = -1
 
-    def _apply_model(raster_array):
+    def _apply_model(*raster_array):
         valid_mask = numpy.any(
             numpy.greater(numpy.asarray(raster_array)), axis=(0,))
         result = numpy.full(valid_mask.shape, nodata)
