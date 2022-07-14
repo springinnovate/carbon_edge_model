@@ -123,6 +123,7 @@ def main():
             if isinstance(array, float) else array[valid_mask]
             for array in raster_array]).transpose()
         LOGGER.debug(f'len of valuelist: {value_list.shape}')
+        LOGGER.debug(valuelist)
         if value_list.shape[0] > 0:
             result[valid_mask] = train_regression_model.clip_to_range(
                 model['model'].predict(value_list), 10, 400)
