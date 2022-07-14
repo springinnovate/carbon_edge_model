@@ -129,7 +129,7 @@ def main():
     model_result_path = f'''full_forest_edge_result_{os.path.basename(os.path.splitext(
         args.forest_cover_path)[0])}.tif'''
     geoprocessing.raster_calculator(
-        [(path, 1) if path == gf_forest_cover_path else numpy.array([[1.0]]) for path in aligned_predictor_path_list] +
+        [(path, 1) if path == gf_forest_cover_path else numpy.array([1.0]) for path in aligned_predictor_path_list] +
         [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
          for path in aligned_predictor_path_list],
         _apply_model, model_result_path,
@@ -138,7 +138,7 @@ def main():
     model_result_path = f'''no_forest_edge_result_{os.path.basename(os.path.splitext(
         args.forest_cover_path)[0])}.tif'''
     geoprocessing.raster_calculator(
-        [(path, 1) if path == gf_forest_cover_path else numpy.array([[0.0]]) for path in aligned_predictor_path_list] +
+        [(path, 1) if path == gf_forest_cover_path else numpy.array([0.0]) for path in aligned_predictor_path_list] +
         [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
          for path in aligned_predictor_path_list],
         _apply_model, model_result_path,
