@@ -71,7 +71,7 @@ def main():
     LOGGER.info('gaussian filter forest cover')
     gf_forest_cover_path = os.path.join(
         workspace_dir,
-        f'{model.gf_size}_{os.path.basename(args.forest_cover_path)}')
+        f'{model["gf_size"]}_{os.path.basename(args.forest_cover_path)}')
     task_graph.add_task(
         func=gaussian_filter_rasters.filter_raster,
         args=((args.forest_cover_path, 1), args.gf_size, gf_forest_cover_path),
@@ -81,7 +81,7 @@ def main():
     LOGGER.info('clip input rasters to forest cover')
     aligned_predictor_path_list = []
     for predictor_id, predictor_path in predictor_id_path_list:
-        if model.gf_forest_id == predictor_id:
+        if model['gf_forest_id'] == predictor_id:
             aligned_predictor_path_list.append(gf_forest_cover_path)
             continue
         warped_predictor_path = os.path.join(
@@ -109,7 +109,7 @@ def main():
         result = numpy.full(valid_mask.shape, nodata)
         value_list = [array[valid_mask] for array in raster_array]
         result[valid_mask] = train_regression_model.clip_to_range(
-            model.predict(value_list), 10, 400)
+            model['model'].predict(value_list), 10, 400)
         return result
 
     model_result_path = f'''{os.path.basename(os.path.splitext(
