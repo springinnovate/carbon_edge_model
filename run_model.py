@@ -69,24 +69,16 @@ def main():
             f'{args.forest_cover_path} must be projected in meters')
 
     LOGGER.info('gaussian filter forest cover')
-    gf_forest_cover_path = os.path.join(
-        workspace_dir,
-        f'{model["gf_size"]}_{os.path.basename(args.forest_cover_path)}')
-    task_graph.add_task(
-        func=gaussian_filter_rasters.filter_raster,
-        args=((args.forest_cover_path, 1), model['gf_size'], gf_forest_cover_path),
-        target_path_list=[gf_forest_cover_path],
-        task_name=f'gaussian filter {gf_forest_cover_path}')
 
     LOGGER.info('clip input rasters to forest cover')
     aligned_predictor_path_list = []
     for predictor_id, predictor_path in predictor_id_path_list:
         if model['gf_forest_id'] == predictor_id:
-            aligned_predictor_path_list.append(gf_forest_cover_path)
-            continue
+            # warp the predictor to be correct blocksize etc
+            predictor_path = args.forest_cover_path
         warped_predictor_path = os.path.join(
             workspace_dir, f'warped_{os.path.basename(predictor_path)}')
-        task_graph.add_task(
+        warp_task = task_graph.add_task(
             func=geoprocessing.warp_raster,
             args=(predictor_path, raster_info['pixel_size'],
                   warped_predictor_path, 'nearest'),
@@ -97,6 +89,20 @@ def main():
             },
             target_path_list=[warped_predictor_path],
             task_name=f'warp {predictor_path}')
+        if model['gf_forest_id'] == predictor_id:
+            gf_forest_cover_path = os.path.join(
+                workspace_dir,
+                f'{model["gf_size"]}_{os.path.basename(args.forest_cover_path)}')
+            task_graph.add_task(
+                func=gaussian_filter_rasters.filter_raster,
+                args=((warped_predictor_path, 1), model['gf_size'],
+                      gf_forest_cover_path),
+                dependent_task_list=[warp_task],
+                target_path_list=[gf_forest_cover_path],
+                task_name=f'gaussian filter {gf_forest_cover_path}')
+            aligned_predictor_path_list.append(gf_forest_cover_path)
+        else:
+            aligned_predictor_path_list.append(warped_predictor_path)
 
     task_graph.join()
 
