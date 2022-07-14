@@ -3,6 +3,8 @@ import argparse
 import pickle
 import logging
 import os
+import multiprocessing
+import threading
 
 from osgeo import gdal
 from ecoshard import geoprocessing
@@ -61,7 +63,10 @@ def main():
         args.forest_cover_path))[0]}'''
     os.makedirs(workspace_dir, exist_ok=True)
 
-    task_graph = taskgraph.TaskGraph(workspace_dir, -1)
+    task_graph = taskgraph.TaskGraph(
+        workspace_dir, min(
+            multiprocessing.cpu_count(),
+            len(predictor_id_path_list)))
 
     raster_info = geoprocessing.get_raster_info(args.forest_cover_path)
     if abs(raster_info['pixel_size'][0]) < 3:
@@ -107,6 +112,8 @@ def main():
             aligned_predictor_path_list.append(warped_predictor_path)
 
     task_graph.join()
+    task_graph.close()
+    del task_graph
 
     LOGGER.info('apply model')
     nodata = -1
@@ -133,30 +140,46 @@ def main():
 
     model_result_path = f'''full_forest_edge_result_{os.path.basename(os.path.splitext(
         args.forest_cover_path)[0])}.tif'''
-    geoprocessing.raster_calculator(
-        [(path, 1) for path in aligned_predictor_path_list] +
-        [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
-         for path in aligned_predictor_path_list] + [(1.0, 'raw')],
-        _apply_model, model_result_path,
-        gdal.GDT_Float32, nodata)
+    full_forest_thread = threading.Thread(
+        target=geoprocessing.raster_calculator,
+        args=(
+            [(path, 1) for path in aligned_predictor_path_list] +
+            [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
+             for path in aligned_predictor_path_list] + [(1.0, 'raw')],
+            _apply_model, model_result_path,
+            gdal.GDT_Float32, nodata))
+    full_forest_thread.daemon = True
+    full_forest_thread.start()
 
     model_result_path = f'''no_forest_edge_result_{os.path.basename(os.path.splitext(
         args.forest_cover_path)[0])}.tif'''
-    geoprocessing.raster_calculator(
-        [(path, 1) for path in aligned_predictor_path_list] +
-        [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
-         for path in aligned_predictor_path_list] + [(0.0, 'raw')],
-        _apply_model, model_result_path,
-        gdal.GDT_Float32, nodata)
+    no_forest_thread = threading.Thread(
+        target=geoprocessing.raster_calculator,
+        args=(
+            [(path, 1) for path in aligned_predictor_path_list] +
+            [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
+             for path in aligned_predictor_path_list] + [(0.0, 'raw')],
+            _apply_model, model_result_path,
+            gdal.GDT_Float32, nodata))
+    no_forest_thread.daemon = True
+    no_forest_thread.start()
 
     model_result_path = f'''forest_edge_result_{os.path.basename(os.path.splitext(
         args.forest_cover_path)[0])}.tif'''
-    geoprocessing.raster_calculator(
-        [(path, 1) for path in aligned_predictor_path_list] +
-        [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
-         for path in aligned_predictor_path_list] + [(None, 'raw')],
-        _apply_model, model_result_path,
-        gdal.GDT_Float32, nodata)
+    forest_edge_thread = threading.Thread(
+        target=geoprocessing.raster_calculator,
+        args=(
+            [(path, 1) for path in aligned_predictor_path_list] +
+            [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
+             for path in aligned_predictor_path_list] + [(None, 'raw')],
+            _apply_model, model_result_path,
+            gdal.GDT_Float32, nodata))
+    forest_edge_thread.daemon = True
+    forest_edge_thread.start()
+
+    full_forest_thread.join()
+    no_forest_thread.join()
+    forest_edge_thread.join()
 
 
 if __name__ == '__main__':
