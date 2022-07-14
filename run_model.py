@@ -59,7 +59,7 @@ def main():
 
     workspace_dir = f'''workspace_{os.path.splitext(os.path.basename(
         args.forest_cover_path))[0]}'''
-    os.path.makedirs(workspace_dir, exist_ok=True)
+    os.makedirs(workspace_dir, exist_ok=True)
 
     task_graph = taskgraph.TaskGraph(workspace_dir, -1)
 
@@ -100,7 +100,7 @@ def main():
 
     task_graph.join()
 
-    LOGGER.info('iterate over forest cover blocks')
+    LOGGER.info('apply model')
     nodata = -1
 
     def _apply_model(raster_array):
