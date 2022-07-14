@@ -91,8 +91,8 @@ def main():
             task_name=f'warp {predictor_path}')
         if model['gf_forest_id'] == predictor_id:
             gf_forest_cover_path = os.path.join(
-                workspace_dir,
-                f'{model["gf_size"]}_{os.path.basename(args.forest_cover_path)}')
+                workspace_dir, f'''{model["gf_size"]}_{
+                os.path.basename(args.forest_cover_path)}''')
             task_graph.add_task(
                 func=gaussian_filter_rasters.filter_raster,
                 args=((warped_predictor_path, 1), model['gf_size'],
@@ -125,10 +125,28 @@ def main():
                 model['model'].predict(value_list), 10, 400)
         return result
 
-    model_result_path = f'''{os.path.basename(os.path.splitext(
-        args.forest_cover_path)[0])}'''
+    model_result_path = f'''forest_edge_result_{os.path.basename(os.path.splitext(
+        args.forest_cover_path)[0])}.tif'''
     geoprocessing.raster_calculator(
         [(path, 1) for path in aligned_predictor_path_list] +
+        [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
+         for path in aligned_predictor_path_list],
+        _apply_model, model_result_path,
+        gdal.GDT_Float32, nodata)
+
+    model_result_path = f'''full_forest_edge_result_{os.path.basename(os.path.splitext(
+        args.forest_cover_path)[0])}.tif'''
+    geoprocessing.raster_calculator(
+        [(path, 1) if path == gf_forest_cover_path else (1.0, 'raw') for path in aligned_predictor_path_list] +
+        [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
+         for path in aligned_predictor_path_list],
+        _apply_model, model_result_path,
+        gdal.GDT_Float32, nodata)
+
+    model_result_path = f'''no_forest_edge_result_{os.path.basename(os.path.splitext(
+        args.forest_cover_path)[0])}.tif'''
+    geoprocessing.raster_calculator(
+        [(path, 1) if path == gf_forest_cover_path else (0.0, 'raw') for path in aligned_predictor_path_list] +
         [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
          for path in aligned_predictor_path_list],
         _apply_model, model_result_path,
