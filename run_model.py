@@ -34,21 +34,20 @@ def main():
     with open(args.carbon_model_path, 'rb') as model_file:
         model = pickle.load(model_file).copy()
     LOGGER.info(f'ensure raster base data are present')
-    predictor_id_to_path = {}
     missing_predictor_list = []
+    predictor_path_list = []
     for predictor_id in model['predictor_list']:
         predictor_path = os.path.join(
             args.predictor_raster_dir, f'{predictor_id}.tif')
-        if os.path.exists(predictor_path):
-            predictor_id_to_path[predictor_id] = predictor_path
-        else:
+        predictor_path_list.append(predictor_path)
+        if not os.path.exists(predictor_path):
             missing_predictor_list.append(
                 f'{predictor_id}: {predictor_path}')
     if missing_predictor_list:
         predictor_str = "\n".join(missing_predictor_list)
         raise ValueError(
             f'missing the following predictor rasters:\n{predictor_str}')
-    LOGGER.info(f'all found: {predictor_id_to_path}')
+    LOGGER.info(f'all found: {predictor_path_list}')
 
 
 if __name__ == '__main__':
