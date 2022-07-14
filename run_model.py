@@ -109,9 +109,14 @@ def main():
     LOGGER.info('apply model')
     nodata = -1
 
-    def _apply_model(*raster_array):
+    def _apply_model(*raster_nodata_array):
+        n = len(raster_nodata_array)//2
+        raster_array = raster_nodata_array[0:n]
+        nodata_array = raster_nodata_array[n:]
         valid_mask = numpy.all(
-            numpy.greater(numpy.asarray(raster_array), 0), axis=(0,))
+            ~numpy.isclose(
+                numpy.asarray(raster_array),
+                numpy.asarray(nodata_array)), axis=(0,))
         result = numpy.full(valid_mask.shape, nodata)
         value_list = numpy.asarray([
             array[valid_mask] for array in raster_array]).transpose()
@@ -123,9 +128,10 @@ def main():
 
     model_result_path = f'''{os.path.basename(os.path.splitext(
         args.forest_cover_path)[0])}'''
-
     geoprocessing.raster_calculator(
-        [(path, 1) for path in aligned_predictor_path_list],
+        [(path, 1) for path in aligned_predictor_path_list] +
+        [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
+         for path in aligned_predictor_path_list],
         _apply_model, model_result_path,
         gdal.GDT_Float32, nodata)
 
