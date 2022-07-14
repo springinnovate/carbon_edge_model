@@ -138,8 +138,8 @@ def main():
                 model['model'].predict(value_list), 10, 400)
         return result
 
-    model_result_path = f'''full_forest_edge_result_{os.path.basename(os.path.splitext(
-        args.forest_cover_path)[0])}.tif'''
+    model_result_path = f'''{os.path.basename(os.path.splitext(
+        args.forest_cover_path)[0])}_full_forest_edge_result.tif'''
     full_forest_thread = threading.Thread(
         target=geoprocessing.raster_calculator,
         args=(
@@ -151,8 +151,8 @@ def main():
     full_forest_thread.daemon = True
     full_forest_thread.start()
 
-    model_result_path = f'''no_forest_edge_result_{os.path.basename(os.path.splitext(
-        args.forest_cover_path)[0])}.tif'''
+    model_result_path = f'''{os.path.basename(os.path.splitext(
+        args.forest_cover_path)[0])}_no_forest_edge_result.tif'''
     no_forest_thread = threading.Thread(
         target=geoprocessing.raster_calculator,
         args=(
@@ -164,8 +164,8 @@ def main():
     no_forest_thread.daemon = True
     no_forest_thread.start()
 
-    model_result_path = f'''forest_edge_result_{os.path.basename(os.path.splitext(
-        args.forest_cover_path)[0])}.tif'''
+    model_result_path = f'''{os.path.basename(os.path.splitext(
+        args.forest_cover_path)[0])}_std_forest_edge_result.tif'''
     forest_edge_thread = threading.Thread(
         target=geoprocessing.raster_calculator,
         args=(
