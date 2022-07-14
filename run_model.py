@@ -113,7 +113,8 @@ def main():
         valid_mask = numpy.any(
             numpy.greater(numpy.asarray(raster_array), 0), axis=(0,))
         result = numpy.full(valid_mask.shape, nodata)
-        value_list = [array[valid_mask] for array in raster_array]
+        value_list = numpy.asarray([
+            array[valid_mask] for array in raster_array])
         result[valid_mask] = train_regression_model.clip_to_range(
             model['model'].predict(value_list), 10, 400)
         return result
