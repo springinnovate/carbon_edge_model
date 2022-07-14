@@ -74,7 +74,7 @@ def main():
         f'{model["gf_size"]}_{os.path.basename(args.forest_cover_path)}')
     task_graph.add_task(
         func=gaussian_filter_rasters.filter_raster,
-        args=((args.forest_cover_path, 1), args.gf_size, gf_forest_cover_path),
+        args=((args.forest_cover_path, 1), model['gf_size'], gf_forest_cover_path),
         target_path_list=[gf_forest_cover_path],
         task_name=f'gaussian filter {gf_forest_cover_path}')
 
