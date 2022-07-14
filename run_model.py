@@ -119,7 +119,7 @@ def main():
              if not isinstance(array, float)], axis=(0,))
         result = numpy.full(valid_mask.shape, nodata)
         value_list = numpy.asarray([
-            numpy.full(array, valid_mask.shape) if isinstance(array, float)
+            numpy.full(valid_mask.shape, array) if isinstance(array, float)
             else array[valid_mask] for array in raster_array]).transpose()
         LOGGER.debug(f'len of valuelist: {value_list.shape}')
         if value_list.shape[0] > 0:
