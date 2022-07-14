@@ -114,9 +114,8 @@ def main():
         raster_array = raster_nodata_array[0:n]
         nodata_array = raster_nodata_array[n:]
         valid_mask = numpy.all(
-            ~numpy.isclose(
-                numpy.asarray(raster_array),
-                numpy.asarray(nodata_array)), axis=(0,))
+            (~numpy.isclose(array, nodata) for array,nodata in
+             zip(raster_array, nodata_array)), axis=(0,))
         result = numpy.full(valid_mask.shape, nodata)
         value_list = numpy.asarray([
             array[valid_mask] for array in raster_array]).transpose()
