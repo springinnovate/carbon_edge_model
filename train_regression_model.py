@@ -362,6 +362,11 @@ def main():
             'if selected creates interactions only between these columns and '
             'all other fields, if not selected all fields are interacted with '
             'each other in a second order polynomial'))
+    parser.add_argument(
+        '--gf_forest_mask_id', type=str,
+        help='gaussian filterd forest mask id in table')
+    parser.add_argument(
+        '--gf_size', type=float, help='gaussian filter size in km')
     parser.add_argument('--polynomial', action='store_true')
     args = parser.parse_args()
 
@@ -375,6 +380,8 @@ def main():
      parameter_stats) = load_data(
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
+    if args.gf_forest_mask_id not in predictor_id_list:
+        raise ValueError(f'{args.gf_forest_mask_id} not in {predictor_id_list}')
     LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
     if args.interaction_ids:
         interaction_indexes = [
@@ -410,7 +417,9 @@ def main():
         with open(model_filename, 'wb') as model_file:
             model_to_pickle = {
                 'model': model,
-                'predictor_list': predictor_id_list
+                'predictor_list': predictor_id_list,
+                'gf_forest_id': args.gf_forest_mask_id,
+                'gf_size': args.gf_size,
             }
             model_file.write(pickle.dumps(model_to_pickle))
 

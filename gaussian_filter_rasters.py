@@ -47,21 +47,6 @@ def _make_kernel_raster(pixel_radius, target_path):
         kernel_array/scale, -1, (1., -1.), (0.,  0.), None, target_path)
 
 
-def _process_gf(raw_raster_path, mask_raster_path, scale, target_raster_path):
-    """Scale raster by a value."""
-    pixel_size = geoprocessing.get_raster_info(raw_raster_path)['pixel_size']
-
-    def _mask_op(base, mask):
-        result = base.copy()
-        result /= (scale * pixel_size[0])
-        result[(mask == 0) | (result < 0)] = 0
-        return result
-
-    geoprocessing.raster_calculator(
-        ((raw_raster_path, 1), (mask_raster_path, 1)), _mask_op,
-        target_raster_path, gdal.GDT_Float32, -1)
-
-
 def filter_raster(
         base_raster_path_band, expected_max_edge_effect_km, target_path):
     """Gaussian filter base by expected max edge to target_path."""
