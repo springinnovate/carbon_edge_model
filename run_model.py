@@ -124,9 +124,8 @@ def main():
         value_list = numpy.asarray([
             array[valid_mask] for array in raster_array])
         if edge_override is not None:
-            value_list[gf_index] = numpy.array(
-                [edge_override]*value_list[0].size)
-        value_list.transpose()
+            value_list[gf_index][:] = edge_override
+        value_list = value_list.transpose()
         if value_list.shape[0] > 0:
             result[valid_mask] = train_regression_model.clip_to_range(
                 model['model'].predict(value_list), 10, 400)
