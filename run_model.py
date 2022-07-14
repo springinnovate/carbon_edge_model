@@ -48,6 +48,7 @@ def main():
         predictor_str = "\n".join(missing_predictor_list)
         raise ValueError(
             f'missing the following predictor rasters:\n{predictor_str}')
+    LOGGER.info(f'all found: {predictor_id_to_path}')
 
 
 if __name__ == '__main__':
