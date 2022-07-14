@@ -24,7 +24,7 @@ def main():
     parser.add_argument(
         'forest_cover_path', type=str, help='path to forest mask')
     parser.add_argument(
-        '--predictor_raster_directory', type=str, default='',
+        '--predictor_raster_dir', type=str, default='',
         help='path to directory containing base data for model')
     parser.add_argument(
         '--prefix', type=str, help='string to add to output filename')
@@ -38,7 +38,7 @@ def main():
     missing_predictor_list = []
     for predictor_id in model['predictor_list']:
         predictor_path = os.path.join(
-            args.predictor_raster_directory, f'{predictor_id}.tif')
+            args.predictor_raster_dir, f'{predictor_id}.tif')
         if os.path.exists(predictor_path):
             predictor_id_to_path[predictor_id] = predictor_path
         else:
