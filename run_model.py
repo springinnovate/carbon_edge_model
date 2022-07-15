@@ -38,6 +38,9 @@ def main():
         help='path to directory containing base data for model')
     parser.add_argument(
         '--prefix', type=str, help='string to add to output filename')
+    parser.add_argument(
+        '--pre_warp_dir', type=str,
+        help='if defined uses matching files as prewarps')
     args = parser.parse_args()
 
     LOGGER.info(f'load model at {args.carbon_model_path}')
@@ -82,30 +85,42 @@ def main():
         if model['gf_forest_id'] == predictor_id:
             # warp the predictor to be correct blocksize etc
             predictor_path = args.forest_cover_path
-        warped_predictor_path = os.path.join(
-            workspace_dir, f'warped_{os.path.basename(predictor_path)}')
-        warp_task = task_graph.add_task(
-            func=geoprocessing.warp_raster,
-            args=(predictor_path, raster_info['pixel_size'],
-                  warped_predictor_path, 'nearest'),
-            kwargs={
-                'target_bb': raster_info['bounding_box'],
-                'target_projection_wkt': raster_info['projection_wkt'],
-                'working_dir': workspace_dir,
-            },
-            target_path_list=[warped_predictor_path],
-            task_name=f'warp {predictor_path}')
+        if args.pre_warp_dir:
+            warped_predictor_path = os.path.join(
+                args.pre_warp_dir,
+                f'warped_{os.path.basename(predictor_path)}')
+        else:
+            warped_predictor_path = os.path.join(
+                workspace_dir, f'warped_{os.path.basename(predictor_path)}')
+        if not(args.pre_warp_dir and os.path.exists(warped_predictor_path)):
+            warp_task = task_graph.add_task(
+                func=geoprocessing.warp_raster,
+                args=(predictor_path, raster_info['pixel_size'],
+                      warped_predictor_path, 'nearest'),
+                kwargs={
+                    'target_bb': raster_info['bounding_box'],
+                    'target_projection_wkt': raster_info['projection_wkt'],
+                    'working_dir': workspace_dir,
+                },
+                target_path_list=[warped_predictor_path],
+                task_name=f'warp {predictor_path}')
         if model['gf_forest_id'] == predictor_id:
-            gf_forest_cover_path = os.path.join(
-                workspace_dir, f'''{model["gf_size"]}_{
-                os.path.basename(args.forest_cover_path)}''')
-            task_graph.add_task(
-                func=gaussian_filter_rasters.filter_raster,
-                args=((warped_predictor_path, 1), model['gf_size'],
-                      gf_forest_cover_path),
-                dependent_task_list=[warp_task],
-                target_path_list=[gf_forest_cover_path],
-                task_name=f'gaussian filter {gf_forest_cover_path}')
+            if args.pre_warp_dir:
+                gf_forest_cover_path = os.path.join(
+                    args.pre_warp_dir, f'''{model["gf_size"]}_{
+                    os.path.basename(args.forest_cover_path)}''')
+            else:
+                gf_forest_cover_path = os.path.join(
+                    workspace_dir, f'''{model["gf_size"]}_{
+                    os.path.basename(args.forest_cover_path)}''')
+            if not(args.pre_warp_dir and os.path.exists(gf_forest_cover_path)):
+                task_graph.add_task(
+                    func=gaussian_filter_rasters.filter_raster,
+                    args=((warped_predictor_path, 1), model['gf_size'],
+                          gf_forest_cover_path),
+                    dependent_task_list=[warp_task],
+                    target_path_list=[gf_forest_cover_path],
+                    task_name=f'gaussian filter {gf_forest_cover_path}')
             gf_index = len(aligned_predictor_path_list)
             aligned_predictor_path_list.append(gf_forest_cover_path)
         else:
