@@ -144,4 +144,13 @@ Step 7 -- Run the model on custom forest cover
 **********************************************
 
 To run the model the user provides a path to the model created in Step 6,
-ensures the base model data are
+ensures the base model data are local to the machine the model is run on, and provides a raster of forest mask projected in meters. Assuming these data are present the user can invoke the following command:
+
+```
+python .\run_model.py PATH_TO_MODEL.dat PATH_TO_CUSTOM_FOREST_RASTER.tif --predictor_raster_dir PATH_TO_DIRECTORY_THAT_CONTAINS_PREDICTOR_RASTERS_USED_TO_TRAIN_MODEL
+```
+
+The script will output three rasters:
+    * ``CUSTOM_FOREST_RASTER_NAME_std_forest_edge_result.tif``: modeled forest carbon using standard model.
+    * ``CUSTOM_FOREST_RASTER_NAME_full_forest_edge_result.tif``: modeled forest carbon if a full "edge" effect is present in all forest edge pixels.
+    * ``CUSTOM_FOREST_RASTER_NAME_no_forest_edge_result.tif``: modeled forest carbon if no "edge" effect is present in all forest edge pixels.
