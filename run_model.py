@@ -92,6 +92,7 @@ def main():
         else:
             warped_predictor_path = os.path.join(
                 workspace_dir, f'warped_{os.path.basename(predictor_path)}')
+        warp_task_list = []
         if not(args.pre_warp_dir and os.path.exists(warped_predictor_path)):
             warp_task = task_graph.add_task(
                 func=geoprocessing.warp_raster,
@@ -104,6 +105,7 @@ def main():
                 },
                 target_path_list=[warped_predictor_path],
                 task_name=f'warp {predictor_path}')
+            warp_task_list.append(warp_task)
         if model['gf_forest_id'] == predictor_id:
             if args.pre_warp_dir:
                 gf_forest_cover_path = os.path.join(
@@ -118,7 +120,7 @@ def main():
                     func=gaussian_filter_rasters.filter_raster,
                     args=((warped_predictor_path, 1), model['gf_size'],
                           gf_forest_cover_path),
-                    dependent_task_list=[warp_task],
+                    dependent_task_list=warp_task_list,
                     target_path_list=[gf_forest_cover_path],
                     task_name=f'gaussian filter {gf_forest_cover_path}')
             gf_index = len(aligned_predictor_path_list)
