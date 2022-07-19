@@ -197,6 +197,7 @@ def main():
     forest_edge_thread.daemon = True
     forest_edge_thread.start()
 
+    LOGGER.debug('waiting for all the threads to join')
     full_forest_thread.join()
     no_forest_thread.join()
     forest_edge_thread.join()
