@@ -145,6 +145,7 @@ def main():
             [~numpy.isclose(array, nodata) for array, nodata in
              zip(raster_array, nodata_array)], axis=(0,))
         if not numpy.any(valid_mask):
+            LOGGER.debug('nothing!!')
             return None
         result = numpy.full(valid_mask.shape, nodata)
         value_list = numpy.asarray([
