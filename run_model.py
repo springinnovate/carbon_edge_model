@@ -10,6 +10,7 @@ from osgeo import gdal
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
 import numpy
+from ecoshard.geoprocessing import DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
 
 import gaussian_filter_rasters
 import train_regression_model
@@ -167,7 +168,11 @@ def main():
             [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
              for path in aligned_predictor_path_list] + [(1.0, 'raw')],
             _apply_model, model_result_path,
-            gdal.GDT_Float32, nodata))
+            gdal.GDT_Float32, nodata),
+        kwargs={
+            'raster_driver_creation_tuple': (
+                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS +
+                ('SPARSE_OK=TRUE',))})
     full_forest_thread.daemon = True
     full_forest_thread.start()
 
@@ -180,7 +185,11 @@ def main():
             [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
              for path in aligned_predictor_path_list] + [(0.0, 'raw')],
             _apply_model, model_result_path,
-            gdal.GDT_Float32, nodata))
+            gdal.GDT_Float32, nodata),
+        kwargs={
+            'raster_driver_creation_tuple': (
+                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS +
+                ('SPARSE_OK=TRUE',))})
     no_forest_thread.daemon = True
     no_forest_thread.start()
 
@@ -193,7 +202,11 @@ def main():
             [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
              for path in aligned_predictor_path_list] + [(None, 'raw')],
             _apply_model, model_result_path,
-            gdal.GDT_Float32, nodata))
+            gdal.GDT_Float32, nodata),
+        kwargs={
+            'raster_driver_creation_tuple': (
+                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS +
+                ('SPARSE_OK=TRUE',))})
     forest_edge_thread.daemon = True
     forest_edge_thread.start()
 
