@@ -169,8 +169,7 @@ def main():
         kwargs={
             'largest_block': 2**26,
             'raster_driver_creation_tuple': (
-                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1] +
-                ('SPARSE_OK=TRUE',))})
+                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
     full_forest_thread.daemon = True
     full_forest_thread.start()
 
@@ -187,8 +186,7 @@ def main():
         kwargs={
             'largest_block': 2**26,
             'raster_driver_creation_tuple': (
-                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1] +
-                ('SPARSE_OK=TRUE',))})
+                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
     no_forest_thread.daemon = True
     no_forest_thread.start()
 
@@ -205,8 +203,7 @@ def main():
         kwargs={
             'largest_block': 2**26,
             'raster_driver_creation_tuple': (
-                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1] +
-                ('SPARSE_OK=TRUE',))})
+                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
     forest_edge_thread.daemon = True
     forest_edge_thread.start()
 
