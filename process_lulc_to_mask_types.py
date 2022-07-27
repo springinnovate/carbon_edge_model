@@ -29,9 +29,10 @@ URBAN_LULC_CODES = (190,)
 FOREST_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
 
 MASK_TYPES = [
-    ('cropland', CROPLAND_LULC_CODES),
-    ('urban', URBAN_LULC_CODES),
-    ('forest', FOREST_CODES)]
+    #('cropland', CROPLAND_LULC_CODES),
+    #('urban', URBAN_LULC_CODES),
+    ('forest', FOREST_CODES),
+    ]
 
 MASK_NODATA = 127
 
@@ -42,30 +43,24 @@ def main():
     """Entry point."""
     parser = argparse.ArgumentParser(description='extract lulc masks')
     parser.add_argument(
-        'landcover_dir', type=str,
-        help='path/pattern to list of rasters to sample')
+        'landcover_raster_path', type=str,
+        help='path to lulc raster to mask')
     args = parser.parse_args()
-    mask_dir = os.path.join(args.landcover_dir, 'masks')
-    os.makedirs(mask_dir, exist_ok=True)
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 5.0)
     LOGGER.info('process by year')
-    # make urban, forest, and crop masks for ESACCI-LC-L4-LCCS-Map-300m-P1Y-20\d\d-v2.0.7_smooth_compressed
-    landcover_raster_path_list = [
-        path for path in glob.glob(os.path.join(args.landcover_dir, '*.tif'))
-        if re.match(r'.*ESACCI-LC-L4-LCCS-Map-300m-P1Y-20\d\d-v2.0.7_smooth_compressed.tif', path)]
-    for landcover_raster_path in landcover_raster_path_list:
-        basename = re.match(
-            r'.*(ESACCI-LC-L4-LCCS-Map-300m-P1Y-20\d\d).*',
-            landcover_raster_path).group(1)
-        for mask_id, lucodes in MASK_TYPES:
-            LOGGER.info(f'mask {mask_id} on {landcover_raster_path}')
-            mask_raster_path = os.path.join(
-                mask_dir, f'{basename}_{mask_id}.tif')
-            _ = task_graph.add_task(
-                func=_mask_raster,
-                args=(landcover_raster_path, lucodes, mask_raster_path),
-                target_path_list=[mask_raster_path],
-                task_name=f'mask out {mask_id}')
+    # make urban, forest, and crop masks for ESACCI-LC-L4-LCCS-Map-300m-P1Y-20\d\d-v2.0.7_smooth_compressedd
+    basename = os.path.splitext(
+        os.path.basename(args.landcover_raster_path))[0]
+    mask_dir = os.path.dirname(args.landcover_raster_path)
+    for mask_id, lucodes in MASK_TYPES:
+        LOGGER.info(f'mask {mask_id} on {args.landcover_raster_path}')
+        mask_raster_path = os.path.join(
+            mask_dir, f'{basename}_{mask_id}.tif')
+        _ = task_graph.add_task(
+            func=_mask_raster,
+            args=(args.landcover_raster_path, lucodes, mask_raster_path),
+            target_path_list=[mask_raster_path],
+            task_name=f'mask out {mask_id}')
     task_graph.join()
     task_graph.close()
 
