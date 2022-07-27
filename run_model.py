@@ -5,6 +5,7 @@ import logging
 import os
 import multiprocessing
 import threading
+import shutil
 
 from osgeo import gdal
 from ecoshard import geoprocessing
@@ -211,6 +212,8 @@ def main():
     full_forest_thread.join()
     no_forest_thread.join()
     forest_edge_thread.join()
+
+    shutil.rmtree(workspace_dir, ignore_errors=True)
 
 
 if __name__ == '__main__':
