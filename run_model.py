@@ -168,7 +168,7 @@ def main():
             _apply_model, model_result_path,
             gdal.GDT_Float32, nodata),
         kwargs={
-            'largest_block': 2**26,
+            'largest_block': 2**25,
             'raster_driver_creation_tuple': (
                 'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
     full_forest_thread.daemon = True
@@ -185,7 +185,7 @@ def main():
             _apply_model, model_result_path,
             gdal.GDT_Float32, nodata),
         kwargs={
-            'largest_block': 2**26,
+            'largest_block': 2**25,
             'raster_driver_creation_tuple': (
                 'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
     no_forest_thread.daemon = True
@@ -202,7 +202,7 @@ def main():
             _apply_model, model_result_path,
             gdal.GDT_Float32, nodata),
         kwargs={
-            'largest_block': 2**26,
+            'largest_block': 2**25,
             'raster_driver_creation_tuple': (
                 'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
     forest_edge_thread.daemon = True
