@@ -17,7 +17,7 @@ import gaussian_filter_rasters
 import train_regression_model
 
 GLOBAL_ECKERT_IV_BB = [-16921202.923, -8460601.461, 16921797.077, 8461398.539]
-ECKERT_PIXEL_SIZE = 90
+ECKERT_PIXEL_SIZE = (90, -90)
 WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
     BASEGEOGCRS["GCS_unknown",
         DATUM["World Geodetic System 1984",
@@ -104,9 +104,8 @@ def main():
         workspace_dir, min(
             multiprocessing.cpu_count(),
             len(predictor_id_path_list)))
-
-    raster_info = geoprocessing.get_raster_info(args.forest_cover_path)
-    if abs(raster_info['pixel_size'][0]) < 3:
+    base_raster_info = geoprocessing.get_raster_info(args.forest_cover_path)
+    if abs(base_raster_info['pixel_size'][0]) < 3:
         # project into Eckert
         forest_cover_path = os.path.join(
             workspace_dir, '%s_projected%s' % os.path.splitext(
@@ -118,16 +117,14 @@ def main():
             kwargs={
                 'target_bb': GLOBAL_ECKERT_IV_BB,
                 'base_projection_wkt': WORLD_ECKERT_IV_WKT,
-                'n_threads': multiprocessing.cpu_count(),
                 'working_dir': workspace_dir},
             target_path_list=[forest_cover_path],
             task_name=f'project {forest_cover_path}')
         task_graph.join()
+        sys.exit()
     else:
         forest_cover_path = args.forest_cover_path
-
-        #raise ValueError(
-        #    f'{args.forest_cover_path} must be projected in meters')
+    raster_info = geoprocessing.get_raster_info(args.forest_cover_path)
 
     LOGGER.info('gaussian filter forest cover')
 
@@ -136,7 +133,7 @@ def main():
     gf_index = None
     for predictor_id, predictor_path in predictor_id_path_list:
         if model['gf_forest_id'] == predictor_id:
-            # warp the predictor to be correct blocksize etc
+            # override the model's pretrained gf with one passed in
             predictor_path = forest_cover_path
         if args.pre_warp_dir:
             warped_predictor_path = os.path.join(
