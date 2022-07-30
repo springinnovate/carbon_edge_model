@@ -116,12 +116,11 @@ def main():
                   forest_cover_path, 'near'),
             kwargs={
                 'target_bb': GLOBAL_ECKERT_IV_BB,
-                'taget_projection_wkt': WORLD_ECKERT_IV_WKT,
+                'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'working_dir': workspace_dir},
             target_path_list=[forest_cover_path],
             task_name=f'project {forest_cover_path}')
         task_graph.join()
-        sys.exit()
     else:
         forest_cover_path = args.forest_cover_path
     raster_info = geoprocessing.get_raster_info(args.forest_cover_path)
