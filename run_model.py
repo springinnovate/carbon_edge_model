@@ -117,7 +117,8 @@ def main():
             kwargs={
                 'target_bb': GLOBAL_ECKERT_IV_BB,
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
-                'working_dir': workspace_dir},
+                'working_dir': workspace_dir,
+                'n_threads': multiprocessing.cpu_count()},
             target_path_list=[forest_cover_path],
             task_name=f'project {forest_cover_path}')
         task_graph.join()
