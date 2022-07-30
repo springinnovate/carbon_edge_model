@@ -124,7 +124,7 @@ def main():
         task_graph.join()
     else:
         forest_cover_path = args.forest_cover_path
-    raster_info = geoprocessing.get_raster_info(args.forest_cover_path)
+    raster_info = geoprocessing.get_raster_info(forest_cover_path)
 
     LOGGER.info('gaussian filter forest cover')
 
