@@ -116,7 +116,7 @@ def main():
                   forest_cover_path, 'near'),
             kwargs={
                 'target_bb': GLOBAL_ECKERT_IV_BB,
-                'base_projection_wkt': WORLD_ECKERT_IV_WKT,
+                'taget_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'working_dir': workspace_dir},
             target_path_list=[forest_cover_path],
             task_name=f'project {forest_cover_path}')
