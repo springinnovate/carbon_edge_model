@@ -16,6 +16,38 @@ from ecoshard.geoprocessing import DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
 import gaussian_filter_rasters
 import train_regression_model
 
+GLOBAL_ECKERT_IV_BB = [-16921202.923, -8460601.461, 16921797.077, 8461398.539]
+ECKERT_PIXEL_SIZE = 90
+WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
+    BASEGEOGCRS["GCS_unknown",
+        DATUM["World Geodetic System 1984",
+            ELLIPSOID["WGS 84",6378137,298.257223563,
+                LENGTHUNIT["metre",1]],
+            ID["EPSG",6326]],
+        PRIMEM["Greenwich",0,
+            ANGLEUNIT["Degree",0.0174532925199433]]],
+    CONVERSION["unnamed",
+        METHOD["Eckert IV"],
+        PARAMETER["Longitude of natural origin",0,
+            ANGLEUNIT["Degree",0.0174532925199433],
+            ID["EPSG",8802]],
+        PARAMETER["False easting",0,
+            LENGTHUNIT["metre",1],
+            ID["EPSG",8806]],
+        PARAMETER["False northing",0,
+            LENGTHUNIT["metre",1],
+            ID["EPSG",8807]]],
+    CS[Cartesian,2],
+        AXIS["(E)",east,
+            ORDER[1],
+            LENGTHUNIT["metre",1,
+                ID["EPSG",9001]]],
+        AXIS["(N)",north,
+            ORDER[2],
+            LENGTHUNIT["metre",1,
+                ID["EPSG",9001]]]]"""
+
+
 logging.basicConfig(
     level=logging.DEBUG,
     format=(
@@ -75,8 +107,27 @@ def main():
 
     raster_info = geoprocessing.get_raster_info(args.forest_cover_path)
     if abs(raster_info['pixel_size'][0]) < 3:
-        raise ValueError(
-            f'{args.forest_cover_path} must be projected in meters')
+        # project into Eckert
+        forest_cover_path = os.path.join(
+            workspace_dir, '%s_projected%s' % os.path.splitext(
+                os.path.basename(args.forest_cover_path)))
+        task_graph.add_task(
+            func=geoprocessing.warp_raster,
+            args=(args.forest_cover_path, ECKERT_PIXEL_SIZE,
+                  forest_cover_path, 'near'),
+            kwargs={
+                'target_bb': GLOBAL_ECKERT_IV_BB,
+                'base_projection_wkt': WORLD_ECKERT_IV_WKT,
+                'n_threads': multiprocessing.cpu_count(),
+                'working_dir': workspace_dir},
+            target_path_list=[forest_cover_path],
+            task_name=f'project {forest_cover_path}')
+        task_graph.join()
+    else:
+        forest_cover_path = args.forest_cover_path
+
+        #raise ValueError(
+        #    f'{args.forest_cover_path} must be projected in meters')
 
     LOGGER.info('gaussian filter forest cover')
 
@@ -86,7 +137,7 @@ def main():
     for predictor_id, predictor_path in predictor_id_path_list:
         if model['gf_forest_id'] == predictor_id:
             # warp the predictor to be correct blocksize etc
-            predictor_path = args.forest_cover_path
+            predictor_path = forest_cover_path
         if args.pre_warp_dir:
             warped_predictor_path = os.path.join(
                 args.pre_warp_dir,
@@ -112,11 +163,11 @@ def main():
             if args.pre_warp_dir:
                 gf_forest_cover_path = os.path.join(
                     args.pre_warp_dir, f'''{model["gf_size"]}_{
-                    os.path.basename(args.forest_cover_path)}''')
+                    os.path.basename(forest_cover_path)}''')
             else:
                 gf_forest_cover_path = os.path.join(
                     workspace_dir, f'''{model["gf_size"]}_{
-                    os.path.basename(args.forest_cover_path)}''')
+                    os.path.basename(forest_cover_path)}''')
             if not(args.pre_warp_dir and os.path.exists(gf_forest_cover_path)):
                 task_graph.add_task(
                     func=gaussian_filter_rasters.filter_raster,
@@ -158,7 +209,7 @@ def main():
         return result
 
     model_result_path = f'''{os.path.basename(os.path.splitext(
-        args.forest_cover_path)[0])}_full_forest_edge_result.tif'''
+        forest_cover_path)[0])}_full_forest_edge_result.tif'''
     full_forest_thread = threading.Thread(
         target=geoprocessing.raster_calculator,
         args=(
@@ -175,7 +226,7 @@ def main():
     full_forest_thread.start()
 
     model_result_path = f'''{os.path.basename(os.path.splitext(
-        args.forest_cover_path)[0])}_no_forest_edge_result.tif'''
+        forest_cover_path)[0])}_no_forest_edge_result.tif'''
     no_forest_thread = threading.Thread(
         target=geoprocessing.raster_calculator,
         args=(
@@ -192,7 +243,7 @@ def main():
     no_forest_thread.start()
 
     model_result_path = f'''{os.path.basename(os.path.splitext(
-        args.forest_cover_path)[0])}_std_forest_edge_result.tif'''
+        forest_cover_path)[0])}_std_forest_edge_result.tif'''
     forest_edge_thread = threading.Thread(
         target=geoprocessing.raster_calculator,
         args=(
