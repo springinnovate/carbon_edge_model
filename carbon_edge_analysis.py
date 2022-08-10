@@ -69,8 +69,8 @@ LOGGER = logging.getLogger(__name__)
 OUTPUT_DIR = './output'
 
 # Base data
-LULC_RESTORATION_PATH = "./ipcc_carbon_data/.restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif"
-LULC_ESA_PATH = "./ipcc_carbon_data/.ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif"
+LULC_RESTORATION_PATH = "./ipcc_carbon_data/restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif"
+LULC_ESA_PATH = "./ipcc_carbon_data/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif"
 FOREST_LULC_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
 
 CARBON_TABLE_PATH = "./ipcc_carbon_data/IPCC_carbon_table_md5_a91f7ade46871575861005764d85cfa7.csv"
@@ -151,7 +151,7 @@ def create_mask(base_path, code_list, target_path):
         return result
 
     geoprocessing.raster_calculator(
-        [(base_path, 1)], _code_mask, gdal.GDT_Byte, None)
+        [(base_path, 1)], _code_mask, target_path, gdal.GDT_Byte, None)
 
 
 def and_rasters(base_a_path, base_b_path, target_path):
@@ -169,22 +169,45 @@ def and_rasters(base_a_path, base_b_path, target_path):
         return base_a_array & base_b_array
 
     geoprocessing.raster_calculator(
-        [(base_a_path, 1), (base_b_path, 1)], _and, gdal.GDT_Byte, None)
+        [(base_a_path, 1), (base_b_path, 1)], _and, target_path, gdal.GDT_Byte,
+        None)
 
 
 def main():
     """Entry point."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    task_graph = taskgraph.TaskGraph(OUTPUT_DIR, 4, 15.0)
 
     # create forest masks
-    create_mask(LULC_RESTORATION_PATH, FOREST_LULC_CODES, FOREST_MASK_RESTORATION_PATH)
-    create_mask(LULC_ESA_PATH, FOREST_LULC_CODES, FOREST_MASK_ESA_PATH)
-    and_rasters(FOREST_MASK_RESTORATION_PATH, FOREST_MASK_ESA_PATH, NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH)
-
     # Build ESA carbon map since the change is just static and covert to co2
-    build_ipcc_carbon(LULC_RESTORATION_PATH, CARBON_TABLE_PATH, CARBON_ZONES_PATH, FOREST_LULC_CODES, IPCC_CARBON_RESTORATION_PATH)
-    build_ipcc_carbon(LULC_ESA_PATH, CARBON_TABLE_PATH, CARBON_ZONES_PATH, FOREST_LULC_CODES, IPCC_CARBON_ESA_PATH)
+    restoration_mask_task = task_graph.add_task(
+        func=create_mask,
+        args=(LULC_RESTORATION_PATH, FOREST_LULC_CODES, FOREST_MASK_RESTORATION_PATH),
+        target_path_list=[FOREST_MASK_RESTORATION_PATH],
+        task_name=f'create_mask: {LULC_RESTORATION_PATH}')
+    esa_mask_task = task_graph.add_task(
+        func=create_mask,
+        args=(LULC_ESA_PATH, FOREST_LULC_CODES, FOREST_MASK_ESA_PATH),
+        target_path_list=[FOREST_MASK_ESA_PATH],
+        task_name=f'create_mask: {LULC_ESA_PATH}')
+    task_graph.add_task(
+        func=and_rasters,
+        args=(FOREST_MASK_RESTORATION_PATH, FOREST_MASK_ESA_PATH, NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH),
+        target_path_list=[NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH],
+        dependent_task_list=[restoration_mask_task, esa_mask_task],
+        task_name=f'and_rasters: {FOREST_MASK_RESTORATION_PATH}')
+    task_graph.add_task(
+        func=build_ipcc_carbon,
+        args=(LULC_RESTORATION_PATH, CARBON_TABLE_PATH, CARBON_ZONES_PATH, FOREST_LULC_CODES, IPCC_CARBON_RESTORATION_PATH),
+        target_path_list=[IPCC_CARBON_RESTORATION_PATH],
+        task_name=f'build_ipcc_carbon: {LULC_RESTORATION_PATH}')
+    task_graph.add_task(
+        func=build_ipcc_carbon,
+        args=(LULC_ESA_PATH, CARBON_TABLE_PATH, CARBON_ZONES_PATH, FOREST_LULC_CODES, IPCC_CARBON_ESA_PATH),
+        target_path_list=[IPCC_CARBON_ESA_PATH],
+        task_name=f'build_ipcc_carbon: {LULC_ESA_PATH}')
 
+    task_graph.join()
 
 if __name__ == '__main__':
     main()
