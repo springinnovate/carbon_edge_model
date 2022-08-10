@@ -76,13 +76,12 @@ OUTPUT_DIR = './output'
 
 # Base data
 INPUT_RASTERS = {
-    'CARBON_ZONES_PATH': "./ipcc_carbon_data/carbon_zones_md5_aa16830f64d1ef66ebdf2552fb8a9c0d.gpkg",
     'LULC_RESTORATION_PATH': "./ipcc_carbon_data/restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif",
     'LULC_ESA_PATH': "./ipcc_carbon_data/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif",
 }
+CARBON_ZONES_PATH = "./ipcc_carbon_data/carbon_zones_md5_aa16830f64d1ef66ebdf2552fb8a9c0d.gpkg",
 CARBON_TABLE_PATH = "./ipcc_carbon_data/IPCC_carbon_table_md5_a91f7ade46871575861005764d85cfa7.csv"
 FOREST_LULC_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
-
 
 # Forest masks created by script
 FOREST_MASK_RESTORATION_PATH = './output/forest_mask_restoration_limited.tif'
