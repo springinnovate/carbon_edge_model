@@ -84,7 +84,7 @@ def main():
 
 def regression_carbon_model(
     carbon_model_path, forest_cover_path, predictor_raster_dir='',
-        prefix=None, pre_warp_dir=None):
+        prefix=None, pre_warp_dir=None, model_result_path=None):
 
     LOGGER.info(f'load model at {carbon_model_path}')
     with open(carbon_model_path, 'rb') as model_file:
@@ -214,42 +214,43 @@ def regression_carbon_model(
                 model['model'].predict(value_list), 10, 400)
         return result
 
-    model_result_path = f'''{os.path.basename(os.path.splitext(
-        forest_cover_path)[0])}_full_forest_edge_result.tif'''
-    full_forest_thread = threading.Thread(
-        target=geoprocessing.raster_calculator,
-        args=(
-            [(path, 1) for path in aligned_predictor_path_list] +
-            [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
-             for path in aligned_predictor_path_list] + [(1.0, 'raw')],
-            _apply_model, model_result_path,
-            gdal.GDT_Float32, nodata),
-        kwargs={
-            'largest_block': 2**25,
-            'raster_driver_creation_tuple': (
-                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
-    full_forest_thread.daemon = True
-    full_forest_thread.start()
+    # model_result_path = f'''{os.path.basename(os.path.splitext(
+    #     forest_cover_path)[0])}_full_forest_edge_result.tif'''
+    # full_forest_thread = threading.Thread(
+    #     target=geoprocessing.raster_calculator,
+    #     args=(
+    #         [(path, 1) for path in aligned_predictor_path_list] +
+    #         [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
+    #          for path in aligned_predictor_path_list] + [(1.0, 'raw')],
+    #         _apply_model, model_result_path,
+    #         gdal.GDT_Float32, nodata),
+    #     kwargs={
+    #         'largest_block': 2**25,
+    #         'raster_driver_creation_tuple': (
+    #             'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
+    # full_forest_thread.daemon = True
+    # full_forest_thread.start()
 
-    model_result_path = f'''{os.path.basename(os.path.splitext(
-        forest_cover_path)[0])}_no_forest_edge_result.tif'''
-    no_forest_thread = threading.Thread(
-        target=geoprocessing.raster_calculator,
-        args=(
-            [(path, 1) for path in aligned_predictor_path_list] +
-            [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
-             for path in aligned_predictor_path_list] + [(0.0, 'raw')],
-            _apply_model, model_result_path,
-            gdal.GDT_Float32, nodata),
-        kwargs={
-            'largest_block': 2**25,
-            'raster_driver_creation_tuple': (
-                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
-    no_forest_thread.daemon = True
-    no_forest_thread.start()
+    # model_result_path = f'''{os.path.basename(os.path.splitext(
+    #     forest_cover_path)[0])}_no_forest_edge_result.tif'''
+    # no_forest_thread = threading.Thread(
+    #     target=geoprocessing.raster_calculator,
+    #     args=(
+    #         [(path, 1) for path in aligned_predictor_path_list] +
+    #         [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
+    #          for path in aligned_predictor_path_list] + [(0.0, 'raw')],
+    #         _apply_model, model_result_path,
+    #         gdal.GDT_Float32, nodata),
+    #     kwargs={
+    #         'largest_block': 2**25,
+    #         'raster_driver_creation_tuple': (
+    #             'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
+    # no_forest_thread.daemon = True
+    # no_forest_thread.start()
 
-    model_result_path = f'''{os.path.basename(os.path.splitext(
-        forest_cover_path)[0])}_std_forest_edge_result.tif'''
+    if model_result_path is None:
+        model_result_path = f'''{os.path.basename(os.path.splitext(
+            forest_cover_path)[0])}_std_forest_edge_result.tif'''
     forest_edge_thread = threading.Thread(
         target=geoprocessing.raster_calculator,
         args=(
