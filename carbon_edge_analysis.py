@@ -158,7 +158,8 @@ def create_mask(base_path, code_list, target_path):
     def _code_mask(base_array):
         result = numpy.zeros(base_array.shape, dtype=numpy.byte)
         for code in numpy.unique(base_array):
-            result[base_array == code] == 1
+            if code in code_list:
+                result[base_array == code] = 1
         return result
 
     geoprocessing.raster_calculator(
