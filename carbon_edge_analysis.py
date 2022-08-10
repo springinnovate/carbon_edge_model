@@ -16,8 +16,8 @@ Build ESA carbon map since the change is just static and covert to co2
     * IPCC_carbon_table_md5_a91f7ade46871575861005764d85cfa7
     * carbon_zones_md5_aa16830f64d1ef66ebdf2552fb8a9c0d
 
-6) restoration_limited_new_forest_co2
-7) ESACCI-LC-L4-LCCS_new_forest_co2
+6) restoration_limited_new_forest
+7) ESACCI-LC-L4-LCCS_new_forest
 
 Build regression carbon maps and convert to co2
 
@@ -56,6 +56,8 @@ from osgeo import gdal
 import pandas
 import numpy
 
+from .run_model import regression_carbon_model
+
 gdal.SetCacheMax(2**27)
 
 logging.basicConfig(
@@ -81,8 +83,13 @@ FOREST_MASK_RESTORATION_PATH = './output/forest_mask_restoration_limited.tif'
 FOREST_MASK_ESA_PATH = './output/forest_mask_esa.tif'
 NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH = './output/new_forest_mask_esa_to_restoration.tif'
 
+# IPCC based carbon maps
 IPCC_CARBON_RESTORATION_PATH = './output/ipcc_carbon_restoration_limited.tif'
 IPCC_CARBON_ESA_PATH = './output/ipcc_carbon_esa.tif'
+
+# Regression based carbon maps:
+REGRESSION_CARBON_RESTORATION_PATH = './output/regression_carbon_restoration.tif'
+REGRESSION_CARBON_ESA_PATH = './output/regression_carbon_esa.tif'
 
 
 def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_carbon_path):
@@ -129,8 +136,8 @@ def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_
         return result
 
     geoprocessing.raster_calculator(
-        [(lulc_path, 1), (zone_path, 1)], _lulc_zone_to_carbon, gdal.GDT_Int32,
-        None)
+        [(lulc_path, 1), (zone_raster_path, 1)], _lulc_zone_to_carbon,
+        target_carbon_path, gdal.GDT_Int32, None)
 
 
 def create_mask(base_path, code_list, target_path):
@@ -179,7 +186,6 @@ def main():
     task_graph = taskgraph.TaskGraph(OUTPUT_DIR, 4, 15.0)
 
     # create forest masks
-    # Build ESA carbon map since the change is just static and covert to co2
     restoration_mask_task = task_graph.add_task(
         func=create_mask,
         args=(LULC_RESTORATION_PATH, FOREST_LULC_CODES, FOREST_MASK_RESTORATION_PATH),
@@ -196,6 +202,8 @@ def main():
         target_path_list=[NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH],
         dependent_task_list=[restoration_mask_task, esa_mask_task],
         task_name=f'and_rasters: {FOREST_MASK_RESTORATION_PATH}')
+
+    # Build ESA carbon map since the change is just static and covert to co2
     task_graph.add_task(
         func=build_ipcc_carbon,
         args=(LULC_RESTORATION_PATH, CARBON_TABLE_PATH, CARBON_ZONES_PATH, FOREST_LULC_CODES, IPCC_CARBON_RESTORATION_PATH),
@@ -208,6 +216,10 @@ def main():
         task_name=f'build_ipcc_carbon: {LULC_ESA_PATH}')
 
     task_graph.join()
+
+    #regression_carbon_model('./models/hansen_model_2022_07_14.dat', forest_cover_path, predictor_raster_dir='processed_rasters')
+    #CALL python .\run_model.py .\models\hansen_model_2022_07_14.dat ./processed_rasters/fc_stack_hansen_forest_cover2016_compressed.tif --predictor_raster_dir ./processed_rasters
+
 
 if __name__ == '__main__':
     main()
