@@ -120,23 +120,22 @@ def regression_carbon_model(
     base_raster_info = geoprocessing.get_raster_info(forest_cover_path)
     if abs(base_raster_info['pixel_size'][0]) < 3:
         # project into Eckert
-        forest_cover_path = os.path.join(
+        projected_forest_cover_path = os.path.join(
             workspace_dir, '%s_projected%s' % os.path.splitext(
                 os.path.basename(forest_cover_path)))
         task_graph.add_task(
             func=geoprocessing.warp_raster,
             args=(forest_cover_path, ECKERT_PIXEL_SIZE,
-                  forest_cover_path, 'near'),
+                  projected_forest_cover_path, 'near'),
             kwargs={
                 'target_bb': GLOBAL_ECKERT_IV_BB,
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'working_dir': workspace_dir,
                 'n_threads': multiprocessing.cpu_count()},
-            target_path_list=[forest_cover_path],
-            task_name=f'project {forest_cover_path}')
+            target_path_list=[projected_forest_cover_path],
+            task_name=f'project {projected_forest_cover_path}')
         task_graph.join()
-    else:
-        forest_cover_path = forest_cover_path
+        forest_cover_path = projected_forest_cover_path
     raster_info = geoprocessing.get_raster_info(forest_cover_path)
 
     LOGGER.info('gaussian filter forest cover')
