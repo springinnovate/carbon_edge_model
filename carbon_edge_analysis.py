@@ -49,6 +49,7 @@ Build regression marginal value:
 import logging
 import os
 import tempfile
+import multiprocessing
 
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
@@ -57,6 +58,9 @@ import pandas
 import numpy
 
 from run_model import regression_carbon_model
+from run_model import ECKERT_PIXEL_SIZE
+from run_model import GLOBAL_ECKERT_IV_BB
+from run_model import WORLD_ECKERT_IV_WKT
 
 gdal.SetCacheMax(2**27)
 
@@ -71,12 +75,14 @@ LOGGER = logging.getLogger(__name__)
 OUTPUT_DIR = './output'
 
 # Base data
-LULC_RESTORATION_PATH = "./ipcc_carbon_data/restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif"
-LULC_ESA_PATH = "./ipcc_carbon_data/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif"
+INPUT_RASTERS = {
+    'CARBON_TABLE_PATH': "./ipcc_carbon_data/IPCC_carbon_table_md5_a91f7ade46871575861005764d85cfa7.csv",
+    'CARBON_ZONES_PATH': "./ipcc_carbon_data/carbon_zones_md5_aa16830f64d1ef66ebdf2552fb8a9c0d.gpkg",
+    'LULC_RESTORATION_PATH': "./ipcc_carbon_data/restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif",
+    'LULC_ESA_PATH': "./ipcc_carbon_data/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif",
+}
 FOREST_LULC_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
 
-CARBON_TABLE_PATH = "./ipcc_carbon_data/IPCC_carbon_table_md5_a91f7ade46871575861005764d85cfa7.csv"
-CARBON_ZONES_PATH = "./ipcc_carbon_data/carbon_zones_md5_aa16830f64d1ef66ebdf2552fb8a9c0d.gpkg"
 
 # Forest masks created by script
 FOREST_MASK_RESTORATION_PATH = './output/forest_mask_restoration_limited.tif'
@@ -86,6 +92,9 @@ NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH = './output/new_forest_mask_esa_to_resto
 # IPCC based carbon maps
 IPCC_CARBON_RESTORATION_PATH = './output/ipcc_carbon_restoration_limited.tif'
 IPCC_CARBON_ESA_PATH = './output/ipcc_carbon_esa.tif'
+
+MASKED_IPCC_CARBON_RESTORATION_PATH = './output/masked_ipcc_carbon_restoration_limited.tif'
+MASKED_IPCC_CARBON_ESA_PATH = './output/masked_ipcc_carbon_esa.tif'
 
 # Regression based carbon maps:
 REGRESSION_CARBON_RESTORATION_PATH = './output/regression_carbon_restoration.tif'
@@ -185,10 +194,44 @@ def sub_rasters(base_a_path, base_b_path, target_path):
         None)
 
 
+def mask_raster(base_path, mask_path, target_path):
+    """Only pass through base if mask is 1."""
+    def _mask(base_array, mask_array):
+        result = numpy.zeros(base_array.shape, dtype=base_array.type)
+        mask = mask_array == 1
+        result[mask] = base_array[mask]
+        return result
+
+
 def main():
     """Entry point."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     task_graph = taskgraph.TaskGraph(OUTPUT_DIR, 4, 15.0)
+
+    # TODO: project everything in same projection as carbon model
+    aligned_dir = './aligned_carbon_edge'
+    os.makedirs(aligned_dir, exist_ok=True)
+    for raster_id in INPUT_RASTERS:
+        raster_path = INPUT_RASTERS[raster_id]
+        aligned_path = os.path.join(aligned_dir, os.path.basename(raster_path))
+        task_graph.add_task(
+            func=geoprocessing.warp_raster,
+            args=(raster_path, ECKERT_PIXEL_SIZE,
+                  aligned_path, 'near'),
+            kwargs={
+                'target_bb': GLOBAL_ECKERT_IV_BB,
+                'target_projection_wkt': WORLD_ECKERT_IV_WKT,
+                'working_dir': aligned_dir,
+                'n_threads': multiprocessing.cpu_count()},
+            target_path_list=[aligned_path],
+            task_name=f'project {aligned_path}')
+        INPUT_RASTERS[raster_id] = raster_path
+    task_graph.join()
+
+    CARBON_TABLE_PATH = INPUT_RASTERS['CARBON_TABLE_PATH']
+    CARBON_ZONES_PATH = INPUT_RASTERS['CARBON_ZONES_PATH']
+    LULC_RESTORATION_PATH = INPUT_RASTERS['LULC_RESTORATION_PATH']
+    LULC_ESA_PATH = INPUT_RASTERS['LULC_ESA_PATH']
 
     # create forest masks
     restoration_mask_task = task_graph.add_task(
@@ -208,6 +251,8 @@ def main():
         dependent_task_list=[restoration_mask_task, esa_mask_task],
         task_name=f'and_rasters: {FOREST_MASK_RESTORATION_PATH}')
 
+    # TODO: convolve the mask same as carbon kernel CONVOLVED_MASK
+
     # Build ESA carbon map since the change is just static and covert to co2
     task_graph.add_task(
         func=build_ipcc_carbon,
@@ -219,6 +264,12 @@ def main():
         args=(LULC_ESA_PATH, CARBON_TABLE_PATH, CARBON_ZONES_PATH, FOREST_LULC_CODES, IPCC_CARBON_ESA_PATH),
         target_path_list=[IPCC_CARBON_ESA_PATH],
         task_name=f'build_ipcc_carbon: {LULC_ESA_PATH}')
+
+    # TODO: IPCC_CARBON_RESTORATION_PATH-IPCC_CARBON_ESA_PATH and masked to new forest
+
+    # TODO: run optimization on above
+
+
 
     # task_graph.add_task(
     #     func=regression_carbon_model,
@@ -234,6 +285,14 @@ def main():
     #     target_path_list=[REGRESSION_CARBON_ESA_PATH],
     #     dependent_task_list=[esa_mask_task],
     #     task_name=f'regression model {REGRESSION_CARBON_ESA_PATH}')
+
+    # TODO: REGRESSION_CARBON_RESTORATION_PATH-REGRESSION_CARBON_ESA_PATH
+
+    # TODO: divide above by CONVOLVED_MASK
+
+    # TODO: convolve above and mask to new forest
+
+    # TODO: run optimization on above
 
     task_graph.join()
     #CALL python .\run_model.py .\models\hansen_model_2022_07_14.dat ./processed_rasters/fc_stack_hansen_forest_cover2016_compressed.tif --predictor_raster_dir ./processed_rasters
