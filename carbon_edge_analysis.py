@@ -178,7 +178,7 @@ def sub_rasters(base_a_path, base_b_path, target_path):
         None.
     """
     def _sub(base_a_array, base_b_array):
-        return base_a_array - base_b_array
+        return base_a_array > base_b_array
 
     geoprocessing.raster_calculator(
         [(base_a_path, 1), (base_b_path, 1)], _sub, target_path, gdal.GDT_Byte,
