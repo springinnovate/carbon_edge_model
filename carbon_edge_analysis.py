@@ -54,6 +54,7 @@ from ecoshard import geoprocessing
 from ecoshard import taskgraph
 from osgeo import gdal
 import pandas
+import numpy
 
 gdal.SetCacheMax(2**27)
 
@@ -114,9 +115,61 @@ def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_
         projected_zone_path, zone_raster_path, option_list=['ATTRIBUTE=CODE'])
     # load table
     table = pandas.read_csv(lulc_table_path, index_col=0, header=0).to_dict()
-    table = {int(k): v for k, v in table.items()}
+    lulc_zone_carbon_map = {int(k): v for k, v in table.items()}
 
     # raster calculator of lulc, zones, table, and codes
+    def _lulc_zone_to_carbon(lulc_array, zone_array):
+        result = numpy.empty(lulc_array.shape, dtype=numpy.int)
+        for lulc_code in numpy.unique(lulc_array):
+            lulc_mask = lulc_array == lulc_code
+            for zone_code in numpy.unique(zone_array):
+                zone_mask = zone_array == zone_code
+                result[lulc_mask & zone_mask] = (
+                    lulc_zone_carbon_map[lulc_code][zone_code])
+        return result
+
+    geoprocessing.raster_calculator(
+        [(lulc_path, 1), (zone_path, 1)], _lulc_zone_to_carbon, gdal.GDT_Int32,
+        None)
+
+
+def create_mask(base_path, code_list, target_path):
+    """Mask out base with values in code list, 0 otherwise.
+
+    Args:
+        base_path (str): path to an integer raster
+        code_list (list): list of integer values to set to 1 in base
+        target_path (str): path to created raster
+
+    Returns:
+        None.
+    """
+    def _code_mask(base_array):
+        result = numpy.zeros(base_array.shape, dtype=numpy.byte)
+        for code in numpy.unique(base_array):
+            result[base_array == code] == 1
+        return result
+
+    geoprocessing.raster_calculator(
+        [(base_path, 1)], _code_mask, gdal.GDT_Byte, None)
+
+
+def and_rasters(base_a_path, base_b_path, target_path):
+    """Result is A&B
+
+    Args:
+        base_a_path (str): path to 0/1 raster
+        base_b_path (str): path to 0/1 raster
+        target_path (str): path to created raster of A&B
+
+    Returns:
+        None.
+    """
+    def _and(base_a_array, base_b_array):
+        return base_a_array & base_b_array
+
+    geoprocessing.raster_calculator(
+        [(base_a_path, 1), (base_b_path, 1)], _and, gdal.GDT_Byte, None)
 
 
 def main():
