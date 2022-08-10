@@ -220,20 +220,20 @@ def main():
         target_path_list=[IPCC_CARBON_ESA_PATH],
         task_name=f'build_ipcc_carbon: {LULC_ESA_PATH}')
 
-    task_graph.add_task(
-        func=regression_carbon_model,
-        args=('./models/hansen_model_2022_07_14.dat', FOREST_MASK_RESTORATION_PATH),
-        kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
-        target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
-        dependent_task_list=[restoration_mask_task],
-        task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
-    task_graph.add_task(
-        func=regression_carbon_model,
-        args=('./models/hansen_model_2022_07_14.dat', FOREST_MASK_ESA_PATH),
-        kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_ESA_PATH},
-        target_path_list=[REGRESSION_CARBON_ESA_PATH],
-        dependent_task_list=[esa_mask_task],
-        task_name=f'regression model {REGRESSION_CARBON_ESA_PATH}')
+    # task_graph.add_task(
+    #     func=regression_carbon_model,
+    #     args=('./models/hansen_model_2022_07_14.dat', FOREST_MASK_RESTORATION_PATH),
+    #     kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
+    #     target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
+    #     dependent_task_list=[restoration_mask_task],
+    #     task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
+    # task_graph.add_task(
+    #     func=regression_carbon_model,
+    #     args=('./models/hansen_model_2022_07_14.dat', FOREST_MASK_ESA_PATH),
+    #     kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_ESA_PATH},
+    #     target_path_list=[REGRESSION_CARBON_ESA_PATH],
+    #     dependent_task_list=[esa_mask_task],
+    #     task_name=f'regression model {REGRESSION_CARBON_ESA_PATH}')
 
     task_graph.join()
     #CALL python .\run_model.py .\models\hansen_model_2022_07_14.dat ./processed_rasters/fc_stack_hansen_forest_cover2016_compressed.tif --predictor_raster_dir ./processed_rasters
