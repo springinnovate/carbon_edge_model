@@ -57,6 +57,7 @@ logging.getLogger('taskgraph').setLevel(logging.WARN)
 LOGGER = logging.getLogger(__name__)
 logging.getLogger('fiona').setLevel(logging.WARN)
 logging.getLogger('matplotlib.font_manager').setLevel(logging.WARN)
+logging.getLogger('matplotlib').setLevel(logging.WARN)
 logging.getLogger('PIL.PngImagePlugin').setLevel(logging.WARN)
 
 

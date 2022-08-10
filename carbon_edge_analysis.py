@@ -56,7 +56,7 @@ from osgeo import gdal
 import pandas
 import numpy
 
-from .run_model import regression_carbon_model
+from run_model import regression_carbon_model
 
 gdal.SetCacheMax(2**27)
 
@@ -131,8 +131,12 @@ def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_
             lulc_mask = lulc_array == lulc_code
             for zone_code in numpy.unique(zone_array):
                 zone_mask = zone_array == zone_code
-                result[lulc_mask & zone_mask] = (
-                    lulc_zone_carbon_map[lulc_code][zone_code])
+                if (lulc_code in lulc_zone_carbon_map and
+                        zone_code in lulc_zone_carbon_map[lulc_code]):
+                    carbon_val = lulc_zone_carbon_map[lulc_code][zone_code]
+                else:
+                    carbon_val = 0
+                result[lulc_mask & zone_mask] = carbon_val
         return result
 
     geoprocessing.raster_calculator(
@@ -215,9 +219,22 @@ def main():
         target_path_list=[IPCC_CARBON_ESA_PATH],
         task_name=f'build_ipcc_carbon: {LULC_ESA_PATH}')
 
-    task_graph.join()
+    task_graph.add_task(
+        func=regression_carbon_model,
+        args=('./models/hansen_model_2022_07_14.dat', FOREST_MASK_RESTORATION_PATH),
+        kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
+        target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
+        dependent_task_list=[restoration_mask_task],
+        task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
+    task_graph.add_task(
+        func=regression_carbon_model,
+        args=('./models/hansen_model_2022_07_14.dat', FOREST_MASK_ESA_PATH),
+        kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_ESA_PATH},
+        target_path_list=[REGRESSION_CARBON_ESA_PATH],
+        dependent_task_list=[esa_mask_task],
+        task_name=f'regression model {REGRESSION_CARBON_ESA_PATH}')
 
-    #regression_carbon_model('./models/hansen_model_2022_07_14.dat', forest_cover_path, predictor_raster_dir='processed_rasters')
+    task_graph.join()
     #CALL python .\run_model.py .\models\hansen_model_2022_07_14.dat ./processed_rasters/fc_stack_hansen_forest_cover2016_compressed.tif --predictor_raster_dir ./processed_rasters
 
 
