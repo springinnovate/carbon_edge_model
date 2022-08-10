@@ -108,6 +108,10 @@ def regression_carbon_model(
     workspace_dir = f'''workspace_{os.path.splitext(os.path.basename(
         forest_cover_path))[0]}'''
     os.makedirs(workspace_dir, exist_ok=True)
+    workspace_forest_cover_path = os.path.join(
+        workspace_dir, os.path.basename(forest_cover_path))
+    if not os.path.exists(workspace_forest_cover_path):
+        shutil.copy(forest_cover_path, workspace_dir)
 
     task_graph = taskgraph.TaskGraph(
         workspace_dir, min(
