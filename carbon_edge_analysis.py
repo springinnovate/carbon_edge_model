@@ -19,10 +19,10 @@ Build ESA carbon map since the change is just static and covert to co2
 6) restoration_limited_new_forest
 7) ESACCI-LC-L4-LCCS_new_forest
 
-Build regression carbon maps and convert to co2
+Build regression carbon maps
 
-8) restoration_limited_regression_co2
-9) ESACCI-LC-L4-LCCS_regression_co2
+8) restoration_limited_regression
+9) ESACCI-LC-L4-LCCS_regression
 
 Build ESA marginal value map:
 
@@ -166,7 +166,7 @@ def create_mask(base_path, code_list, target_path):
         [(base_path, 1)], _code_mask, target_path, gdal.GDT_Byte, None)
 
 
-def and_rasters(base_a_path, base_b_path, target_path):
+def sub_rasters(base_a_path, base_b_path, target_path):
     """Result is A&B
 
     Args:
@@ -177,11 +177,11 @@ def and_rasters(base_a_path, base_b_path, target_path):
     Returns:
         None.
     """
-    def _and(base_a_array, base_b_array):
-        return base_a_array & base_b_array
+    def _sub(base_a_array, base_b_array):
+        return base_a_array - base_b_array
 
     geoprocessing.raster_calculator(
-        [(base_a_path, 1), (base_b_path, 1)], _and, target_path, gdal.GDT_Byte,
+        [(base_a_path, 1), (base_b_path, 1)], _sub, target_path, gdal.GDT_Byte,
         None)
 
 
@@ -202,7 +202,7 @@ def main():
         target_path_list=[FOREST_MASK_ESA_PATH],
         task_name=f'create_mask: {LULC_ESA_PATH}')
     task_graph.add_task(
-        func=and_rasters,
+        func=sub_rasters,
         args=(FOREST_MASK_RESTORATION_PATH, FOREST_MASK_ESA_PATH, NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH),
         target_path_list=[NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH],
         dependent_task_list=[restoration_mask_task, esa_mask_task],
