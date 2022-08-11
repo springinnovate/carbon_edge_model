@@ -411,10 +411,10 @@ def main():
         task_name=f'regression marg value {REGRESSION_MARGINAL_VALUE_PATH}')
 
     # TODO: run optimization on above
+    # TODO: 350Mha
 
     task_graph.join()
 
-    # TODO: 350Mha
 
 
 if __name__ == '__main__':
