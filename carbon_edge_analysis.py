@@ -90,6 +90,12 @@ FOREST_MASK_RESTORATION_PATH = './output/forest_mask_restoration_limited.tif'
 FOREST_MASK_ESA_PATH = './output/forest_mask_esa.tif'
 NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH = './output/new_forest_mask_esa_to_restoration.tif'
 
+# Convolved new forest mask
+NEW_FOREST_MASK_COVERAGE_PATH = './output/new_forest_mask_coverage.tif'
+
+# marginal value rasters
+IPCC_MARGINAL_VALUE_PATH = './output/marginal_value_ipcc.tif'
+
 # IPCC based carbon maps
 IPCC_CARBON_RESTORATION_PATH = './output/ipcc_carbon_restoration_limited.tif'
 IPCC_CARBON_ESA_PATH = './output/ipcc_carbon_esa.tif'
@@ -112,7 +118,7 @@ def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_
         lulc_codes (tuple): only evaluate codes in this tuple
         target_carbon_path (str): created raster that contains carbon values
 
-    Returns:
+    Return:
         None
     """
     raster_info = geoprocessing.get_raster_info(lulc_path)
@@ -162,8 +168,8 @@ def create_mask(base_path, code_list, target_path):
         code_list (list): list of integer values to set to 1 in base
         target_path (str): path to created raster
 
-    Returns:
-        None.
+    Return:
+        None
     """
     def _code_mask(base_array):
         result = numpy.zeros(base_array.shape, dtype=numpy.byte)
@@ -184,8 +190,8 @@ def sub_rasters(base_a_path, base_b_path, target_path):
         base_b_path (str): path to 0/1 raster
         target_path (str): path to created raster of A&B
 
-    Returns:
-        None.
+    Return:
+        None
     """
     def _sub(base_a_array, base_b_array):
         return base_a_array > base_b_array
@@ -202,6 +208,29 @@ def mask_raster(base_path, mask_path, target_path):
         mask = mask_array == 1
         result[mask] = base_array[mask]
         return result
+
+
+def sub_and_mask(base_a_path, base_b_path, mask_path, target_path):
+    """Subtract a and b and only keep mask.
+
+    Args:
+        base_a_path (str): path to raster
+        base_b_path (str): path to raster
+        mask_path (str): path to 0/1 raster, 1 indicates area to keep
+        target_path (str): result.
+
+    Return:
+        None
+    """
+    def _mask_and_sub(base_a_array, base_b_array, mask_array):
+        result = numpy.empty(base_a_array.shape, dtype=base_a_array.dtype)
+        valid_mask = mask_array == 1
+        result[valid_mask] = base_a_array[valid_mask] - base_b_array[valid_mask]
+        return result
+    raster_info = geoprocessing.get_raster_info(base_a_path)
+    geoprocessing.raster_calculator(
+        [(base_a_path, 1), (base_b_path, 1), (mask_path, 1)], _mask_and_sub,
+        target_path, raster_info['datatype'], None)
 
 
 def main():
@@ -253,32 +282,40 @@ def main():
         dependent_task_list=[restoration_mask_task, esa_mask_task],
         task_name=f'and_rasters: {FOREST_MASK_RESTORATION_PATH}')
 
-    # TODO: convolve the mask same as carbon kernel CONVOLVED_MASK
-    new_forest_mask_coverage_path = './output/new_forest_mask_coverage.tif'
+    # convolve the mask same as carbon kernel CONVOLVED_MASK
     task_graph.add_task(
         func=gaussian_filter_rasters.filter_raster,
         args=((NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH, 1), model['gf_size'],
-              new_forest_mask_coverage_path),
+              NEW_FOREST_MASK_COVERAGE_PATH),
         dependent_task_list=[sub_mask_task],
-        target_path_list=[new_forest_mask_coverage_path],
-        task_name=f'gaussian filter {new_forest_mask_coverage_path}')
+        target_path_list=[NEW_FOREST_MASK_COVERAGE_PATH],
+        task_name=f'gaussian filter {NEW_FOREST_MASK_COVERAGE_PATH}')
+    task_graph.join()
 
     # Build ESA carbon map since the change is just static and covert to co2
-    task_graph.add_task(
+    ipcc_restoration_carbon_task = task_graph.add_task(
         func=build_ipcc_carbon,
         args=(LULC_RESTORATION_PATH, CARBON_TABLE_PATH, CARBON_ZONES_PATH, FOREST_LULC_CODES, IPCC_CARBON_RESTORATION_PATH),
         target_path_list=[IPCC_CARBON_RESTORATION_PATH],
         task_name=f'build_ipcc_carbon: {LULC_RESTORATION_PATH}')
-    task_graph.add_task(
+    ipcc_esa_carbon_task = task_graph.add_task(
         func=build_ipcc_carbon,
         args=(LULC_ESA_PATH, CARBON_TABLE_PATH, CARBON_ZONES_PATH, FOREST_LULC_CODES, IPCC_CARBON_ESA_PATH),
         target_path_list=[IPCC_CARBON_ESA_PATH],
         task_name=f'build_ipcc_carbon: {LULC_ESA_PATH}')
 
-    # TODO: IPCC_CARBON_RESTORATION_PATH-IPCC_CARBON_ESA_PATH and masked to new forest
+    # IPCC_CARBON_RESTORATION_PATH-IPCC_CARBON_ESA_PATH and masked to new forest
+    task_graph.add_task(
+        func=sub_and_mask,
+        args=(
+            IPCC_CARBON_RESTORATION_PATH, IPCC_CARBON_ESA_PATH,
+            NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH, IPCC_MARGINAL_VALUE_PATH),
+        target_path_list=[IPCC_MARGINAL_VALUE_PATH],
+        dependent_task_list=[
+            ipcc_restoration_carbon_task, ipcc_esa_carbon_task],
+        task_name=f'create IPCC marginal value {IPCC_MARGINAL_VALUE_PATH}')
 
     # TODO: run optimization on above
-
 
 
     task_graph.add_task(
