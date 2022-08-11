@@ -50,6 +50,7 @@ import logging
 import os
 import tempfile
 import multiprocessing
+import pickle
 
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
@@ -57,6 +58,7 @@ from osgeo import gdal
 import pandas
 import numpy
 
+import gaussian_filter_rasters
 from run_model import regression_carbon_model
 from run_model import ECKERT_PIXEL_SIZE
 from run_model import GLOBAL_ECKERT_IV_BB
@@ -229,6 +231,9 @@ def main():
 
     LULC_RESTORATION_PATH = INPUT_RASTERS['LULC_RESTORATION_PATH']
     LULC_ESA_PATH = INPUT_RASTERS['LULC_ESA_PATH']
+    carbon_model_path = './models/hansen_model_2022_07_14.dat'
+    with open(carbon_model_path, 'rb') as model_file:
+        model = pickle.load(model_file).copy()
 
     # create forest masks
     restoration_mask_task = task_graph.add_task(
@@ -241,7 +246,7 @@ def main():
         args=(LULC_ESA_PATH, FOREST_LULC_CODES, FOREST_MASK_ESA_PATH),
         target_path_list=[FOREST_MASK_ESA_PATH],
         task_name=f'create_mask: {LULC_ESA_PATH}')
-    task_graph.add_task(
+    sub_mask_task = task_graph.add_task(
         func=sub_rasters,
         args=(FOREST_MASK_RESTORATION_PATH, FOREST_MASK_ESA_PATH, NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH),
         target_path_list=[NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH],
@@ -249,6 +254,14 @@ def main():
         task_name=f'and_rasters: {FOREST_MASK_RESTORATION_PATH}')
 
     # TODO: convolve the mask same as carbon kernel CONVOLVED_MASK
+    new_forest_mask_coverage_path = './output/new_forest_mask_coverage.tif'
+    task_graph.add_task(
+        func=gaussian_filter_rasters.filter_raster,
+        args=((NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH, 1), model['gf_size'],
+              new_forest_mask_coverage_path),
+        dependent_task_list=[sub_mask_task],
+        target_path_list=[new_forest_mask_coverage_path],
+        task_name=f'gaussian filter {new_forest_mask_coverage_path}')
 
     # Build ESA carbon map since the change is just static and covert to co2
     task_graph.add_task(
@@ -270,14 +283,14 @@ def main():
 
     task_graph.add_task(
         func=regression_carbon_model,
-        args=('./models/hansen_model_2022_07_14.dat', FOREST_MASK_RESTORATION_PATH),
+        args=(carbon_model_path, FOREST_MASK_RESTORATION_PATH),
         kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
         target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
         dependent_task_list=[restoration_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
     task_graph.add_task(
         func=regression_carbon_model,
-        args=('./models/hansen_model_2022_07_14.dat', FOREST_MASK_ESA_PATH),
+        args=(carbon_model_path, FOREST_MASK_ESA_PATH),
         kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_ESA_PATH},
         target_path_list=[REGRESSION_CARBON_ESA_PATH],
         dependent_task_list=[esa_mask_task],
