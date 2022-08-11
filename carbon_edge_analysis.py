@@ -95,6 +95,7 @@ NEW_FOREST_MASK_COVERAGE_PATH = './output/new_forest_mask_coverage.tif'
 
 # marginal value rasters
 IPCC_MARGINAL_VALUE_PATH = './output/marginal_value_ipcc.tif'
+REGRESSION_MARGINAL_VALUE_PATH = './output/marginal_value_regression.tif'
 
 # IPCC based carbon maps
 IPCC_CARBON_RESTORATION_PATH = './output/ipcc_carbon_restoration_limited.tif'
@@ -107,6 +108,8 @@ MASKED_IPCC_CARBON_ESA_PATH = './output/masked_ipcc_carbon_esa.tif'
 REGRESSION_CARBON_RESTORATION_PATH = './output/regression_carbon_restoration.tif'
 REGRESSION_CARBON_ESA_PATH = './output/regression_carbon_esa.tif'
 
+# Intermediate regression marginal value:
+REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH = './output/regression_per_pixel_carbon_distance_weight.tif'
 
 def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_carbon_path):
     """Calculate IPCC carbon.
@@ -230,11 +233,67 @@ def sub_and_mask(base_a_path, base_b_path, mask_path, target_path):
     raster_info = geoprocessing.get_raster_info(base_a_path)
     geoprocessing.raster_calculator(
         [(base_a_path, 1), (base_b_path, 1), (mask_path, 1)], _mask_and_sub,
-        target_path, raster_info['datatype'], None)
+        target_path, raster_info['datatype'], 0)
+
+
+def sub_and_divide(base_a_path, base_b_path, mask_path, target_path):
+    """Subtract a from b then divide by mask. If mask is 0 then skip.
+
+    Args:
+        base_a_path (str): path to raster
+        base_b_path (str): path to raster
+        mask_path (str): path to 0/non-0 raster
+        target_path (str): result
+
+    Return:
+        None
+    """
+    def _sub_and_divide(base_a_array, base_b_array, mask_array):
+        result = numpy.zeros(base_a_array.shape, dtype=base_a_array.dtype)
+        valid_mask = mask_array > 0
+        result[valid_mask] = (
+            base_a_array[valid_mask]-base_b_array[valid_mask]) / (
+            mask_array[valid_mask])
+        return result
+    raster_info = geoprocessing.get_raster_info(base_a_path)
+    geoprocessing.raster_calculator(
+        [(base_a_path, 1), (base_b_path, 1), (mask_path, 1)],
+        _sub_and_divide, target_path, raster_info['datatype'], 0)
+
+
+def regression_marginal_value(base_path, gf_size, mask_path, target_path):
+    """Calculate marginal value regression by convolving base and masking.
+
+    Args:
+        base_path (str): path to raster
+        mask_path (str): path to mask raster
+        target_path (str): path to marginal value target.
+
+    Return:
+        None
+    """
+    base_filtered_path = os.path.join(
+        os.path.dirname(target_path),
+        os.path.splitext(target_path)[0], 'base_filtered.tif')
+    os.makedirs(os.path.dirname(base_filtered_path), exist_ok=True)
+    gaussian_filter_rasters.filter_raster(
+        base_path, gf_size, base_filtered_path)
+    def _div_op(base_array, mask_array):
+        result = numpy.zeros(base_array.shape, dtype=float)
+        valid_mask = mask_array > 0
+        result[valid_mask] = base_array[valid_mask] / mask_array[valid_mask]
+        return result
+    raster_info = geoprocessing.get_raster_info(base_path)
+    geoprocessing.raster_calculator(
+        [(base_path, 1), (mask_path, 1)],
+        _div_op, target_path, raster_info['datatype'], 0)
 
 
 def main():
     """Entry point."""
+
+    # TODO: make all rasters nodata be 0 that are calcualted so we can skip in raster calculation
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     task_graph = taskgraph.TaskGraph(OUTPUT_DIR, 4, 15.0)
 
@@ -282,7 +341,7 @@ def main():
         dependent_task_list=[restoration_mask_task, esa_mask_task],
         task_name=f'and_rasters: {FOREST_MASK_RESTORATION_PATH}')
 
-    # convolve the mask same as carbon kernel CONVOLVED_MASK
+    # convolve the mask same as carbon kernel NEW_FOREST_MASK_COVERAGE_PATH
     task_graph.add_task(
         func=gaussian_filter_rasters.filter_raster,
         args=((NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH, 1), model['gf_size'],
@@ -290,7 +349,6 @@ def main():
         dependent_task_list=[sub_mask_task],
         target_path_list=[NEW_FOREST_MASK_COVERAGE_PATH],
         task_name=f'gaussian filter {NEW_FOREST_MASK_COVERAGE_PATH}')
-    task_graph.join()
 
     # Build ESA carbon map since the change is just static and covert to co2
     ipcc_restoration_carbon_task = task_graph.add_task(
@@ -316,16 +374,14 @@ def main():
         task_name=f'create IPCC marginal value {IPCC_MARGINAL_VALUE_PATH}')
 
     # TODO: run optimization on above
-
-
-    task_graph.add_task(
+    regression_restoration_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_RESTORATION_PATH),
         kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
         target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
         dependent_task_list=[restoration_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
-    task_graph.add_task(
+    regression_esa_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_ESA_PATH),
         kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_ESA_PATH},
@@ -333,16 +389,32 @@ def main():
         dependent_task_list=[esa_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_ESA_PATH}')
 
-    # TODO: REGRESSION_CARBON_RESTORATION_PATH-REGRESSION_CARBON_ESA_PATH
+    # Calculate per-pixel weighted contribution REGRESSION_CARBON_RESTORATION_PATH-REGRESSION_CARBON_ESA_PATH/NEW_FOREST_MASK_COVERAGE_PATH
+    weighted_regression_task = task_graph.add_task(
+        func=sub_and_divide,
+        args=(REGRESSION_CARBON_RESTORATION_PATH, REGRESSION_CARBON_ESA_PATH,
+              NEW_FOREST_MASK_COVERAGE_PATH,
+              REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH),
+        dependent_task_list=[regression_restoration_task, regression_esa_task],
+        target_path_list=[REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH],
+        task_name=f'per pixel weighted coverage {REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH}')
 
-    # TODO: divide above by CONVOLVED_MASK
-
-    # TODO: convolve above and mask to new forest
+    # convolve above and mask to new forest
+    task_graph.add_task(
+        func=regression_marginal_value,
+        args=(REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH,
+              model['gf_size'],
+              NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH,
+              REGRESSION_MARGINAL_VALUE_PATH),
+        dependent_task_list=[weighted_regression_task, sub_mask_task],
+        target_path_list=[REGRESSION_MARGINAL_VALUE_PATH],
+        task_name=f'regression marg value {REGRESSION_MARGINAL_VALUE_PATH}')
 
     # TODO: run optimization on above
 
     task_graph.join()
-    #CALL python .\run_model.py .\models\hansen_model_2022_07_14.dat ./processed_rasters/fc_stack_hansen_forest_cover2016_compressed.tif --predictor_raster_dir ./processed_rasters
+
+    # TODO: 350Mha
 
 
 if __name__ == '__main__':
