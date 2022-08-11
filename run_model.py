@@ -266,8 +266,8 @@ def regression_carbon_model(
     forest_edge_thread.start()
 
     LOGGER.debug('waiting for all the threads to join')
-    full_forest_thread.join()
-    no_forest_thread.join()
+    #full_forest_thread.join()
+    #no_forest_thread.join()
     forest_edge_thread.join()
 
     shutil.rmtree(workspace_dir, ignore_errors=True)
