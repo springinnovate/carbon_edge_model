@@ -255,7 +255,7 @@ def main():
                 'n_threads': multiprocessing.cpu_count()},
             target_path_list=[aligned_path],
             task_name=f'project {aligned_path}')
-        INPUT_RASTERS[raster_id] = raster_path
+        INPUT_RASTERS[raster_id] = aligned_path
     task_graph.join()
 
     LULC_RESTORATION_PATH = INPUT_RASTERS['LULC_RESTORATION_PATH']
