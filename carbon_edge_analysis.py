@@ -101,6 +101,9 @@ REGRESSION_MARGINAL_VALUE_PATH = './output/marginal_value_regression.tif'
 IPCC_CARBON_RESTORATION_PATH = './output/ipcc_carbon_restoration_limited.tif'
 IPCC_CARBON_ESA_PATH = './output/ipcc_carbon_esa.tif'
 
+IPCC_OPTIMIZATION_OUTPUT_DIR = './output/ipcc_optimization'
+IPCC_AREA_PATH = './output/ipcc_area.tif'
+
 MASKED_IPCC_CARBON_RESTORATION_PATH = './output/masked_ipcc_carbon_restoration_limited.tif'
 MASKED_IPCC_CARBON_ESA_PATH = './output/masked_ipcc_carbon_esa.tif'
 
@@ -110,6 +113,10 @@ REGRESSION_CARBON_ESA_PATH = './output/regression_carbon_esa.tif'
 
 # Intermediate regression marginal value:
 REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH = './output/regression_per_pixel_carbon_distance_weight.tif'
+
+REGRESSION_OPTIMIZATION_OUTPUT_DIR = './output/regression_optimization'
+REGRESSION_AREA_PATH = './output/ipcc_area.tif'
+
 
 def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_carbon_path):
     """Calculate IPCC carbon.
@@ -252,7 +259,7 @@ def sub_and_divide(base_a_path, base_b_path, mask_path, target_path):
         result = numpy.zeros(base_a_array.shape, dtype=base_a_array.dtype)
         valid_mask = mask_array > 0
         result[valid_mask] = (
-            base_a_array[valid_mask]-base_b_array[valid_mask]) / (
+            base_a_array[valid_mask] - base_b_array[valid_mask]) / (
             mask_array[valid_mask])
         return result
     raster_info = geoprocessing.get_raster_info(base_a_path)
@@ -278,6 +285,7 @@ def regression_marginal_value(base_path, gf_size, mask_path, target_path):
     os.makedirs(os.path.dirname(base_filtered_path), exist_ok=True)
     gaussian_filter_rasters.filter_raster(
         base_path, gf_size, base_filtered_path)
+
     def _div_op(base_array, mask_array):
         result = numpy.zeros(base_array.shape, dtype=float)
         valid_mask = mask_array > 0
@@ -287,6 +295,19 @@ def regression_marginal_value(base_path, gf_size, mask_path, target_path):
     geoprocessing.raster_calculator(
         [(base_path, 1), (mask_path, 1)],
         _div_op, target_path, raster_info['datatype'], 0)
+
+
+def make_area_raster(base_path, target_area_path):
+    """Create raster full of pixel area based on base."""
+    base_info = geoprocessing.get_raster_info(base_path)
+    base_area = abs(numpy.prod(base_info['pixel_size']))
+    gtiff_creation_tuple_options = ('GTIFF', (
+        'TILED=YES', 'BIGTIFF=YES', 'COMPRESS=LZW', 'SPARSE_OK=TRUE',
+        'BLOCKXSIZE=256', 'BLOCKYSIZE=256', 'NUM_THREADS=ALL_CPUS'))
+    # creates a sparse empty raster with pixel sizes of nodata that are area
+    geoprocessing.new_raster_from_base(
+        base_path, target_area_path, gdal.GDT_Float32, [base_area],
+        raster_driver_creation_tuple=gtiff_creation_tuple_options)
 
 
 def main():
@@ -363,7 +384,7 @@ def main():
         task_name=f'build_ipcc_carbon: {LULC_ESA_PATH}')
 
     # IPCC_CARBON_RESTORATION_PATH-IPCC_CARBON_ESA_PATH and masked to new forest
-    task_graph.add_task(
+    ipcc_marginal_value_task = task_graph.add_task(
         func=sub_and_mask,
         args=(
             IPCC_CARBON_RESTORATION_PATH, IPCC_CARBON_ESA_PATH,
@@ -373,7 +394,6 @@ def main():
             ipcc_restoration_carbon_task, ipcc_esa_carbon_task],
         task_name=f'create IPCC marginal value {IPCC_MARGINAL_VALUE_PATH}')
 
-    # TODO: run optimization on above
     regression_restoration_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_RESTORATION_PATH),
@@ -400,7 +420,7 @@ def main():
         task_name=f'per pixel weighted coverage {REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH}')
 
     # convolve above and mask to new forest
-    task_graph.add_task(
+    regression_marginal_value_task = task_graph.add_task(
         func=regression_marginal_value,
         args=(REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH,
               model['gf_size'],
@@ -410,11 +430,29 @@ def main():
         target_path_list=[REGRESSION_MARGINAL_VALUE_PATH],
         task_name=f'regression marg value {REGRESSION_MARGINAL_VALUE_PATH}')
 
-    # TODO: run optimization on above
-    # TODO: 350Mha
+    # run optimization on above on 350Mha
+
+    for output_dir, marginal_value_path, area_path, mv_task, out_prefix, in [
+            (IPCC_OPTIMIZATION_OUTPUT_DIR, IPCC_MARGINAL_VALUE_PATH, IPCC_AREA_PATH, ipcc_marginal_value_task, 'ipcc'),
+            (REGRESSION_OPTIMIZATION_OUTPUT_DIR, REGRESSION_MARGINAL_VALUE_PATH, REGRESSION_AREA_PATH, regression_marginal_value_task, 'regression')]:
+        os.makedirs(output_dir, exist_ok=True)
+        area_task = task_graph.add_task(
+            func=make_area_raster,
+            args=(marginal_value_path, area_path),
+            target_path_list=[area_path],
+            dependent_task_list=[mv_task],
+            task_name=f'make area raster {area_path}')
+
+        # run optimization on above
+        task_graph.add_task(
+            func=geoprocessing.greedy_pixel_pick_by_area,
+            args=((marginal_value_path, 1), (area_path, 1),
+                  [1000000000000.0, 2000000000000.0, 3000000000000.0, 3500000000000.0], output_dir),
+            kwargs={'output_prefix': out_prefix, 'ffi_buffer_size': 2**15},
+            dependent_task_list=[area_task],
+            task_name=f'{out_prefix} optimization')
 
     task_graph.join()
-
 
 
 if __name__ == '__main__':
