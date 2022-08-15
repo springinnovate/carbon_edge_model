@@ -297,7 +297,7 @@ def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     task_graph = taskgraph.TaskGraph(OUTPUT_DIR, 4, 15.0)
 
-    # TODO: project everything in same projection as carbon model
+    # project everything in same projection as carbon model
     aligned_dir = './aligned_carbon_edge'
     os.makedirs(aligned_dir, exist_ok=True)
     for raster_id in INPUT_RASTERS:
