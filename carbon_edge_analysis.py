@@ -64,7 +64,7 @@ from run_model import ECKERT_PIXEL_SIZE
 from run_model import GLOBAL_ECKERT_IV_BB
 from run_model import WORLD_ECKERT_IV_WKT
 
-gdal.SetCacheMax(2**27)
+gdal.SetCacheMax(2**24)
 
 logging.basicConfig(
     level=logging.DEBUG,
