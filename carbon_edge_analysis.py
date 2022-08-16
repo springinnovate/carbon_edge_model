@@ -332,7 +332,7 @@ def main():
                 'target_bb': GLOBAL_ECKERT_IV_BB,
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'working_dir': aligned_dir,
-                'n_threads': multiprocessing.cpu_count()},
+                'n_threads': multiprocessing.cpu_count()/len(INPUT_RASTERS)*2},
             target_path_list=[aligned_path],
             task_name=f'project {aligned_path}')
         INPUT_RASTERS[raster_id] = aligned_path
