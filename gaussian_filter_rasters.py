@@ -79,7 +79,7 @@ def filter_raster(
     geoprocessing.raster_calculator(
         [(raw_gf_path, 1), (base_raster_path, base_raster_band)], _mask_op,
         target_path, gdal.GDT_Float32, output_nodata,
-        largest_block=2**27)
+        largest_block=2**25)
 
     os.remove(kernel_raster_path)
     os.remove(raw_gf_path)
