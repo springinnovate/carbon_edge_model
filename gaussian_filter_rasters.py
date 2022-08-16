@@ -63,7 +63,7 @@ def filter_raster(
 
     geoprocessing.convolve_2d(
         (base_raster_path, base_raster_band), (kernel_raster_path, 1),
-        raw_gf_path, normalize_kernel=True, largest_block=2**22)
+        raw_gf_path, normalize_kernel=True, largest_block=2**20)
 
     output_nodata = -1.0
 
@@ -75,7 +75,7 @@ def filter_raster(
             return raw_gf
         return None
 
-    LOGGER.debug('convolution complete, making out non-nodata')
+    LOGGER.debug('convolution complete, masking out non-nodata')
     geoprocessing.raster_calculator(
         [(raw_gf_path, 1), (base_raster_path, base_raster_band)], _mask_op,
         target_path, gdal.GDT_Float32, output_nodata,
