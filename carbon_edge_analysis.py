@@ -444,7 +444,7 @@ def main():
             func=ecoshard.convolve_layer,
             args=(base_raster_path, 4, 'sum', target_coarse_path),
             dependent_task_list=[base_task],
-            task_id=f'coarsen {target_coarse_path}')
+            task_name=f'coarsen {target_coarse_path}')
 
     # run optimization on above on 350Mha
     for output_dir, marginal_value_path, area_path, out_prefix, in [
