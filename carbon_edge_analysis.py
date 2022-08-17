@@ -461,7 +461,7 @@ def main():
         task_graph.add_task(
             func=geoprocessing.greedy_pixel_pick_by_area,
             args=((marginal_value_path, 1), (area_path, 1),
-                  [1000000000000.0, 2000000000000.0, 3000000000000.0, 3500000000000.0], output_dir),
+                  numpy.array(range(5, 36, 5)) * 100000000000, output_dir),
             kwargs={'output_prefix': out_prefix, 'ffi_buffer_size': 2**12},
             dependent_task_list=[area_task],
             task_name=f'{out_prefix} optimization')
