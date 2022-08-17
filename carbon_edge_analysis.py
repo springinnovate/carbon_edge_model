@@ -55,6 +55,7 @@ import pickle
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
 from osgeo import gdal
+import ecoshard
 import pandas
 import numpy
 
@@ -96,6 +97,9 @@ NEW_FOREST_MASK_COVERAGE_PATH = './output/new_forest_mask_coverage.tif'
 # marginal value rasters
 IPCC_MARGINAL_VALUE_PATH = './output/marginal_value_ipcc.tif'
 REGRESSION_MARGINAL_VALUE_PATH = './output/marginal_value_regression.tif'
+
+COARSE_IPCC_MARGINAL_VALUE_PATH = './output/coarsened_marginal_value_ipcc.tif'
+COARSE_REGRESSION_MARGINAL_VALUE_PATH = './output/coarsened_marginal_value_regression.tif'
 
 # IPCC based carbon maps
 IPCC_CARBON_RESTORATION_PATH = './output/ipcc_carbon_restoration_limited.tif'
@@ -394,7 +398,7 @@ def main():
             ipcc_restoration_carbon_task, ipcc_esa_carbon_task],
         task_name=f'create IPCC marginal value {IPCC_MARGINAL_VALUE_PATH}')
 
-    restoration_task = task_graph.add_task(
+    regression_restoration_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_RESTORATION_PATH),
         kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
@@ -430,17 +434,27 @@ def main():
         target_path_list=[REGRESSION_MARGINAL_VALUE_PATH],
         task_name=f'regression marg value {REGRESSION_MARGINAL_VALUE_PATH}')
 
-    # run optimization on above on 350Mha
+    # TODO: coarsen IPCC_MARGINAL_VALUE
+    coarsen_task_map = {}
+    for base_raster_path, target_coarse_path, base_task, task_id in [
+            (IPCC_MARGINAL_VALUE_PATH, COARSE_IPCC_MARGINAL_VALUE_PATH, ipcc_marginal_value_task, 'ipcc'),
+            (REGRESSION_MARGINAL_VALUE_PATH, COARSE_REGRESSION_MARGINAL_VALUE_PATH, regression_marginal_value_task, 'regression')]:
+        coarsen_task_map[task_id] = task_graph.add_task(
+            func=ecoshard.convolve_layer,
+            args=(base_raster_path, 4, 'sum', target_coarse_path),
+            dependent_task_list=[base_task],
+            task_id=f'coarsen {target_coarse_path}')
 
-    for output_dir, marginal_value_path, area_path, mv_task, out_prefix, in [
-            (IPCC_OPTIMIZATION_OUTPUT_DIR, IPCC_MARGINAL_VALUE_PATH, IPCC_AREA_PATH, ipcc_marginal_value_task, 'ipcc'),
-            (REGRESSION_OPTIMIZATION_OUTPUT_DIR, REGRESSION_MARGINAL_VALUE_PATH, REGRESSION_AREA_PATH, regression_marginal_value_task, 'regression')]:
+    # run optimization on above on 350Mha
+    for output_dir, marginal_value_path, area_path, out_prefix, in [
+            (IPCC_OPTIMIZATION_OUTPUT_DIR, COARSE_IPCC_MARGINAL_VALUE_PATH, IPCC_AREA_PATH, 'ipcc'),
+            (REGRESSION_OPTIMIZATION_OUTPUT_DIR, COARSE_REGRESSION_MARGINAL_VALUE_PATH, REGRESSION_AREA_PATH, 'regression')]:
         os.makedirs(output_dir, exist_ok=True)
         area_task = task_graph.add_task(
             func=make_area_raster,
             args=(marginal_value_path, area_path),
             target_path_list=[area_path],
-            dependent_task_list=[mv_task],
+            dependent_task_list=[coarsen_task_map[out_prefix]],
             task_name=f'make area raster {area_path}')
 
         # run optimization on above
