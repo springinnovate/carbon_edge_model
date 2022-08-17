@@ -321,7 +321,7 @@ def main():
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     task_graph = taskgraph.TaskGraph(
-        OUTPUT_DIR, min(multiprocessing.cpu_count()), len(INPUT_RASTERS), 15.0)
+        OUTPUT_DIR, min(multiprocessing.cpu_count(), len(INPUT_RASTERS)), 15.0)
 
     # project everything in same projection as carbon model
     aligned_dir = './aligned_carbon_edge'
