@@ -284,7 +284,7 @@ def regression_marginal_value(base_path, gf_size, mask_path, target_path):
         os.path.splitext(target_path)[0], 'base_filtered.tif')
     os.makedirs(os.path.dirname(base_filtered_path), exist_ok=True)
     gaussian_filter_rasters.filter_raster(
-        base_path, gf_size, base_filtered_path)
+        (base_path, 1), gf_size, base_filtered_path)
 
     def _div_op(base_array, mask_array):
         result = numpy.zeros(base_array.shape, dtype=float)
@@ -394,7 +394,7 @@ def main():
             ipcc_restoration_carbon_task, ipcc_esa_carbon_task],
         task_name=f'create IPCC marginal value {IPCC_MARGINAL_VALUE_PATH}')
 
-    regression_restoration_task = task_graph.add_task(
+    restoration_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_RESTORATION_PATH),
         kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
