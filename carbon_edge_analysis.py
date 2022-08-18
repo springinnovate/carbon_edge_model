@@ -463,7 +463,7 @@ def main():
             func=geoprocessing.greedy_pixel_pick_by_area,
             args=((marginal_value_path, 1), (area_path, 1),
                   numpy.array(range(5, 36, 5)) * 100000000000, output_dir),
-            kwargs={'output_prefix': out_prefix, 'ffi_buffer_size': 2**12},
+            kwargs={'output_prefix': out_prefix, 'ffi_buffer_size': 2**20},
             dependent_task_list=[area_task],
             task_name=f'{out_prefix} optimization')
 
