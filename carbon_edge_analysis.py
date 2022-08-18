@@ -86,6 +86,9 @@ CARBON_ZONES_PATH = "./ipcc_carbon_data/carbon_zones_md5_aa16830f64d1ef66ebdf255
 CARBON_TABLE_PATH = "./ipcc_carbon_data/IPCC_carbon_table_md5_a91f7ade46871575861005764d85cfa7.csv"
 FOREST_LULC_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
 
+COARSEN_FACTOR = 10
+AREA_REPORT_STEPS = numpy.array(range(5, 36, 5)) * 100000000000 / COARSEN_FACTOR**2
+
 # Forest masks created by script
 FOREST_MASK_RESTORATION_PATH = './output/forest_mask_restoration_limited.tif'
 FOREST_MASK_ESA_PATH = './output/forest_mask_esa.tif'
@@ -442,7 +445,7 @@ def main():
             (REGRESSION_MARGINAL_VALUE_PATH, COARSE_REGRESSION_MARGINAL_VALUE_PATH, regression_marginal_value_task, 'regression')]:
         coarsen_task_map[task_id] = task_graph.add_task(
             func=ecoshard.convolve_layer,
-            args=(base_raster_path, 10, 'sum', target_coarse_path),
+            args=(base_raster_path, COARSEN_FACTOR, 'sum', target_coarse_path),
             dependent_task_list=[base_task],
             target_path_list=[target_coarse_path],
             task_name=f'coarsen {target_coarse_path}')
@@ -463,7 +466,7 @@ def main():
         task_graph.add_task(
             func=geoprocessing.greedy_pixel_pick_by_area,
             args=((marginal_value_path, 1), (area_path, 1),
-                  numpy.array(range(5, 36, 5)) * 100000000000, output_dir),
+                  AREA_REPORT_STEPS, output_dir),
             kwargs={'output_prefix': out_prefix, 'ffi_buffer_size': 2**20},
             dependent_task_list=[area_task],
             task_name=f'{out_prefix} optimization')
