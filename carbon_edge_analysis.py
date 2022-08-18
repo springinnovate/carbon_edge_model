@@ -442,7 +442,7 @@ def main():
             (REGRESSION_MARGINAL_VALUE_PATH, COARSE_REGRESSION_MARGINAL_VALUE_PATH, regression_marginal_value_task, 'regression')]:
         coarsen_task_map[task_id] = task_graph.add_task(
             func=ecoshard.convolve_layer,
-            args=(base_raster_path, 4, 'sum', target_coarse_path),
+            args=(base_raster_path, 10, 'sum', target_coarse_path),
             dependent_task_list=[base_task],
             task_name=f'coarsen {target_coarse_path}')
 
