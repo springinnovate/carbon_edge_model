@@ -237,7 +237,7 @@ def sub_and_mask(base_a_path, base_b_path, mask_path, target_path):
         None
     """
     def _mask_and_sub(base_a_array, base_b_array, mask_array):
-        result = numpy.empty(base_a_array.shape, dtype=base_a_array.dtype)
+        result = numpy.zeros(base_a_array.shape, dtype=base_a_array.dtype)
         valid_mask = mask_array == 1
         result[valid_mask] = base_a_array[valid_mask] - base_b_array[valid_mask]
         return result
