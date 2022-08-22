@@ -87,7 +87,7 @@ CARBON_TABLE_PATH = "./ipcc_carbon_data/IPCC_carbon_table_md5_a91f7ade4687157586
 FOREST_LULC_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
 
 COARSEN_FACTOR = 10
-AREA_REPORT_STEPS = numpy.array(range(5, 36, 5)) * 100000000000 / COARSEN_FACTOR**2
+AREA_REPORT_STEPS = numpy.array(range(5, 36, 5)) * 100000000000
 
 # Forest masks created by script
 FOREST_MASK_RESTORATION_PATH = './output/forest_mask_restoration_limited.tif'
@@ -317,6 +317,19 @@ def make_area_raster(base_path, target_area_path):
         raster_driver_creation_tuple=gtiff_creation_tuple_options)
 
 
+def sum_raster(raster_path):
+    """Return the sum of non-nodata value pixels in ``raster_path``."""
+    running_sum = 0.0
+    nodata = geoprocessing.get_raster_info(raster_path)['nodata'][0]
+    for _, block_array in geoprocessing.iterblocks((raster_path, 1)):
+        if nodata is not None:
+            valid_array = block_array != nodata
+        else:
+            valid_array = slice(-1)
+        running_sum += numpy.sum(block_array[valid_array])
+    return running_sum
+
+
 def main():
     """Entry point."""
 
@@ -463,13 +476,39 @@ def main():
             task_name=f'make area raster {area_path}')
 
         # run optimization on above
-        task_graph.add_task(
+        greedy_pixel_pick_task = task_graph.add_task(
             func=geoprocessing.greedy_pixel_pick_by_area,
             args=((marginal_value_path, 1), (area_path, 1),
                   AREA_REPORT_STEPS, output_dir),
             kwargs={'output_prefix': out_prefix, 'ffi_buffer_size': 2**20},
             dependent_task_list=[area_task],
+            store_result=True,
             task_name=f'{out_prefix} optimization')
+
+        if out_prefix == 'regression':
+            raster_sum_list = []
+            for result_mask_path in greedy_pixel_pick_task.get():
+                carbon_opt_step_path = (
+                    '%s_regression%s' % os.path.splitext(result_mask_path))
+                optimization_carbon_task = task_graph.add_task(
+                    func=regression_carbon_model,
+                    args=(carbon_model_path, result_mask_path),
+                    kwargs={
+                        'predictor_raster_dir': 'processed_rasters',
+                        'model_result_path': carbon_opt_step_path},
+                    target_path_list=[carbon_opt_step_path],
+                    dependent_task_list=[restoration_mask_task],
+                    task_name=f'regression model {carbon_opt_step_path}')
+                sum_task = task_graph.add_task(
+                    func=sum_raster,
+                    args=carbon_opt_step_path,
+                    dependent_task_list=[optimization_carbon_task])
+                raster_sum_list.append(
+                    (os.path.basename(carbon_opt_step_path), sum_task))
+            with open('regression_optimization_carbon.csv', 'w') as opt_table:
+                opt_table.write('file,sum\n')
+                for path, sum_task in raster_sum_list:
+                    opt_table.write(f'{path},{sum_task.get()}\n')
 
     task_graph.join()
 
