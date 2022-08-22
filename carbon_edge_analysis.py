@@ -487,7 +487,8 @@ def main():
 
         if out_prefix == 'regression':
             raster_sum_list = []
-            for result_mask_path in greedy_pixel_pick_task.get():
+            # the [1] is so we get the mask path list, [0] is the table path
+            for result_mask_path in greedy_pixel_pick_task.get()[1]:
                 carbon_opt_step_path = (
                     '%s_regression%s' % os.path.splitext(result_mask_path))
                 optimization_carbon_task = task_graph.add_task(
