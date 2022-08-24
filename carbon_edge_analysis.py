@@ -502,7 +502,7 @@ def main():
                     task_name=f'regression model {carbon_opt_step_path}')
                 sum_task = task_graph.add_task(
                     func=sum_raster,
-                    args=carbon_opt_step_path,
+                    args=(carbon_opt_step_path,),
                     store_result=True,
                     dependent_task_list=[optimization_carbon_task])
                 raster_sum_list.append(
