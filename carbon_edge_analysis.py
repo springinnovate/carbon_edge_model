@@ -510,7 +510,7 @@ def main():
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
                 opt_table.write('file,sum\n')
                 for path, sum_task in raster_sum_list:
-                    opt_table.write(f'{path},{sum_task.get()}\n')
+                    opt_table.write(f'{path},{sum_task.get()*COARSEN_FACTOR**2}\n')
 
     task_graph.join()
 
