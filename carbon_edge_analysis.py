@@ -521,7 +521,7 @@ def main():
                     target_path_list=[carbon_opt_step_path],
                     dependent_task_list=[restoration_mask_task],
                     task_name=f'regression model {carbon_opt_step_path}')
-                # TODO: break out result into old and new forest
+                # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
                     func=sum_by_mask,
                     args=(carbon_opt_step_path, result_mask_path),
@@ -534,6 +534,8 @@ def main():
                     dependent_task_list=[optimization_carbon_task])
                 raster_sum_list.append(
                     (os.path.basename(carbon_opt_step_path), sum_task, sum_by_mask_task))
+                # TODO: debug this
+                break
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
                 opt_table.write('file,sum\n')
                 for path, sum_task, old_new_task in raster_sum_list:
