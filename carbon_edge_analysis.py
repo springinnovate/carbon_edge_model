@@ -500,17 +500,23 @@ def main():
                     target_path_list=[carbon_opt_step_path],
                     dependent_task_list=[restoration_mask_task],
                     task_name=f'regression model {carbon_opt_step_path}')
+                # TODO: break out result into old and new forest
+                old_and_new_carbon = task_graph.add_task(
+                    func=old_and_new_carbon,
+                    args=(carbon_opt_step_path, result_mask_path),
+                    dependent_task_list=[optimization_carbon_task],
+                    task_name=f'separate out old and new carbon for {carbon_opt_step_path}')
                 sum_task = task_graph.add_task(
                     func=sum_raster,
                     args=(carbon_opt_step_path,),
                     store_result=True,
                     dependent_task_list=[optimization_carbon_task])
                 raster_sum_list.append(
-                    (os.path.basename(carbon_opt_step_path), sum_task))
+                    (os.path.basename(carbon_opt_step_path), sum_task, old_and_new_carbon))
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
                 opt_table.write('file,sum\n')
                 for path, sum_task in raster_sum_list:
-                    opt_table.write(f'{path},{sum_task.get()*COARSEN_FACTOR**2}\n')
+                    opt_table.write(f'{path},{sum_task.get()*COARSEN_FACTOR**2},{",".join([str(x) for x in old_new_task.get()])}\n')
 
     task_graph.join()
 
