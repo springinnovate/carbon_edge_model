@@ -87,7 +87,7 @@ CARBON_TABLE_PATH = "./ipcc_carbon_data/IPCC_carbon_table_md5_a91f7ade4687157586
 FOREST_LULC_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
 
 COARSEN_FACTOR = 10
-AREA_REPORT_STEPS = numpy.array(range(5, 36, 5)) * 100000000000
+AREA_REPORT_STEPS = numpy.arange(1, 36, 1) * 100000000000
 
 # Forest masks created by script
 FOREST_MASK_RESTORATION_PATH = './output/forest_mask_restoration_limited.tif'
