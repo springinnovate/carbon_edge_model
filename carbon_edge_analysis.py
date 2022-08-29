@@ -329,6 +329,27 @@ def sum_raster(raster_path):
         running_sum += numpy.sum(block_array[valid_array])
     return running_sum
 
+def sum_by_mask(raster_path, mask_path):
+    """Return tuple of sum of non-nodata values in raster_path in and out of mask.
+
+    Returns:
+        (in sum, out sum)
+    """
+    in_running_sum = 0.0
+    out_running_sum = 0.0
+    nodata = geoprocessing.get_raster_info(raster_path)['nodata'][0]
+    for ((_, block_array), (_, mask_array)) in \
+            (geoprocessing.iterblocks((raster_path, 1)),
+             geoprocessing.iterblocks((mask_path, 1))):
+        if nodata is not None:
+            valid_array = block_array != nodata
+        else:
+            valid_array = numpy.ones(block_array.shape, dtype=bool)
+        in_running_sum += numpy.sum(block_array[valid_array & (mask_array == 1)])
+        out_running_sum += numpy.sum(block_array[valid_array & (mask_array != 1)])
+    return (in_running_sum, out_running_sum)
+
+
 
 def main():
     """Entry point."""
@@ -501,8 +522,8 @@ def main():
                     dependent_task_list=[restoration_mask_task],
                     task_name=f'regression model {carbon_opt_step_path}')
                 # TODO: break out result into old and new forest
-                old_and_new_carbon = task_graph.add_task(
-                    func=old_and_new_carbon,
+                sum_by_mask_task = task_graph.add_task(
+                    func=sum_by_mask,
                     args=(carbon_opt_step_path, result_mask_path),
                     dependent_task_list=[optimization_carbon_task],
                     task_name=f'separate out old and new carbon for {carbon_opt_step_path}')
@@ -512,10 +533,10 @@ def main():
                     store_result=True,
                     dependent_task_list=[optimization_carbon_task])
                 raster_sum_list.append(
-                    (os.path.basename(carbon_opt_step_path), sum_task, old_and_new_carbon))
+                    (os.path.basename(carbon_opt_step_path), sum_task, sum_by_mask_task))
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
                 opt_table.write('file,sum\n')
-                for path, sum_task in raster_sum_list:
+                for path, sum_task, old_new_task in raster_sum_list:
                     opt_table.write(f'{path},{sum_task.get()*COARSEN_FACTOR**2},{",".join([str(x) for x in old_new_task.get()])}\n')
 
     task_graph.join()
