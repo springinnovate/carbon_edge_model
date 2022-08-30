@@ -534,8 +534,6 @@ def main():
                     dependent_task_list=[optimization_carbon_task])
                 raster_sum_list.append(
                     (os.path.basename(carbon_opt_step_path), sum_task, sum_by_mask_task))
-                # TODO: debug this
-                break
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
                 opt_table.write('file,sum\n')
                 for path, sum_task, old_new_task in raster_sum_list:
