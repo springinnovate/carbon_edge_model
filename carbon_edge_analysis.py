@@ -339,8 +339,8 @@ def sum_by_mask(raster_path, mask_path):
     out_running_sum = 0.0
     nodata = geoprocessing.get_raster_info(raster_path)['nodata'][0]
     for ((_, block_array), (_, mask_array)) in \
-            (geoprocessing.iterblocks((raster_path, 1)),
-             geoprocessing.iterblocks((mask_path, 1))):
+            zip((geoprocessing.iterblocks((raster_path, 1)),
+                 geoprocessing.iterblocks((mask_path, 1)))):
         if nodata is not None:
             valid_array = block_array != nodata
         else:
