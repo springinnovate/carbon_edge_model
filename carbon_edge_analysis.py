@@ -123,7 +123,7 @@ REGRESSION_CARBON_ESA_PATH = './output/regression_carbon_esa.tif'
 REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH = './output/regression_per_pixel_carbon_distance_weight.tif'
 
 REGRESSION_OPTIMIZATION_OUTPUT_DIR = './output/regression_optimization'
-REGRESSION_AREA_PATH = './output/ipcc_area.tif'
+REGRESSION_AREA_PATH = './output/regression_area.tif'
 
 
 def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_carbon_path):
