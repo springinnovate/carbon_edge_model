@@ -74,6 +74,7 @@ logging.basicConfig(
         ' [%(funcName)s:%(lineno)d] %(message)s'))
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
+logging.getLogger('matplotlib').setLevel(logging.ERROR)
 
 OUTPUT_DIR = './output'
 
