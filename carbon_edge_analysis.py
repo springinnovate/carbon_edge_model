@@ -47,6 +47,7 @@ Build regression marginal value:
   15) regression_marginal_value_co2_new_forest
 """
 import logging
+logging.getLogger('matplotlib').setLevel(logging.ERROR)
 import os
 import tempfile
 import multiprocessing
@@ -74,7 +75,6 @@ logging.basicConfig(
         ' [%(funcName)s:%(lineno)d] %(message)s'))
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
-logging.getLogger('matplotlib').setLevel(logging.ERROR)
 
 OUTPUT_DIR = './output'
 
