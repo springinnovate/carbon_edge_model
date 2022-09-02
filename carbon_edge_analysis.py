@@ -526,6 +526,7 @@ def main():
                     func=sum_by_mask,
                     args=(carbon_opt_step_path, result_mask_path),
                     dependent_task_list=[optimization_carbon_task],
+                    store_result=True,
                     task_name=f'separate out old and new carbon for {carbon_opt_step_path}')
                 sum_task = task_graph.add_task(
                     func=sum_raster,
