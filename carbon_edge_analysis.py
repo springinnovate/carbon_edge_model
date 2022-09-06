@@ -443,6 +443,9 @@ def main():
         target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
         dependent_task_list=[restoration_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
+    regression_restoration_task.join()
+    return
+
     regression_esa_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_ESA_PATH),
@@ -536,9 +539,9 @@ def main():
                 raster_sum_list.append(
                     (os.path.basename(carbon_opt_step_path), sum_task, sum_by_mask_task))
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
-                opt_table.write('file,sum\n')
+                opt_table.write('file,sum of carbon,carbon in new forest,carbon in old forest\n')
                 for path, sum_task, old_new_task in raster_sum_list:
-                    opt_table.write(f'{path},{sum_task.get()*COARSEN_FACTOR**2},{",".join([str(x) for x in old_new_task.get()])}\n')
+                    opt_table.write(f'{path},{sum_task.get()*COARSEN_FACTOR**2},{",".join([str(x) for x in old_new_task.get()*COARSEN_FACTOR**2])}\n')
 
     task_graph.join()
 
