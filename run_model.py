@@ -269,7 +269,7 @@ def regression_carbon_model(
     #no_forest_thread.join()
     forest_edge_thread.join()
 
-    #shutil.rmtree(workspace_dir, ignore_errors=True)
+    shutil.rmtree(workspace_dir, ignore_errors=True)
 
 
 if __name__ == '__main__':

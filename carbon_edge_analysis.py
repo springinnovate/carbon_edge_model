@@ -93,6 +93,7 @@ AREA_REPORT_STEPS = numpy.arange(1, 36, 1) * 100000000000
 # Forest masks created by script
 FOREST_MASK_RESTORATION_PATH = './output/forest_mask_restoration_limited.tif'
 FOREST_MASK_ESA_PATH = './output/forest_mask_esa.tif'
+COARSE_FOREST_MASK_ESA_PATH = './output/coarsened_forest_mask_esa.tif'
 NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH = './output/new_forest_mask_esa_to_restoration.tif'
 
 # Convolved new forest mask
@@ -351,6 +352,29 @@ def sum_by_mask(raster_path, mask_path):
     return (in_running_sum, out_running_sum)
 
 
+def add_masks(mask_a_path, mask_b_path, target_path):
+    """Combine two masks as a logical OR.
+
+    Args:
+        mask_a_path, mask_b_path (str): path to mask rasters with 1 indicating mask
+        target_path (str): path to combined mask raster.
+
+    Return:
+        None
+    """
+    raster_info = geoprocessing.get_raster_info(mask_a_path)
+    nodata = raster_info['nodata'][0]
+
+    def _add_masks(mask_a_array, mask_b_array):
+        """Combine a and b."""
+        valid_mask = (mask_a_array == 1) | (mask_b_array == 1)
+        return valid_mask
+
+    geoprocessing.raster_calculator(
+        [(mask_a_path, 1), (mask_b_path, 1)],
+        _add_masks, target_path, raster_info['datatype'], nodata)
+
+
 def main():
     """Entry point."""
 
@@ -443,8 +467,6 @@ def main():
         target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
         dependent_task_list=[restoration_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
-    regression_restoration_task.join()
-    return
 
     regression_esa_task = task_graph.add_task(
         func=regression_carbon_model,
@@ -475,7 +497,14 @@ def main():
         target_path_list=[REGRESSION_MARGINAL_VALUE_PATH],
         task_name=f'regression marg value {REGRESSION_MARGINAL_VALUE_PATH}')
 
-    # TODO: coarsen IPCC_MARGINAL_VALUE
+    coarsen_forest_esa_mask_task = task_graph.add_task(
+        func=ecoshard.convolve_layer,
+        args=(FOREST_MASK_ESA_PATH, COARSEN_FACTOR, 'mode', COARSE_FOREST_MASK_ESA_PATH),
+        dependent_task_list=[esa_mask_task],
+        target_path_list=[COARSE_FOREST_MASK_ESA_PATH],
+        task_name=f'coarsen {COARSE_FOREST_MASK_ESA_PATH}')
+
+    # coarsen IPCC_MARGINAL_VALUE
     coarsen_task_map = {}
     for base_raster_path, target_coarse_path, base_task, task_id in [
             (IPCC_MARGINAL_VALUE_PATH, COARSE_IPCC_MARGINAL_VALUE_PATH, ipcc_marginal_value_task, 'ipcc'),
@@ -512,22 +541,37 @@ def main():
         if out_prefix == 'regression':
             raster_sum_list = []
             # the [1] is so we get the mask path list, [0] is the table path
-            for result_mask_path in greedy_pixel_pick_task.get()[1]:
+            esa_base_sum_task = task_graph.add_task(
+                func=sum_raster,
+                args=(REGRESSION_CARBON_ESA_PATH,),
+                store_result=True,
+                task_name=f'sum regression carbon {REGRESSION_CARBON_ESA_PATH}')
+            for new_forest_mask_path in greedy_pixel_pick_task.get()[1]:
                 carbon_opt_step_path = (
-                    '%s_regression%s' % os.path.splitext(result_mask_path))
+                    '%s_regression%s' % os.path.splitext(new_forest_mask_path))
+                # TODO: combine result mask path with FOREST_MASK_ESA_PATH
+                carbon_opt_forest_step_path = (
+                    '%s_full_forest_mask%s' % os.path.splitext(new_forest_mask_path))
+                full_forest_task = task_graph.add_task(
+                    func=add_masks,
+                    args=(new_forest_mask_path, COARSE_FOREST_MASK_ESA_PATH, carbon_opt_forest_step_path),
+                    dependent_task_list=[coarsen_forest_esa_mask_task],
+                    target_path_list=[carbon_opt_forest_step_path],
+                    task_name=f'combine optimization mask with base ESA forest mask {carbon_opt_forest_step_path}')
+
                 optimization_carbon_task = task_graph.add_task(
                     func=regression_carbon_model,
-                    args=(carbon_model_path, result_mask_path),
+                    args=(carbon_model_path, carbon_opt_forest_step_path),
                     kwargs={
                         'predictor_raster_dir': 'processed_rasters',
                         'model_result_path': carbon_opt_step_path},
                     target_path_list=[carbon_opt_step_path],
-                    dependent_task_list=[restoration_mask_task],
+                    dependent_task_list=[restoration_mask_task, full_forest_task],
                     task_name=f'regression model {carbon_opt_step_path}')
                 # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
                     func=sum_by_mask,
-                    args=(carbon_opt_step_path, result_mask_path),
+                    args=(carbon_opt_step_path, new_forest_mask_path),
                     dependent_task_list=[optimization_carbon_task],
                     store_result=True,
                     task_name=f'separate out old and new carbon for {carbon_opt_step_path}')
@@ -539,9 +583,9 @@ def main():
                 raster_sum_list.append(
                     (os.path.basename(carbon_opt_step_path), sum_task, sum_by_mask_task))
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
-                opt_table.write('file,sum of carbon,carbon in new forest,carbon in old forest\n')
+                opt_table.write('file,sum of carbon,carbon in new forest,total carbon,carbon in esa scenario,carbon in old forest (total-esa-new)\n')
                 for path, sum_task, old_new_task in raster_sum_list:
-                    opt_table.write(f'{path},{sum_task.get()*COARSEN_FACTOR**2},{",".join([str(x) for x in old_new_task.get()*COARSEN_FACTOR**2])}\n')
+                    opt_table.write(f'{path},{sum_task.get()},{",".join([str(x) for x in old_new_task.get()])},{esa_base_sum_task.get()}\n')
 
     task_graph.join()
 
