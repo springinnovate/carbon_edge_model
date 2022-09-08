@@ -104,6 +104,8 @@ def _pre_warp_rasters(
         model = pickle.load(model_file).copy()
 
     for predictor_id in model['predictor_list']:
+        if model['gf_forest_id'] == predictor_id:
+            continue
         predictor_path = os.path.join(
             predictor_raster_dir, f'{predictor_id}.tif')
         predictor_id_path_list.append(predictor_path)
@@ -157,6 +159,8 @@ def regression_carbon_model(
         predictor_path = os.path.join(
             predictor_raster_dir, f'{predictor_id}.tif')
         predictor_id_path_list.append((predictor_id, predictor_path))
+        if model['gf_forest_id'] == predictor_id:
+            continue
         if not os.path.exists(predictor_path):
             missing_predictor_list.append(
                 f'{predictor_id}: {predictor_path}')
