@@ -61,6 +61,7 @@ import numpy
 
 import gaussian_filter_rasters
 from run_model import regression_carbon_model
+from run_model import _pre_warp_rasters
 from run_model import ECKERT_PIXEL_SIZE
 from run_model import GLOBAL_ECKERT_IV_BB
 from run_model import WORLD_ECKERT_IV_WKT
@@ -123,6 +124,8 @@ REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH = './output/regression_per_pixel
 
 REGRESSION_OPTIMIZATION_OUTPUT_DIR = './output/regression_optimization'
 REGRESSION_AREA_PATH = './output/ipcc_area.tif'
+
+PREDICTOR_RASTER_DIR = './raw_rasters'
 
 
 def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_carbon_path):
@@ -415,17 +418,21 @@ def main():
             ipcc_restoration_carbon_task, ipcc_esa_carbon_task],
         task_name=f'create IPCC marginal value {IPCC_MARGINAL_VALUE_PATH}')
 
+    _pre_warp_rasters(
+        task_graph, carbon_model_path, PREDICTOR_RASTER_DIR,
+        pre_warp_dir)
+
     regression_restoration_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_RESTORATION_PATH),
-        kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
+        kwargs={'predictor_raster_dir': PREDICTOR_RASTER_DIR, 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
         target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
         dependent_task_list=[restoration_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
     regression_esa_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_ESA_PATH),
-        kwargs={'predictor_raster_dir': 'processed_rasters', 'model_result_path': REGRESSION_CARBON_ESA_PATH},
+        kwargs={'predictor_raster_dir': PREDICTOR_RASTER_DIR, 'model_result_path': REGRESSION_CARBON_ESA_PATH},
         target_path_list=[REGRESSION_CARBON_ESA_PATH],
         dependent_task_list=[esa_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_ESA_PATH}')
@@ -495,7 +502,7 @@ def main():
                     func=regression_carbon_model,
                     args=(carbon_model_path, result_mask_path),
                     kwargs={
-                        'predictor_raster_dir': 'processed_rasters',
+                        'predictor_raster_dir': PREDICTOR_RASTER_DIR,
                         'model_result_path': carbon_opt_step_path},
                     target_path_list=[carbon_opt_step_path],
                     dependent_task_list=[restoration_mask_task],

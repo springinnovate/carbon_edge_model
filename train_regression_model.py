@@ -6,6 +6,7 @@ import os
 import pickle
 
 import matplotlib.pyplot as plt
+import matplotlib
 import pandas
 import sklearn.metrics
 from sklearn.linear_model import LassoLars
@@ -85,6 +86,27 @@ def load_data(
                 gdf.replace({column_id: outliers}, 0, inplace=True)
                 rejected_outliers[column_id] = outliers
     gdf.to_csv('dropped.csv')
+
+    fig, ax = plt.subplots(figsize=(20, 10))
+    for train_holdback_id, plot_color in [
+            (1, 'b'),
+            (2, 'g'),
+            (3, 'r'),
+            (4, 'c'),
+            (5, 'm'),
+            (6, 'y')]:
+        gdf_filtered = gdf[gdf['holdback_id'] == train_holdback_id]
+        gdf_filtered.plot(color=plot_color, ax=ax, markersize=2)
+
+    gdf_filtered = gdf[gdf['holdback'].isin([False, 'FALSE'])]
+    gdf_filtered.plot(color='k', ax=ax, markersize=1)
+
+    plt.xlabel('longitude')
+    plt.ylabel('latitude')
+    plt.title('Sample points with color coded holdback sets')
+    #matplotlib.pyplot.show()
+    plt.savefig(os.path.join(FIG_DIR, 'global_sample_points.png'))
+    plt.close()
 
     # load predictor/response table
     predictor_response_table = pandas.read_csv(predictor_response_table_path)
@@ -373,15 +395,16 @@ def main():
     predictor_response_table = pandas.read_csv(args.predictor_response_table)
     allowed_set = set(predictor_response_table['predictor'].dropna())
 
-    #spline_features = SplineTransformer(degree=2, n_knots=3)
+    # spline_features = SplineTransformer(degree=2, n_knots=3)
     max_iter = 50000
     (n_predictors, n_response, predictor_id_list, response_id_list,
      trainset, holdbackset, holdback_area_list, rejected_outliers,
      parameter_stats) = load_data(
         args.geopandas_data, args.n_rows,
         args.predictor_response_table, allowed_set)
+
     if args.gf_forest_mask_id not in predictor_id_list:
-        raise ValueError(f'{args.gf_forest_mask_id} not in {predictor_id_list}')
+        LOGGER.warn(f'{args.gf_forest_mask_id} not in {predictor_id_list}')
     LOGGER.info(f'these are the predictors:\n{predictor_id_list}')
     if args.interaction_ids:
         interaction_indexes = [
@@ -448,7 +471,7 @@ def main():
                 expected_values,
                 trendline_func(expected_values),
                 "r--", linewidth=1.5)
-            plt.scatter(expected_values, modeled_values, c='g', s=0.25)
+            plt.scatter(expected_values, modeled_values, c='k', s=0.25)
             plt.xlim(0, 400)
             plt.ylim(0, 400)
             #plt.ylim(min(expected_values), max(expected_values))

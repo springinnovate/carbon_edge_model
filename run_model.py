@@ -82,6 +82,58 @@ def main():
         args.predictor_raster_dir, args.prefix, args.pre_warp_dir)
 
 
+def _pre_warp_rasters(
+        task_graph, carbon_model_path, predictor_raster_dir,
+        pre_warp_dir):
+    """Create a pre-warping of base rasters against ECKERT bounding box.
+
+    Args:
+        carbon_model_path (str): path to pickled carbon model.
+        task_graph (TaskGraph): used to parallelize pre-warped rasters.
+        predictor_raster_dir (str): path to directory with predictor rasters
+            in it.
+        pre_warp_dir (str): path to directory to dump warped files.
+
+    Return:
+        None.
+    """
+    predictor_id_path_list = []
+    missing_predictor_list = []
+    with open(carbon_model_path, 'rb') as model_file:
+        model = pickle.load(model_file).copy()
+
+    for predictor_id in model['predictor_list']:
+        predictor_path = os.path.join(
+            predictor_raster_dir, f'{predictor_id}.tif')
+        predictor_id_path_list.append(predictor_path)
+        if not os.path.exists(predictor_path):
+            missing_predictor_list.append(
+                f'{predictor_id}: {predictor_path}')
+    if missing_predictor_list:
+        predictor_str = "\n".join(missing_predictor_list)
+        raise ValueError(
+            f'missing the following predictor rasters:\n{predictor_str}')
+
+    os.makedirs(pre_warp_dir, exist_ok=True)
+    for predictor_path in predictor_id_path_list:
+        warped_predictor_path = os.path.join(
+            pre_warp_dir,
+            f'warped_{os.path.basename(predictor_path)}')
+        warp_task = task_graph.add_task(
+            func=geoprocessing.warp_raster,
+            args=(predictor_path, ECKERT_PIXEL_SIZE,
+                  warped_predictor_path, 'near'),
+            kwargs={
+                'target_bb': GLOBAL_ECKERT_IV_BB,
+                'target_projection_wkt': WORLD_ECKERT_IV_WKT,
+                'n_threads': multiprocessing.cpu_count(),
+                'working_dir': pre_warp_dir,
+            },
+            target_path_list=[warped_predictor_path],
+            task_name=f'warp {predictor_path}')
+    task_graph.join()
+
+
 def regression_carbon_model(
     carbon_model_path, forest_cover_path, predictor_raster_dir='',
         prefix=None, pre_warp_dir=None, model_result_path=None):
