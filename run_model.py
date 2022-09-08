@@ -108,7 +108,6 @@ def _pre_warp_rasters(
             continue
         predictor_path = os.path.join(
             predictor_raster_dir, f'{predictor_id}.tif')
-        predictor_id_path_list.append(predictor_path)
         if not os.path.exists(predictor_path):
             possible_predictor_match = glob.glob(
                 '%s*%s' % os.path.splitext(predictor_path))
@@ -120,16 +119,17 @@ def _pre_warp_rasters(
             else:
                 missing_predictor_list.append(
                     f'{predictor_id}: {predictor_path}')
+        predictor_id_path_list.append((predictor_id, predictor_path))
     if missing_predictor_list:
         predictor_str = "\n".join(missing_predictor_list)
         raise ValueError(
             f'missing the following predictor rasters:\n{predictor_str}')
 
     os.makedirs(pre_warp_dir, exist_ok=True)
-    for predictor_path in predictor_id_path_list:
+    for predictor_id, predictor_path in predictor_id_path_list:
         warped_predictor_path = os.path.join(
             pre_warp_dir,
-            f'warped_{os.path.basename(predictor_path)}')
+            f'warped_{predictor_id}.tif')
         warp_task = task_graph.add_task(
             func=geoprocessing.warp_raster,
             args=(predictor_path, ECKERT_PIXEL_SIZE,
