@@ -126,6 +126,7 @@ REGRESSION_OPTIMIZATION_OUTPUT_DIR = './output/regression_optimization'
 REGRESSION_AREA_PATH = './output/ipcc_area.tif'
 
 PREDICTOR_RASTER_DIR = './raw_rasters'
+PRE_WARP_DIR = os.path.join(PREDICTOR_RASTER_DIR, 'pre_warped')
 
 
 def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_carbon_path):
@@ -420,19 +421,25 @@ def main():
 
     _pre_warp_rasters(
         task_graph, carbon_model_path, PREDICTOR_RASTER_DIR,
-        pre_warp_dir)
+        PRE_WARP_DIR)
 
     regression_restoration_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_RESTORATION_PATH),
-        kwargs={'predictor_raster_dir': PREDICTOR_RASTER_DIR, 'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
+        kwargs={
+            'pre_warp_dir': PRE_WARP_DIR,
+            'predictor_raster_dir': PREDICTOR_RASTER_DIR,
+            'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
         target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
         dependent_task_list=[restoration_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
     regression_esa_task = task_graph.add_task(
         func=regression_carbon_model,
         args=(carbon_model_path, FOREST_MASK_ESA_PATH),
-        kwargs={'predictor_raster_dir': PREDICTOR_RASTER_DIR, 'model_result_path': REGRESSION_CARBON_ESA_PATH},
+        kwargs={
+            'pre_warp_dir': PRE_WARP_DIR,
+            'predictor_raster_dir': PREDICTOR_RASTER_DIR,
+            'model_result_path': REGRESSION_CARBON_ESA_PATH},
         target_path_list=[REGRESSION_CARBON_ESA_PATH],
         dependent_task_list=[esa_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_ESA_PATH}')
@@ -502,6 +509,7 @@ def main():
                     func=regression_carbon_model,
                     args=(carbon_model_path, result_mask_path),
                     kwargs={
+                        'pre_warp_dir': PRE_WARP_DIR,
                         'predictor_raster_dir': PREDICTOR_RASTER_DIR,
                         'model_result_path': carbon_opt_step_path},
                     target_path_list=[carbon_opt_step_path],
