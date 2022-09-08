@@ -298,7 +298,6 @@ def regression_carbon_model(
     #             'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
     # no_forest_thread.daemon = True
     # no_forest_thread.start()
-
     if model_result_path is None:
         model_result_path = f'''{os.path.basename(os.path.splitext(
             forest_cover_path)[0])}_std_forest_edge_result.tif'''
