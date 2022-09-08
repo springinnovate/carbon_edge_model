@@ -80,6 +80,7 @@ LOGGER = logging.getLogger(__name__)
 OUTPUT_DIR = './output'
 
 # Base data
+CARBON_MODEL_PATH = './models/hansen_model_2022_07_14.dat'
 INPUT_RASTERS = {
     'LULC_RESTORATION_PATH': "./ipcc_carbon_data/restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f.tif",
     'LULC_ESA_PATH': "./ipcc_carbon_data/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_compressed.tif",
@@ -406,11 +407,18 @@ def main():
             target_path_list=[aligned_path],
             task_name=f'project {aligned_path}')
         INPUT_RASTERS[raster_id] = aligned_path
+
+    _pre_warp_rasters(
+        task_graph, CARBON_MODEL_PATH, PREDICTOR_RASTER_DIR,
+        PRE_WARP_DIR)
+    task_graph.join()
+    LOGGER.debug('debugging return')
+    return
+
     task_graph.join()
 
     LULC_RESTORATION_PATH = INPUT_RASTERS['LULC_RESTORATION_PATH']
     LULC_ESA_PATH = INPUT_RASTERS['LULC_ESA_PATH']
-    carbon_model_path = './models/hansen_model_2022_07_14.dat'
     with open(carbon_model_path, 'rb') as model_file:
         model = pickle.load(model_file).copy()
 
@@ -463,10 +471,6 @@ def main():
         dependent_task_list=[
             ipcc_restoration_carbon_task, ipcc_esa_carbon_task],
         task_name=f'create IPCC marginal value {IPCC_MARGINAL_VALUE_PATH}')
-
-    _pre_warp_rasters(
-        task_graph, carbon_model_path, PREDICTOR_RASTER_DIR,
-        PRE_WARP_DIR)
 
     regression_restoration_task = task_graph.add_task(
         func=regression_carbon_model,

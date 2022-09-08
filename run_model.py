@@ -1,5 +1,6 @@
 """Execute carbon model on custom forest edge data."""
 import argparse
+import glob
 import pickle
 import logging
 import os
@@ -107,8 +108,16 @@ def _pre_warp_rasters(
             predictor_raster_dir, f'{predictor_id}.tif')
         predictor_id_path_list.append(predictor_path)
         if not os.path.exists(predictor_path):
-            missing_predictor_list.append(
-                f'{predictor_id}: {predictor_path}')
+            possible_predictor_match = glob.glob(
+                '%s*%s' % os.path.splitext(predictor_path))
+            if len(possible_predictor_match) == 1:
+                LOGGER.warn(
+                    f'exact match not found for {predictor_path} using '
+                    f'{possible_predictor_match[0]} instead')
+                predictor_path = possible_predictor_match[0]
+            else:
+                missing_predictor_list.append(
+                    f'{predictor_id}: {predictor_path}')
     if missing_predictor_list:
         predictor_str = "\n".join(missing_predictor_list)
         raise ValueError(
