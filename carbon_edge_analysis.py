@@ -599,10 +599,12 @@ def main():
                     dependent_task_list=[optimization_carbon_task])
                 raster_sum_list.append(
                     (os.path.basename(carbon_opt_step_path), sum_task, sum_by_mask_task))
+            sum_task.join()
+            raster_info = geoprocessing.get_raster_info(carbon_opt_step_path)
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
-                opt_table.write('file,sum of carbon,carbon in new forest,total carbon,carbon in esa scenario,carbon in old forest (total-esa-new)\n')
+                opt_table.write('file,sum of carbon density per pixel,carbon density per pixel in new forest,total carbon density per pixel,carbon density per pixel in esa scenario,carbon density per pixel in old forest (total-esa-new),area of pixel in m^2\n')
                 for path, sum_task, old_new_task in raster_sum_list:
-                    opt_table.write(f'{path},{sum_task.get()},{",".join([str(x) for x in old_new_task.get()])},{esa_base_sum_task.get()}\n')
+                    opt_table.write(f'{path},{sum_task.get()},{",".join([str(x) for x in old_new_task.get()])},{esa_base_sum_task.get()},{abs(numpy.prod(raster_info["pixel_size"]))}\n')
 
     task_graph.join()
 
