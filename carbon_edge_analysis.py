@@ -561,6 +561,7 @@ def main():
                 func=sum_raster,
                 args=(REGRESSION_CARBON_ESA_PATH,),
                 store_result=True,
+                dependent_task_list=[regression_esa_task],
                 task_name=f'sum regression carbon {REGRESSION_CARBON_ESA_PATH}')
             for new_forest_mask_path in greedy_pixel_pick_task.get()[1]:
                 carbon_opt_step_path = (
