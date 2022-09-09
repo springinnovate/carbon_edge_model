@@ -66,6 +66,7 @@ from run_model import _pre_warp_rasters
 from run_model import ECKERT_PIXEL_SIZE
 from run_model import GLOBAL_ECKERT_IV_BB
 from run_model import WORLD_ECKERT_IV_WKT
+from run_model import ZSTD_CREATION_TUPLE
 
 gdal.SetCacheMax(2**24)
 
@@ -403,7 +404,8 @@ def main():
                 'target_bb': GLOBAL_ECKERT_IV_BB,
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'working_dir': aligned_dir,
-                'n_threads': multiprocessing.cpu_count()/len(INPUT_RASTERS)*2},
+                'n_threads': multiprocessing.cpu_count()/len(INPUT_RASTERS)*2,
+                'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE},
             target_path_list=[aligned_path],
             task_name=f'project {aligned_path}')
         INPUT_RASTERS[raster_id] = aligned_path

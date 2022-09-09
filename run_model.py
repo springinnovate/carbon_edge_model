@@ -47,6 +47,9 @@ WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
             ORDER[2],
             LENGTHUNIT["metre",1,
                 ID["EPSG",9001]]]]"""
+ZSTD_CREATION_TUPLE = ('GTIFF', (
+    'TILED=YES', 'BIGTIFF=YES', 'COMPRESS=ZSTD',
+    'BLOCKXSIZE=256', 'BLOCKYSIZE=256', 'NUM_THREADS=ALL_CPUS'))
 
 
 logging.basicConfig(
@@ -140,6 +143,7 @@ def _pre_warp_rasters(
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'n_threads': multiprocessing.cpu_count(),
                 'working_dir': pre_warp_dir,
+                'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
             },
             target_path_list=[warped_predictor_path],
             task_name=f'warp {predictor_path}')
@@ -193,7 +197,8 @@ def regression_carbon_model(
                 'target_bb': GLOBAL_ECKERT_IV_BB,
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'working_dir': workspace_dir,
-                'n_threads': multiprocessing.cpu_count()},
+                'n_threads': multiprocessing.cpu_count(),
+                'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE},
             target_path_list=[projected_forest_cover_path],
             task_name=f'project {projected_forest_cover_path}')
         task_graph.join()
@@ -226,6 +231,7 @@ def regression_carbon_model(
                     'target_bb': raster_info['bounding_box'],
                     'target_projection_wkt': raster_info['projection_wkt'],
                     'working_dir': workspace_dir,
+                    'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
                 },
                 target_path_list=[warped_predictor_path],
                 task_name=f'warp {predictor_path}')
