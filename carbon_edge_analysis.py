@@ -412,14 +412,10 @@ def main():
         task_graph, CARBON_MODEL_PATH, PREDICTOR_RASTER_DIR,
         PRE_WARP_DIR)
     task_graph.join()
-    LOGGER.debug('debugging return')
-    return
-
-    task_graph.join()
 
     LULC_RESTORATION_PATH = INPUT_RASTERS['LULC_RESTORATION_PATH']
     LULC_ESA_PATH = INPUT_RASTERS['LULC_ESA_PATH']
-    with open(carbon_model_path, 'rb') as model_file:
+    with open(CARBON_MODEL_PATH, 'rb') as model_file:
         model = pickle.load(model_file).copy()
 
     # create forest masks
@@ -474,7 +470,7 @@ def main():
 
     regression_restoration_task = task_graph.add_task(
         func=regression_carbon_model,
-        args=(carbon_model_path, FOREST_MASK_RESTORATION_PATH),
+        args=(CARBON_MODEL_PATH, FOREST_MASK_RESTORATION_PATH),
         kwargs={
             'pre_warp_dir': PRE_WARP_DIR,
             'predictor_raster_dir': PREDICTOR_RASTER_DIR,
@@ -485,7 +481,7 @@ def main():
 
     regression_esa_task = task_graph.add_task(
         func=regression_carbon_model,
-        args=(carbon_model_path, FOREST_MASK_ESA_PATH),
+        args=(CARBON_MODEL_PATH, FOREST_MASK_ESA_PATH),
         kwargs={
             'pre_warp_dir': PRE_WARP_DIR,
             'predictor_raster_dir': PREDICTOR_RASTER_DIR,
@@ -579,7 +575,7 @@ def main():
 
                 optimization_carbon_task = task_graph.add_task(
                     func=regression_carbon_model,
-                    args=(carbon_model_path, carbon_opt_forest_step_path),
+                    args=(CARBON_MODEL_PATH, carbon_opt_forest_step_path),
                     kwargs={
                         'pre_warp_dir': PRE_WARP_DIR,
                         'predictor_raster_dir': PREDICTOR_RASTER_DIR,

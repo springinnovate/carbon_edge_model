@@ -103,6 +103,7 @@ def _pre_warp_rasters(
     with open(carbon_model_path, 'rb') as model_file:
         model = pickle.load(model_file).copy()
 
+    LOGGER.debug(f'predictor id is {model["gf_forest_id"]} {model["gf_forest_id"] in model["predictor_list"]}')
     for predictor_id in model['predictor_list']:
         if model['gf_forest_id'] == predictor_id:
             continue
