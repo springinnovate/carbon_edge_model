@@ -147,6 +147,7 @@ def _pre_warp_rasters(
             },
             target_path_list=[warped_predictor_path],
             task_name=f'warp {predictor_path}')
+        warp_task.join()
     task_graph.join()
 
 

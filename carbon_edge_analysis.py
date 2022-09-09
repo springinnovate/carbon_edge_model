@@ -396,7 +396,7 @@ def main():
     for raster_id in INPUT_RASTERS:
         raster_path = INPUT_RASTERS[raster_id]
         aligned_path = os.path.join(aligned_dir, os.path.basename(raster_path))
-        task_graph.add_task(
+        warp_task = task_graph.add_task(
             func=geoprocessing.warp_raster,
             args=(raster_path, ECKERT_PIXEL_SIZE,
                   aligned_path, 'near'),
@@ -407,7 +407,8 @@ def main():
                 'n_threads': multiprocessing.cpu_count()/len(INPUT_RASTERS)*2,
                 'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE},
             target_path_list=[aligned_path],
-            task_name=f'project {aligned_path}')
+            task_name=f'warp {aligned_path}')
+        warp_task.join()
         INPUT_RASTERS[raster_id] = aligned_path
 
     _pre_warp_rasters(
