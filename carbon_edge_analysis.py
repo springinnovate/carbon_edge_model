@@ -590,6 +590,7 @@ def main():
                         'working_dir': PRE_WARP_DIR,
                         'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
                     },
+                    dependent_task_list=[full_forest_task],
                     target_path_list=[carbon_opt_forest_step_path],
                     task_name=f'uncoarsen {carbon_opt_forest_step_path}')
 
