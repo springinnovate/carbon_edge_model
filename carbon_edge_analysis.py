@@ -587,7 +587,7 @@ def main():
                         'target_bb': GLOBAL_ECKERT_IV_BB,
                         'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                         'n_threads': multiprocessing.cpu_count(),
-                        'working_dir': pre_warp_dir,
+                        'working_dir': PRE_WARP_DIR,
                         'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
                     },
                     target_path_list=[carbon_opt_forest_step_path],
