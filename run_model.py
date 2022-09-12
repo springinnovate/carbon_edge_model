@@ -108,7 +108,6 @@ def _pre_warp_rasters(
 
     LOGGER.debug(f'predictor id is {model["gf_forest_id"]} {model["gf_forest_id"] in model["predictor_list"]}')
     for predictor_id in model['predictor_list']:
-        LOGGER.debug(predictor_id)
         if model['gf_forest_id'] == predictor_id:
             continue
         predictor_path = os.path.join(

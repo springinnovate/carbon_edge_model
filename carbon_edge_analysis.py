@@ -414,6 +414,7 @@ def main():
         task_graph, CARBON_MODEL_PATH, PREDICTOR_RASTER_DIR,
         PRE_WARP_DIR)
     task_graph.join()
+    LOGGER.debug('all done pre-warping')
 
     LULC_RESTORATION_PATH = INPUT_RASTERS['LULC_RESTORATION_PATH']
     LULC_ESA_PATH = INPUT_RASTERS['LULC_ESA_PATH']
@@ -620,12 +621,14 @@ def main():
                     (os.path.basename(carbon_opt_step_path), sum_task, sum_by_mask_task))
             sum_task.join()
             raster_info = geoprocessing.get_raster_info(carbon_opt_forest_step_path)
+            LOGGER.debug(f'writing regression_optimization_carbon')
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
                 opt_table.write('file,sum of carbon density per pixel,carbon density per pixel in new forest,total carbon density per pixel,carbon density per pixel in esa scenario,carbon density per pixel in old forest (total-esa-new),area of pixel in m^2\n')
                 for path, sum_task, old_new_task in raster_sum_list:
                     opt_table.write(f'{path},{sum_task.get()},{",".join([str(x) for x in old_new_task.get()])},{esa_base_sum_task.get()},{abs(numpy.prod(raster_info["pixel_size"]))}\n')
 
     task_graph.join()
+    LOGGER.debug('all done')
 
 
 if __name__ == '__main__':
