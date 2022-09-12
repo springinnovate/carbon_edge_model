@@ -129,7 +129,7 @@ REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH = './output/regression_per_pixel
 REGRESSION_OPTIMIZATION_OUTPUT_DIR = './output/regression_optimization'
 REGRESSION_AREA_PATH = './output/regression_area.tif'
 
-PREDICTOR_RASTER_DIR = './raw_rasters'
+PREDICTOR_RASTER_DIR = './processed_rasters'
 PRE_WARP_DIR = os.path.join(PREDICTOR_RASTER_DIR, 'pre_warped')
 
 
