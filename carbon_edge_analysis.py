@@ -566,15 +566,32 @@ def main():
             for new_forest_mask_path in greedy_pixel_pick_task.get()[1]:
                 carbon_opt_step_path = (
                     '%s_regression%s' % os.path.splitext(new_forest_mask_path))
-                # TODO: combine result mask path with FOREST_MASK_ESA_PATH
-                carbon_opt_forest_step_path = (
-                    '%s_full_forest_mask%s' % os.path.splitext(new_forest_mask_path))
+                # combine result mask path with FOREST_MASK_ESA_PATH
+                coarse_carbon_opt_forest_step_path = (
+                    '%s_coarse_full_forest_mask%s' % os.path.splitext(new_forest_mask_path))
                 full_forest_task = task_graph.add_task(
                     func=add_masks,
-                    args=(new_forest_mask_path, COARSE_FOREST_MASK_ESA_PATH, carbon_opt_forest_step_path),
+                    args=(new_forest_mask_path, COARSE_FOREST_MASK_ESA_PATH, coarse_carbon_opt_forest_step_path),
                     dependent_task_list=[coarsen_forest_esa_mask_task],
+                    target_path_list=[coarse_carbon_opt_forest_step_path],
+                    task_name=f'combine optimization mask with base ESA forest mask {coarse_carbon_opt_forest_step_path}')
+
+                # TODO: resample to the coarse forest mask after combining masks
+                carbon_opt_forest_step_path = (
+                    '%s_full_forest_mask%s' % os.path.splitext(new_forest_mask_path))
+                uncoarsen_forest_mask = task_graph.add_task(
+                    func=geoprocessing.warp_raster,
+                    args=(coarse_carbon_opt_forest_step_path, ECKERT_PIXEL_SIZE,
+                          carbon_opt_forest_step_path, 'near'),
+                    kwargs={
+                        'target_bb': GLOBAL_ECKERT_IV_BB,
+                        'target_projection_wkt': WORLD_ECKERT_IV_WKT,
+                        'n_threads': multiprocessing.cpu_count(),
+                        'working_dir': pre_warp_dir,
+                        'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
+                    },
                     target_path_list=[carbon_opt_forest_step_path],
-                    task_name=f'combine optimization mask with base ESA forest mask {carbon_opt_forest_step_path}')
+                    task_name=f'warp {predictor_path}')
 
                 optimization_carbon_task = task_graph.add_task(
                     func=regression_carbon_model,
@@ -584,7 +601,7 @@ def main():
                         'predictor_raster_dir': PREDICTOR_RASTER_DIR,
                         'model_result_path': carbon_opt_step_path},
                     target_path_list=[carbon_opt_step_path],
-                    dependent_task_list=[restoration_mask_task, full_forest_task],
+                    dependent_task_list=[restoration_mask_task, uncoarsen_forest_mask],
                     task_name=f'regression model {carbon_opt_step_path}')
                 # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
