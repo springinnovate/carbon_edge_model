@@ -608,6 +608,7 @@ def main():
                     dependent_task_list=[restoration_mask_task, uncoarsen_forest_mask],
                     task_name=f'regression model {carbon_opt_step_path}')
                 LOGGER.debug(f'regression result should be in {carbon_opt_step_path}')
+                optimization_carbon_task.join()
                 # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
                     func=sum_by_mask,
