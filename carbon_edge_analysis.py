@@ -565,8 +565,6 @@ def main():
                 dependent_task_list=[regression_esa_task],
                 task_name=f'sum regression carbon {REGRESSION_CARBON_ESA_PATH}')
             for new_forest_mask_path in greedy_pixel_pick_task.get()[1]:
-                carbon_opt_step_path = (
-                    '%s_regression%s' % os.path.splitext(new_forest_mask_path))
                 # combine result mask path with FOREST_MASK_ESA_PATH
                 coarse_carbon_opt_forest_step_path = (
                     '%s_coarse_full_forest_mask%s' % os.path.splitext(new_forest_mask_path))
@@ -595,6 +593,8 @@ def main():
                     target_path_list=[carbon_opt_forest_step_path],
                     task_name=f'uncoarsen {carbon_opt_forest_step_path}')
 
+                carbon_opt_step_path = (
+                    '%s_regression%s' % os.path.splitext(new_forest_mask_path))
                 optimization_carbon_task = task_graph.add_task(
                     func=regression_carbon_model,
                     args=(CARBON_MODEL_PATH, carbon_opt_forest_step_path),
@@ -605,6 +605,7 @@ def main():
                     target_path_list=[carbon_opt_step_path],
                     dependent_task_list=[restoration_mask_task, uncoarsen_forest_mask],
                     task_name=f'regression model {carbon_opt_step_path}')
+                LOGGER.debug(f'regression result should be in {carbon_opt_step_path}')
                 # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
                     func=sum_by_mask,
