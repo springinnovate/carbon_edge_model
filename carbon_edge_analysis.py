@@ -593,6 +593,8 @@ def main():
                     target_path_list=[carbon_opt_forest_step_path],
                     task_name=f'uncoarsen {carbon_opt_forest_step_path}')
 
+                LOGGER.debug(f'{coarse_carbon_opt_forest_step_path} to this {carbon_opt_forest_step_path}')
+
                 carbon_opt_step_path = (
                     '%s_regression%s' % os.path.splitext(new_forest_mask_path))
                 optimization_carbon_task = task_graph.add_task(
