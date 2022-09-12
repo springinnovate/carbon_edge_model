@@ -591,7 +591,7 @@ def main():
                         'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
                     },
                     target_path_list=[carbon_opt_forest_step_path],
-                    task_name=f'warp {predictor_path}')
+                    task_name=f'uncoarsen {carbon_opt_forest_step_path}')
 
                 optimization_carbon_task = task_graph.add_task(
                     func=regression_carbon_model,
