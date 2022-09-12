@@ -211,9 +211,25 @@ def regression_carbon_model(
     aligned_predictor_path_list = []
     gf_index = None
     for predictor_id, predictor_path in predictor_id_path_list:
-        if model['gf_forest_id'] == predictor_id:
+        predictor_is_forest = (model['gf_forest_id'] == predictor_id)
+        if predictor_is_forest:
             # override the model's pretrained gf with one passed in
             predictor_path = forest_cover_path
+
+            gf_forest_cover_path = os.path.join(
+                workspace_dir, f'''{model["gf_size"]}_{
+                os.path.basename(forest_cover_path)}''')
+            task_graph.add_task(
+                func=gaussian_filter_rasters.filter_raster,
+                args=((warped_predictor_path, 1), model['gf_size'],
+                      gf_forest_cover_path),
+                dependent_task_list=warp_task_list,
+                target_path_list=[gf_forest_cover_path],
+                task_name=f'gaussian filter {gf_forest_cover_path}')
+            gf_index = len(aligned_predictor_path_list)
+            aligned_predictor_path_list.append(gf_forest_cover_path)
+            continue
+
         if pre_warp_dir:
             warped_predictor_path = os.path.join(
                 pre_warp_dir,
@@ -236,26 +252,6 @@ def regression_carbon_model(
                 target_path_list=[warped_predictor_path],
                 task_name=f'warp {predictor_path}')
             warp_task_list.append(warp_task)
-        if model['gf_forest_id'] == predictor_id:
-            if pre_warp_dir:
-                gf_forest_cover_path = os.path.join(
-                    pre_warp_dir, f'''{model["gf_size"]}_{
-                    os.path.basename(forest_cover_path)}''')
-            else:
-                gf_forest_cover_path = os.path.join(
-                    workspace_dir, f'''{model["gf_size"]}_{
-                    os.path.basename(forest_cover_path)}''')
-            if not(pre_warp_dir and os.path.exists(gf_forest_cover_path)):
-                task_graph.add_task(
-                    func=gaussian_filter_rasters.filter_raster,
-                    args=((warped_predictor_path, 1), model['gf_size'],
-                          gf_forest_cover_path),
-                    dependent_task_list=warp_task_list,
-                    target_path_list=[gf_forest_cover_path],
-                    task_name=f'gaussian filter {gf_forest_cover_path}')
-            gf_index = len(aligned_predictor_path_list)
-            aligned_predictor_path_list.append(gf_forest_cover_path)
-        else:
             aligned_predictor_path_list.append(warped_predictor_path)
 
     task_graph.join()
