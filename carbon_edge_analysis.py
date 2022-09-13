@@ -130,7 +130,7 @@ REGRESSION_OPTIMIZATION_OUTPUT_DIR = f'{OUTPUT_DIR}/regression_optimization'
 REGRESSION_AREA_PATH = f'{OUTPUT_DIR}/regression_area.tif'
 
 PREDICTOR_RASTER_DIR = './processed_rasters'
-PRE_WARP_DIR = os.path.join(PREDICTOR_RASTER_DIR, 'pre_warped')
+PRE_WARP_DIR = os.path.join(PREDICTOR_RASTER_DIR, f'pre_warped_{GLOBAL_BOUNDING_BOX_TUPLE[0]}')
 
 
 def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_carbon_path):
