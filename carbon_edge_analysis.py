@@ -64,7 +64,7 @@ import gaussian_filter_rasters
 from run_model import regression_carbon_model
 from run_model import _pre_warp_rasters
 from run_model import ECKERT_PIXEL_SIZE
-from run_model import GLOBAL_ECKERT_IV_BB
+from run_model import GLOBAL_BOUNDING_BOX_TUPLE
 from run_model import WORLD_ECKERT_IV_WKT
 from run_model import ZSTD_CREATION_TUPLE
 
@@ -78,7 +78,7 @@ logging.basicConfig(
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
-OUTPUT_DIR = './output'
+OUTPUT_DIR = f'./output_{GLOBAL_BOUNDING_BOX_TUPLE[0]}'
 
 # Base data
 CARBON_MODEL_PATH = './models/hansen_model_2022_07_14.dat'
@@ -94,40 +94,40 @@ COARSEN_FACTOR = 10
 AREA_REPORT_STEPS = numpy.arange(1, 36, 1) * 100000000000
 
 # Forest masks created by script
-FOREST_MASK_RESTORATION_PATH = './output/forest_mask_restoration_limited.tif'
-FOREST_MASK_ESA_PATH = './output/forest_mask_esa.tif'
-COARSE_FOREST_MASK_ESA_PATH = './output/coarsened_forest_mask_esa.tif'
-NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH = './output/new_forest_mask_esa_to_restoration.tif'
+FOREST_MASK_RESTORATION_PATH = f'{OUTPUT_DIR}/forest_mask_restoration_limited.tif'
+FOREST_MASK_ESA_PATH = f'{OUTPUT_DIR}/forest_mask_esa.tif'
+COARSE_FOREST_MASK_ESA_PATH = f'{OUTPUT_DIR}/coarsened_forest_mask_esa.tif'
+NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH = f'{OUTPUT_DIR}/new_forest_mask_esa_to_restoration.tif'
 
 # Convolved new forest mask
-NEW_FOREST_MASK_COVERAGE_PATH = './output/new_forest_mask_coverage.tif'
+NEW_FOREST_MASK_COVERAGE_PATH = f'{OUTPUT_DIR}/new_forest_mask_coverage.tif'
 
 # marginal value rasters
-IPCC_MARGINAL_VALUE_PATH = './output/marginal_value_ipcc.tif'
-REGRESSION_MARGINAL_VALUE_PATH = './output/marginal_value_regression.tif'
+IPCC_MARGINAL_VALUE_PATH = f'{OUTPUT_DIR}/marginal_value_ipcc.tif'
+REGRESSION_MARGINAL_VALUE_PATH = f'{OUTPUT_DIR}/marginal_value_regression.tif'
 
-COARSE_IPCC_MARGINAL_VALUE_PATH = './output/coarsened_marginal_value_ipcc.tif'
-COARSE_REGRESSION_MARGINAL_VALUE_PATH = './output/coarsened_marginal_value_regression.tif'
+COARSE_IPCC_MARGINAL_VALUE_PATH = f'{OUTPUT_DIR}/coarsened_marginal_value_ipcc.tif'
+COARSE_REGRESSION_MARGINAL_VALUE_PATH = f'{OUTPUT_DIR}/coarsened_marginal_value_regression.tif'
 
 # IPCC based carbon maps
-IPCC_CARBON_RESTORATION_PATH = './output/ipcc_carbon_restoration_limited.tif'
-IPCC_CARBON_ESA_PATH = './output/ipcc_carbon_esa.tif'
+IPCC_CARBON_RESTORATION_PATH = f'{OUTPUT_DIR}/ipcc_carbon_restoration_limited.tif'
+IPCC_CARBON_ESA_PATH = f'{OUTPUT_DIR}/ipcc_carbon_esa.tif'
 
-IPCC_OPTIMIZATION_OUTPUT_DIR = './output/ipcc_optimization'
-IPCC_AREA_PATH = './output/ipcc_area.tif'
+IPCC_OPTIMIZATION_OUTPUT_DIR = f'{OUTPUT_DIR}/ipcc_optimization'
+IPCC_AREA_PATH = f'{OUTPUT_DIR}/ipcc_area.tif'
 
-MASKED_IPCC_CARBON_RESTORATION_PATH = './output/masked_ipcc_carbon_restoration_limited.tif'
-MASKED_IPCC_CARBON_ESA_PATH = './output/masked_ipcc_carbon_esa.tif'
+MASKED_IPCC_CARBON_RESTORATION_PATH = f'{OUTPUT_DIR}/masked_ipcc_carbon_restoration_limited.tif'
+MASKED_IPCC_CARBON_ESA_PATH = f'{OUTPUT_DIR}/masked_ipcc_carbon_esa.tif'
 
 # Regression based carbon maps:
-REGRESSION_CARBON_RESTORATION_PATH = './output/regression_carbon_restoration.tif'
-REGRESSION_CARBON_ESA_PATH = './output/regression_carbon_esa.tif'
+REGRESSION_CARBON_RESTORATION_PATH = f'{OUTPUT_DIR}/regression_carbon_restoration.tif'
+REGRESSION_CARBON_ESA_PATH = f'{OUTPUT_DIR}/regression_carbon_esa.tif'
 
 # Intermediate regression marginal value:
-REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH = './output/regression_per_pixel_carbon_distance_weight.tif'
+REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH = f'{OUTPUT_DIR}/regression_per_pixel_carbon_distance_weight.tif'
 
-REGRESSION_OPTIMIZATION_OUTPUT_DIR = './output/regression_optimization'
-REGRESSION_AREA_PATH = './output/regression_area.tif'
+REGRESSION_OPTIMIZATION_OUTPUT_DIR = f'{OUTPUT_DIR}/regression_optimization'
+REGRESSION_AREA_PATH = f'{OUTPUT_DIR}/regression_area.tif'
 
 PREDICTOR_RASTER_DIR = './processed_rasters'
 PRE_WARP_DIR = os.path.join(PREDICTOR_RASTER_DIR, 'pre_warped')
@@ -401,7 +401,7 @@ def main():
             args=(raster_path, ECKERT_PIXEL_SIZE,
                   aligned_path, 'near'),
             kwargs={
-                'target_bb': GLOBAL_ECKERT_IV_BB,
+                'target_bb': GLOBAL_BOUNDING_BOX_TUPLE[1],
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'working_dir': aligned_dir,
                 'n_threads': multiprocessing.cpu_count()/len(INPUT_RASTERS)*2,
@@ -583,7 +583,7 @@ def main():
                     args=(coarse_carbon_opt_forest_step_path, ECKERT_PIXEL_SIZE,
                           carbon_opt_forest_step_path, 'near'),
                     kwargs={
-                        'target_bb': GLOBAL_ECKERT_IV_BB,
+                        'target_bb': GLOBAL_BOUNDING_BOX_TUPLE[1],
                         'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                         'n_threads': multiprocessing.cpu_count(),
                         'working_dir': PRE_WARP_DIR,
