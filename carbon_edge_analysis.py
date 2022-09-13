@@ -473,7 +473,7 @@ def main():
 
     regression_restoration_task = task_graph.add_task(
         func=regression_carbon_model,
-        args=(CARBON_MODEL_PATH, FOREST_MASK_RESTORATION_PATH),
+        args=(CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE, FOREST_MASK_RESTORATION_PATH),
         kwargs={
             'pre_warp_dir': PRE_WARP_DIR,
             'predictor_raster_dir': PREDICTOR_RASTER_DIR,
@@ -484,7 +484,7 @@ def main():
 
     regression_esa_task = task_graph.add_task(
         func=regression_carbon_model,
-        args=(CARBON_MODEL_PATH, FOREST_MASK_ESA_PATH),
+        args=(CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE, FOREST_MASK_ESA_PATH),
         kwargs={
             'pre_warp_dir': PRE_WARP_DIR,
             'predictor_raster_dir': PREDICTOR_RASTER_DIR,
@@ -599,7 +599,7 @@ def main():
                     '%s_regression%s' % os.path.splitext(new_forest_mask_path))
                 optimization_carbon_task = task_graph.add_task(
                     func=regression_carbon_model,
-                    args=(CARBON_MODEL_PATH, carbon_opt_forest_step_path),
+                    args=(CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE, carbon_opt_forest_step_path),
                     kwargs={
                         'pre_warp_dir': PRE_WARP_DIR,
                         'predictor_raster_dir': PREDICTOR_RASTER_DIR,
