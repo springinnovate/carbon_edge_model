@@ -17,7 +17,12 @@ from ecoshard.geoprocessing import DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
 import gaussian_filter_rasters
 import train_regression_model
 
-GLOBAL_ECKERT_IV_BB = [-16921202.923, -8460601.461, 16921797.077, 8461398.539]
+# GLOBAL_BOUNDING_BOX_TUPLE = (
+#     'global_eckert_iv_bb', [-16921202, -8460601, 16921797, 8461398])
+
+GLOBAL_BOUNDING_BOX_TUPLE = (
+    'amazon_region', [-6215550, -773278, -4310775, 115131])
+
 ECKERT_PIXEL_SIZE = (90, -90)
 WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
     BASEGEOGCRS["GCS_unknown",
@@ -87,11 +92,14 @@ def main():
 
 
 def _pre_warp_rasters(
-        task_graph, carbon_model_path, predictor_raster_dir,
-        pre_warp_dir):
+        task_graph, bounding_box_tuple, carbon_model_path,
+        predictor_raster_dir, pre_warp_dir):
     """Create a pre-warping of base rasters against ECKERT bounding box.
 
     Args:
+        task_graph (TaskGraph): object to avoid recomputation
+        bounding_box_tuple (tuple): a str/bounding box tuple with the str
+            being used for the prefix of target files
         carbon_model_path (str): path to pickled carbon model.
         task_graph (TaskGraph): used to parallelize pre-warped rasters.
         predictor_raster_dir (str): path to directory with predictor rasters
@@ -133,13 +141,13 @@ def _pre_warp_rasters(
     for predictor_id, predictor_path in predictor_id_path_list:
         warped_predictor_path = os.path.join(
             pre_warp_dir,
-            f'warped_{predictor_id}.tif')
+            f'warped_{predictor_id}_{bounding_box_tuple[0]}.tif')
         warp_task = task_graph.add_task(
             func=geoprocessing.warp_raster,
             args=(predictor_path, ECKERT_PIXEL_SIZE,
                   warped_predictor_path, 'near'),
             kwargs={
-                'target_bb': GLOBAL_ECKERT_IV_BB,
+                'target_bb': bounding_box_tuple[1],
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'n_threads': multiprocessing.cpu_count(),
                 'working_dir': pre_warp_dir,
@@ -151,9 +159,27 @@ def _pre_warp_rasters(
 
 
 def regression_carbon_model(
-    carbon_model_path, forest_cover_path, predictor_raster_dir='',
-        prefix=None, pre_warp_dir=None, model_result_path=None):
+    carbon_model_path, bounding_box_tuple, forest_cover_path,
+        predictor_raster_dir, pre_warp_dir=None,
+        model_result_path=None):
+    """
+    Run carbon model.
 
+    Args:
+        carbon_model_path (str): path to picked sklearn trained model
+        bounding_box_tuple (tuple): str/bounding box pair to ensure
+            clip of rasters
+        forest_cover_path (str): path to raster with 1 indicating where
+            the forest cover is
+        predictor_raster_dir (str): if not empty string, looks here for
+            predictor rasters defined by carbon model
+        pre_warp_dir (str): path to directory containing pre-warped
+            predictor rasters
+        model_result_path (str): path to target raster
+
+    Returns:
+        None
+    """
     LOGGER.info(f'load model at {carbon_model_path}')
     with open(carbon_model_path, 'rb') as model_file:
         model = pickle.load(model_file).copy()
@@ -194,7 +220,7 @@ def regression_carbon_model(
             args=(forest_cover_path, ECKERT_PIXEL_SIZE,
                   projected_forest_cover_path, 'near'),
             kwargs={
-                'target_bb': GLOBAL_ECKERT_IV_BB,
+                'target_bb': bounding_box_tuple[1],
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'working_dir': workspace_dir,
                 'n_threads': multiprocessing.cpu_count(),
@@ -314,8 +340,8 @@ def regression_carbon_model(
     #             'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
     # no_forest_thread.daemon = True
     # no_forest_thread.start()
-    if model_result_path is None:
-        model_result_path = f'''{os.path.basename(os.path.splitext(
+    if target_result_path is None:
+        target_result_path = f'''{os.path.basename(os.path.splitext(
             forest_cover_path)[0])}_std_forest_edge_result.tif'''
     forest_edge_thread = threading.Thread(
         target=geoprocessing.raster_calculator,
@@ -323,7 +349,7 @@ def regression_carbon_model(
             [(path, 1) for path in aligned_predictor_path_list] +
             [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
              for path in aligned_predictor_path_list] + [(None, 'raw')],
-            _apply_model, model_result_path,
+            _apply_model, target_result_path,
             gdal.GDT_Float32, nodata),
         kwargs={
             'largest_block': 2**22,
