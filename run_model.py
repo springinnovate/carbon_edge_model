@@ -291,6 +291,7 @@ def regression_carbon_model(
     if target_result_path is None:
         target_result_path = f'''{os.path.basename(os.path.splitext(
             forest_cover_path)[0])}_std_forest_edge_result.tif'''
+    LOGGER.debug(aligned_predictor_path_list)
     forest_edge_task = task_graph.add_task(
         func=geoprocessing.raster_calculator,
         args=(
@@ -325,11 +326,13 @@ def _apply_model(*raster_nodata_array):
     result = numpy.full(valid_mask.shape, REGRESSION_TARGET_NODATA)
     value_list = numpy.asarray([
         array[valid_mask] for array in raster_array])
+    LOGGER.debug(value_list.shape)
     value_list = value_list.transpose()
     if value_list.shape[0] > 0:
         result[valid_mask] = train_regression_model.clip_to_range(
             model['model'].predict(value_list), 10, 400)
     return result
+
 
 if __name__ == '__main__':
     main()
