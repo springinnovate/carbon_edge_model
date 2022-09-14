@@ -611,8 +611,8 @@ def main():
                 # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
                     func=sum_by_mask,
-                    args=(carbon_opt_step_path, new_forest_mask_path),
-                    dependent_task_list=[optimization_carbon_task],
+                    args=(carbon_opt_step_path, carbon_opt_forest_step_path),
+                    dependent_task_list=[optimization_carbon_task, uncoarsen_forest_mask],
                     store_result=True,
                     task_name=f'separate out old and new carbon for {carbon_opt_step_path}')
                 sum_task = task_graph.add_task(
