@@ -415,6 +415,7 @@ def main():
         PREDICTOR_RASTER_DIR, PRE_WARP_DIR)
     task_graph.join()
     LOGGER.debug('all done pre-warping')
+    return
 
     LULC_RESTORATION_PATH = INPUT_RASTERS['LULC_RESTORATION_PATH']
     LULC_ESA_PATH = INPUT_RASTERS['LULC_ESA_PATH']

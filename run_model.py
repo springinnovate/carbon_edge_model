@@ -161,7 +161,7 @@ def _pre_warp_rasters(
 def regression_carbon_model(
     carbon_model_path, bounding_box_tuple, forest_cover_path,
         predictor_raster_dir, pre_warp_dir=None,
-        model_result_path=None):
+        target_result_path=None):
     """
     Run carbon model.
 
@@ -175,7 +175,7 @@ def regression_carbon_model(
             predictor rasters defined by carbon model
         pre_warp_dir (str): path to directory containing pre-warped
             predictor rasters
-        model_result_path (str): path to target raster
+        target_result_path (str): path to target raster
 
     Returns:
         None
@@ -209,9 +209,12 @@ def regression_carbon_model(
         workspace_dir, min(
             multiprocessing.cpu_count(),
             len(predictor_id_path_list)))
-    base_raster_info = geoprocessing.get_raster_info(forest_cover_path)
-    if abs(base_raster_info['pixel_size'][0]) < 3:
-        # project into Eckert
+    forest_mask_raster_info = geoprocessing.get_raster_info(forest_cover_path)
+    if abs(forest_mask_raster_info['pixel_size'][0]) < 3:
+        LOGGER.info(
+            f'{forest_cover_path} appears to not be projected in meters with '
+            f'a pixel size of {forest_mask_raster_info["pixel_size"]}, '
+            f'projecting into eckert IV {ECKERT_PIXEL_SIZE}')
         projected_forest_cover_path = os.path.join(
             workspace_dir, '%s_projected%s' % os.path.splitext(
                 os.path.basename(forest_cover_path)))
@@ -229,7 +232,7 @@ def regression_carbon_model(
             task_name=f'project {projected_forest_cover_path}')
         task_graph.join()
         forest_cover_path = projected_forest_cover_path
-    raster_info = geoprocessing.get_raster_info(forest_cover_path)
+    forest_mask_raster_info = geoprocessing.get_raster_info(forest_cover_path)
 
     LOGGER.info('gaussian filter forest cover')
 
@@ -267,11 +270,11 @@ def regression_carbon_model(
         if not(pre_warp_dir and os.path.exists(warped_predictor_path)):
             warp_task = task_graph.add_task(
                 func=geoprocessing.warp_raster,
-                args=(predictor_path, raster_info['pixel_size'],
+                args=(predictor_path, forest_mask_raster_info['pixel_size'],
                       warped_predictor_path, 'nearest'),
                 kwargs={
-                    'target_bb': raster_info['bounding_box'],
-                    'target_projection_wkt': raster_info['projection_wkt'],
+                    'target_bb': forest_mask_raster_info['bounding_box'],
+                    'target_projection_wkt': forest_mask_raster_info['projection_wkt'],
                     'working_dir': workspace_dir,
                     'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
                 },
@@ -288,6 +291,7 @@ def regression_carbon_model(
     nodata = -1
 
     def _apply_model(*raster_nodata_array):
+        """Scikit-learn pre-trained model determines order."""
         n = len(raster_nodata_array)//2
         raster_array = raster_nodata_array[0:n]
         nodata_array = raster_nodata_array[n:2*n]
@@ -307,39 +311,6 @@ def regression_carbon_model(
                 model['model'].predict(value_list), 10, 400)
         return result
 
-    # model_result_path = f'''{os.path.basename(os.path.splitext(
-    #     forest_cover_path)[0])}_full_forest_edge_result.tif'''
-    # full_forest_thread = threading.Thread(
-    #     target=geoprocessing.raster_calculator,
-    #     args=(
-    #         [(path, 1) for path in aligned_predictor_path_list] +
-    #         [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
-    #          for path in aligned_predictor_path_list] + [(1.0, 'raw')],
-    #         _apply_model, model_result_path,
-    #         gdal.GDT_Float32, nodata),
-    #     kwargs={
-    #         'largest_block': 2**22,
-    #         'raster_driver_creation_tuple': (
-    #             'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
-    # full_forest_thread.daemon = True
-    # full_forest_thread.start()
-
-    # model_result_path = f'''{os.path.basename(os.path.splitext(
-    #     forest_cover_path)[0])}_no_forest_edge_result.tif'''
-    # no_forest_thread = threading.Thread(
-    #     target=geoprocessing.raster_calculator,
-    #     args=(
-    #         [(path, 1) for path in aligned_predictor_path_list] +
-    #         [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
-    #          for path in aligned_predictor_path_list] + [(0.0, 'raw')],
-    #         _apply_model, model_result_path,
-    #         gdal.GDT_Float32, nodata),
-    #     kwargs={
-    #         'largest_block': 2**22,
-    #         'raster_driver_creation_tuple': (
-    #             'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
-    # no_forest_thread.daemon = True
-    # no_forest_thread.start()
     if target_result_path is None:
         target_result_path = f'''{os.path.basename(os.path.splitext(
             forest_cover_path)[0])}_std_forest_edge_result.tif'''
