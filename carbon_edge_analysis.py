@@ -412,7 +412,7 @@ def main():
         INPUT_RASTERS[raster_id] = aligned_path
 
     _pre_warp_rasters(
-        task_graph, GLOBAL_BOUNDING_BOX_TUPLE, CARBON_MODEL_PATH,
+        task_graph, GLOBAL_BOUNDING_BOX_TUPLE[1], CARBON_MODEL_PATH,
         PREDICTOR_RASTER_DIR, PRE_WARP_DIR)
     task_graph.join()
     LOGGER.debug('all done pre-warping')

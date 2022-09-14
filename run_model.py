@@ -93,13 +93,13 @@ def main():
 
 
 def _pre_warp_rasters(
-        task_graph, bounding_box_tuple, carbon_model_path,
+        task_graph, bounding_box, carbon_model_path,
         predictor_raster_dir, pre_warp_dir):
     """Create a pre-warping of base rasters against ECKERT bounding box.
 
     Args:
         task_graph (TaskGraph): object to avoid recomputation
-        bounding_box_tuple (tuple): a str/bounding box tuple with the str
+        bounding_box (tuple): a str/bounding box tuple with the str
             being used for the prefix of target files
         carbon_model_path (str): path to pickled carbon model.
         task_graph (TaskGraph): used to parallelize pre-warped rasters.
@@ -142,13 +142,13 @@ def _pre_warp_rasters(
     for predictor_id, predictor_path in predictor_id_path_list:
         warped_predictor_path = os.path.join(
             pre_warp_dir,
-            f'warped_{predictor_id}_{bounding_box_tuple[0]}.tif')
+            f'warped_{predictor_id}.tif')
         warp_task = task_graph.add_task(
             func=geoprocessing.warp_raster,
             args=(predictor_path, ECKERT_PIXEL_SIZE,
                   warped_predictor_path, 'near'),
             kwargs={
-                'target_bb': bounding_box_tuple[1],
+                'target_bb': bounding_box,
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'n_threads': multiprocessing.cpu_count(),
                 'working_dir': pre_warp_dir,
