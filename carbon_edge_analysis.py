@@ -393,6 +393,7 @@ def main():
     # project everything in same projection as carbon model
     aligned_dir = './aligned_carbon_edge'
     os.makedirs(aligned_dir, exist_ok=True)
+    LOGGER.info(f'pre-warp the input rasters {INPUT_RASTERS}')
     for raster_id in INPUT_RASTERS:
         raster_path = INPUT_RASTERS[raster_id]
         aligned_path = os.path.join(aligned_dir, os.path.basename(raster_path))
@@ -415,10 +416,10 @@ def main():
         PREDICTOR_RASTER_DIR, PRE_WARP_DIR)
     task_graph.join()
     LOGGER.debug('all done pre-warping')
-    return
 
     LULC_RESTORATION_PATH = INPUT_RASTERS['LULC_RESTORATION_PATH']
     LULC_ESA_PATH = INPUT_RASTERS['LULC_ESA_PATH']
+
     with open(CARBON_MODEL_PATH, 'rb') as model_file:
         model = pickle.load(model_file).copy()
 
