@@ -68,6 +68,8 @@ logging.getLogger('matplotlib.font_manager').setLevel(logging.WARN)
 logging.getLogger('matplotlib').setLevel(logging.WARN)
 logging.getLogger('PIL.PngImagePlugin').setLevel(logging.WARN)
 
+REGRESSION_TARGET_NODATA = -1
+
 
 def main():
     """Entry point."""
@@ -285,28 +287,6 @@ def regression_carbon_model(
     task_graph.join()
 
     LOGGER.info('apply model')
-    nodata = -1
-
-    def _apply_model(*raster_nodata_array):
-        """Scikit-learn pre-trained model determines order."""
-        n = len(raster_nodata_array)//2
-        raster_array = raster_nodata_array[0:n]
-        nodata_array = raster_nodata_array[n:2*n]
-        edge_override = raster_nodata_array[2*n]
-
-        valid_mask = numpy.all(
-            [~numpy.isclose(array, nodata) for array, nodata in
-             zip(raster_array, nodata_array)], axis=(0,))
-        result = numpy.full(valid_mask.shape, nodata)
-        value_list = numpy.asarray([
-            array[valid_mask] for array in raster_array])
-        if edge_override is not None:
-            value_list[gf_index][:] = edge_override
-        value_list = value_list.transpose()
-        if value_list.shape[0] > 0:
-            result[valid_mask] = train_regression_model.clip_to_range(
-                model['model'].predict(value_list), 10, 400)
-        return result
 
     if target_result_path is None:
         target_result_path = f'''{os.path.basename(os.path.splitext(
@@ -316,9 +296,9 @@ def regression_carbon_model(
         args=(
             [(path, 1) for path in aligned_predictor_path_list] +
             [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
-             for path in aligned_predictor_path_list] + [(None, 'raw')],
+             for path in aligned_predictor_path_list] + [(model, 'raw')],
             _apply_model, target_result_path,
-            gdal.GDT_Float32, nodata),
+            gdal.GDT_Float32, REGRESSION_TARGET_NODATA),
         kwargs={
             'largest_block': 2**22,
             'raster_driver_creation_tuple': (
@@ -332,6 +312,24 @@ def regression_carbon_model(
     del task_graph
     shutil.rmtree(workspace_dir, ignore_errors=True)
 
+
+def _apply_model(*raster_nodata_array):
+    """Scikit-learn pre-trained model determines order."""
+    n = len(raster_nodata_array) // 2
+    raster_array = raster_nodata_array[0:n]
+    nodata_array = raster_nodata_array[n:2*n]
+    model = raster_nodata_array[2*n]
+    valid_mask = numpy.all(
+        [~numpy.isclose(array, nodata) for array, nodata in
+         zip(raster_array, nodata_array)], axis=(0,))
+    result = numpy.full(valid_mask.shape, REGRESSION_TARGET_NODATA)
+    value_list = numpy.asarray([
+        array[valid_mask] for array in raster_array])
+    value_list = value_list.transpose()
+    if value_list.shape[0] > 0:
+        result[valid_mask] = train_regression_model.clip_to_range(
+            model['model'].predict(value_list), 10, 400)
+    return result
 
 if __name__ == '__main__':
     main()
