@@ -555,8 +555,6 @@ def main():
             store_result=True,
             task_name=f'{out_prefix} optimization')
 
-        continue
-
         if out_prefix == 'regression':
             raster_sum_list = []
             # the [1] is so we get the mask path list, [0] is the table path
