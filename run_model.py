@@ -258,9 +258,9 @@ def regression_carbon_model(
             continue
 
         if pre_warp_dir:
-            warped_predictor_path = os.path.join(
+            warped_predictor_path = glob.glob(os.path.join(
                 pre_warp_dir,
-                f'warped_{os.path.basename(predictor_path)}')
+                f'warped_{predictor_id}*.tif'))[0]
         else:
             warped_predictor_path = os.path.join(
                 workspace_dir, f'warped_{os.path.basename(predictor_path)}')
