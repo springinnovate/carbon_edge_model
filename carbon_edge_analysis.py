@@ -478,7 +478,7 @@ def main():
         args=(CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE, FOREST_MASK_RESTORATION_PATH, PREDICTOR_RASTER_DIR),
         kwargs={
             'pre_warp_dir': PRE_WARP_DIR,
-            'model_result_path': REGRESSION_CARBON_RESTORATION_PATH},
+            'target_result_path': REGRESSION_CARBON_RESTORATION_PATH},
         target_path_list=[REGRESSION_CARBON_RESTORATION_PATH],
         dependent_task_list=[restoration_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_RESTORATION_PATH}')
@@ -488,7 +488,7 @@ def main():
         args=(CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE, FOREST_MASK_ESA_PATH, PREDICTOR_RASTER_DIR),
         kwargs={
             'pre_warp_dir': PRE_WARP_DIR,
-            'model_result_path': REGRESSION_CARBON_ESA_PATH},
+            'target_result_path': REGRESSION_CARBON_ESA_PATH},
         target_path_list=[REGRESSION_CARBON_ESA_PATH],
         dependent_task_list=[esa_mask_task],
         task_name=f'regression model {REGRESSION_CARBON_ESA_PATH}')
@@ -602,7 +602,7 @@ def main():
                     args=(CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE, carbon_opt_forest_step_path, PREDICTOR_RASTER_DIR),
                     kwargs={
                         'pre_warp_dir': PRE_WARP_DIR,
-                        'model_result_path': carbon_opt_step_path},
+                        'target_result_path': carbon_opt_step_path},
                     target_path_list=[carbon_opt_step_path],
                     dependent_task_list=[restoration_mask_task, uncoarsen_forest_mask],
                     task_name=f'regression model {carbon_opt_step_path}')
