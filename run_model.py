@@ -5,7 +5,6 @@ import pickle
 import logging
 import os
 import multiprocessing
-import threading
 import shutil
 
 from osgeo import gdal
@@ -250,9 +249,8 @@ def regression_carbon_model(
                 os.path.basename(forest_cover_path)}''')
             task_graph.add_task(
                 func=gaussian_filter_rasters.filter_raster,
-                args=((warped_predictor_path, 1), model['gf_size'],
+                args=((projected_forest_cover_path, 1), model['gf_size'],
                       gf_forest_cover_path),
-                dependent_task_list=warp_task_list,
                 target_path_list=[gf_forest_cover_path],
                 task_name=f'gaussian filter {gf_forest_cover_path}')
             gf_index = len(aligned_predictor_path_list)
@@ -266,6 +264,7 @@ def regression_carbon_model(
         else:
             warped_predictor_path = os.path.join(
                 workspace_dir, f'warped_{os.path.basename(predictor_path)}')
+
         warp_task_list = []
         if not(pre_warp_dir and os.path.exists(warped_predictor_path)):
             warp_task = task_graph.add_task(
@@ -284,8 +283,6 @@ def regression_carbon_model(
             aligned_predictor_path_list.append(warped_predictor_path)
 
     task_graph.join()
-    task_graph.close()
-    del task_graph
 
     LOGGER.info('apply model')
     nodata = -1
@@ -314,8 +311,8 @@ def regression_carbon_model(
     if target_result_path is None:
         target_result_path = f'''{os.path.basename(os.path.splitext(
             forest_cover_path)[0])}_std_forest_edge_result.tif'''
-    forest_edge_thread = threading.Thread(
-        target=geoprocessing.raster_calculator,
+    forest_edge_task = task_graph.add_task(
+        func=geoprocessing.raster_calculator,
         args=(
             [(path, 1) for path in aligned_predictor_path_list] +
             [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
@@ -325,15 +322,14 @@ def regression_carbon_model(
         kwargs={
             'largest_block': 2**22,
             'raster_driver_creation_tuple': (
-                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])})
-    forest_edge_thread.daemon = True
-    forest_edge_thread.start()
+                'GTiff', DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS[1])},
+        target_path_list=[target_result_path],
+        task_name=f'regression model for {target_result_path}')
+    forest_edge_task.join()
 
-    LOGGER.debug('waiting for all the threads to join')
-    #full_forest_thread.join()
-    #no_forest_thread.join()
-    forest_edge_thread.join()
-
+    task_graph.join()
+    task_graph.close()
+    del task_graph
     shutil.rmtree(workspace_dir, ignore_errors=True)
 
 
