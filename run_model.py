@@ -249,7 +249,7 @@ def regression_carbon_model(
                 os.path.basename(forest_cover_path)}''')
             task_graph.add_task(
                 func=gaussian_filter_rasters.filter_raster,
-                args=((projected_forest_cover_path, 1), model['gf_size'],
+                args=((forest_cover_path, 1), model['gf_size'],
                       gf_forest_cover_path),
                 target_path_list=[gf_forest_cover_path],
                 task_name=f'gaussian filter {gf_forest_cover_path}')
