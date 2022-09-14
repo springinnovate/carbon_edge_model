@@ -316,8 +316,11 @@ def regression_carbon_model(
 
 def _apply_model(*raster_nodata_array):
     """Scikit-learn pre-trained model determines order."""
+    LOGGER.debug(raster_nodata_array)
     n = len(raster_nodata_array) // 2
     raster_array = raster_nodata_array[0:n]
+    LOGGER.debug(raster_array)
+    LOGGER.debug(raster_array.shape)
     nodata_array = raster_nodata_array[n:2*n]
     model = raster_nodata_array[2*n]
     valid_mask = numpy.all(
