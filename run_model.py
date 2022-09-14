@@ -239,7 +239,6 @@ def regression_carbon_model(
 
     LOGGER.info('clip input rasters to forest cover')
     aligned_predictor_path_list = []
-    gf_index = None
     for predictor_id, predictor_path in predictor_id_path_list:
         predictor_is_forest = (model['gf_forest_id'] == predictor_id)
         if predictor_is_forest:
@@ -255,7 +254,6 @@ def regression_carbon_model(
                       gf_forest_cover_path),
                 target_path_list=[gf_forest_cover_path],
                 task_name=f'gaussian filter {gf_forest_cover_path}')
-            gf_index = len(aligned_predictor_path_list)
             aligned_predictor_path_list.append(gf_forest_cover_path)
             continue
 
@@ -268,7 +266,7 @@ def regression_carbon_model(
                 workspace_dir, f'warped_{os.path.basename(predictor_path)}')
 
         warp_task_list = []
-        if not(pre_warp_dir and os.path.exists(warped_predictor_path)):
+        if not pre_warp_dir:
             warp_task = task_graph.add_task(
                 func=geoprocessing.warp_raster,
                 args=(predictor_path, forest_mask_raster_info['pixel_size'],
@@ -282,7 +280,7 @@ def regression_carbon_model(
                 target_path_list=[warped_predictor_path],
                 task_name=f'warp {predictor_path}')
             warp_task_list.append(warp_task)
-            aligned_predictor_path_list.append(warped_predictor_path)
+        aligned_predictor_path_list.append(warped_predictor_path)
 
     task_graph.join()
 
