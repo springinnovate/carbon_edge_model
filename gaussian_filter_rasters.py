@@ -68,7 +68,7 @@ def filter_raster(
     output_nodata = -1.0
 
     base_raster_nodata = geoprocessing.get_raster_info(
-        base_raster_path)[base_raster_band - 1]
+        base_raster_path)['nodata'][base_raster_band - 1]
 
     def _mask_op(raw_gf, base_array):
         """Mask out raw_gf where base_array == 1."""
