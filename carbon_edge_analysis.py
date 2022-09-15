@@ -288,9 +288,11 @@ def regression_marginal_value(base_path, gf_size, mask_path, target_path):
     """Calculate marginal value regression by convolving base and masking.
 
     Args:
-        base_path (str): path to raster
-        mask_path (str): path to mask raster
-        target_path (str): path to marginal value target.
+        base_path (str): path to value raster
+        gf_size (float): gaussian kernel size to filter distance
+        mask_path (str): path to 0/1 mask raster
+        target_path (str): path to marginal value target which is filtered
+            base by gf_size then masked by the mask.
 
     Return:
         None
@@ -303,15 +305,12 @@ def regression_marginal_value(base_path, gf_size, mask_path, target_path):
     gaussian_filter_rasters.filter_raster(
         (base_path, 1), gf_size, base_filtered_path)
 
-    def _div_op(base_array, mask_array):
-        result = numpy.zeros(base_array.shape, dtype=float)
-        valid_mask = mask_array > 0
-        result[valid_mask] = base_array[valid_mask] / mask_array[valid_mask]
-        return result
+    def _mask_op(base_array, mask_array):
+        return numpy.where(mask_array == 1, base_array, 0.0)
     raster_info = geoprocessing.get_raster_info(base_path)
     geoprocessing.raster_calculator(
         [(base_filtered_path, 1), (mask_path, 1)],
-        _div_op, target_path, raster_info['datatype'], 0)
+        _mask_op, target_path, raster_info['datatype'], 0)
 
 
 def make_area_raster(base_path, target_area_path):
