@@ -52,7 +52,7 @@ import os
 import tempfile
 import multiprocessing
 import pickle
-
+import shutil
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
 from osgeo import gdal
@@ -183,6 +183,7 @@ def build_ipcc_carbon(lulc_path, lulc_table_path, zone_path, lulc_codes, target_
     geoprocessing.raster_calculator(
         [(lulc_path, 1), (zone_raster_path, 1)], _lulc_zone_to_carbon,
         target_carbon_path, gdal.GDT_Int32, None)
+    shutil.rmtree(working_dir, ignore_errors=True)
 
 
 def create_mask(base_path, code_list, target_path):
@@ -308,7 +309,7 @@ def regression_marginal_value(base_path, gf_size, mask_path, target_path):
         return result
     raster_info = geoprocessing.get_raster_info(base_path)
     geoprocessing.raster_calculator(
-        [(base_path, 1), (mask_path, 1)],
+        [(base_filtered_path, 1), (mask_path, 1)],
         _div_op, target_path, raster_info['datatype'], 0)
 
 
@@ -513,6 +514,8 @@ def main():
         dependent_task_list=[weighted_regression_task, sub_mask_task],
         target_path_list=[REGRESSION_MARGINAL_VALUE_PATH],
         task_name=f'regression marg value {REGRESSION_MARGINAL_VALUE_PATH}')
+
+    regression_marginal_value_task.join()
 
     coarsen_forest_esa_mask_task = task_graph.add_task(
         func=ecoshard.convolve_layer,
