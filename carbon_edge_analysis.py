@@ -516,6 +516,7 @@ def main():
         task_name=f'regression marg value {REGRESSION_MARGINAL_VALUE_PATH}')
 
     regression_marginal_value_task.join()
+    return
 
     coarsen_forest_esa_mask_task = task_graph.add_task(
         func=ecoshard.convolve_layer,
