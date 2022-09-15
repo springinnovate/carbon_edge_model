@@ -19,8 +19,11 @@ import train_regression_model
 # GLOBAL_BOUNDING_BOX_TUPLE = (
 #     'global_eckert_iv_bb', [-16921202, -8460601, 16921797, 8461398])
 
+# GLOBAL_BOUNDING_BOX_TUPLE = (
+#     'amazon_region', [-6215550, -773278, -4310775, 115131])
+
 GLOBAL_BOUNDING_BOX_TUPLE = (
-    'amazon_region', [-6215550, -773278, -4310775, 115131])
+    'pacific_northwest', [-10148496, 5539490, -9933111, 5639948])
 
 ECKERT_PIXEL_SIZE = (90, -90)
 WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
