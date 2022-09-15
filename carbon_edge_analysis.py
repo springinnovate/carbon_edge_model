@@ -300,7 +300,7 @@ def regression_marginal_value(base_path, gf_size, mask_path, target_path):
     basename = os.path.basename(os.path.splitext(base_path)[0])
     base_filtered_path = os.path.join(
         os.path.dirname(target_path),
-        f'{basename}_filtered.tif')
+        f'{basename}_filteredXX.tif')
     os.makedirs(os.path.dirname(base_filtered_path), exist_ok=True)
     gaussian_filter_rasters.filter_raster(
         (base_path, 1), gf_size, base_filtered_path)
