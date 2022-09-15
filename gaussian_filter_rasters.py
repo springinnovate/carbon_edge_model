@@ -75,6 +75,8 @@ def filter_raster(
             return raw_gf
         return None
 
+    sys.exit()
+
     LOGGER.debug('convolution complete, masking out non-nodata')
     geoprocessing.raster_calculator(
         [(raw_gf_path, 1), (base_raster_path, base_raster_band)], _mask_op,
