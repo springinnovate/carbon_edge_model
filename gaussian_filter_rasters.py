@@ -87,7 +87,7 @@ def filter_raster(
         largest_block=2**25)
 
     os.remove(kernel_raster_path)
-    os.remove(raw_gf_path)
+    #os.remove(raw_gf_path)
 
 
 def main():
