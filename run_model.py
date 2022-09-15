@@ -298,7 +298,8 @@ def regression_carbon_model(
         args=(
             [(path, 1) for path in aligned_predictor_path_list] +
             [(geoprocessing.get_raster_info(path)['nodata'][0], 'raw')
-             for path in aligned_predictor_path_list] + [(model, 'raw')],
+             for path in aligned_predictor_path_list] +
+            [(model, 'raw'), (forest_cover_path, 1)],
             _apply_model, target_result_path,
             gdal.GDT_Float32, REGRESSION_TARGET_NODATA),
         kwargs={
@@ -317,12 +318,13 @@ def regression_carbon_model(
 
 def _apply_model(*raster_nodata_array):
     """Scikit-learn pre-trained model determines order."""
-    n = len(raster_nodata_array) // 2
+    n = len(raster_nodata_array) // 2 - 1
     raster_array = raster_nodata_array[0:n]
     nodata_array = raster_nodata_array[n:2*n]
     model = raster_nodata_array[2*n]
+    forest_mask = raster_nodata_array[2*n+1]
     valid_mask = numpy.all(
-        [~numpy.isclose(array, nodata) for array, nodata in
+        [forest_mask == 1] + [~numpy.isclose(array, nodata) for array, nodata in
          zip(raster_array, nodata_array)], axis=(0,))
     result = numpy.full(valid_mask.shape, REGRESSION_TARGET_NODATA)
     value_list = numpy.asarray([

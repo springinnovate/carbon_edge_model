@@ -62,30 +62,7 @@ def filter_raster(
     geoprocessing.convolve_2d(
         (base_raster_path, base_raster_band), (kernel_raster_path, 1),
         target_path, normalize_kernel=True, largest_block=2**20)
-
-    # output_nodata = -1.0
-
-    # base_raster_nodata = geoprocessing.get_raster_info(
-    #     base_raster_path)['nodata'][base_raster_band - 1]
-
-    # def _mask_op(raw_gf, base_array):
-    #     """Mask out raw_gf where base_array == 1."""
-    #     if base_raster_nodata is None:
-    #         return raw_gf
-    #     nodata_mask = (base_array != base_raster_nodata)
-    #     if not numpy.all(nodata_mask):
-    #         raw_gf[nodata_mask] = output_nodata
-    #         return raw_gf
-    #     return None
-
-    # LOGGER.debug('convolution complete, masking out non-nodata')
-    # geoprocessing.raster_calculator(
-    #     [(raw_gf_path, 1), (base_raster_path, base_raster_band)], _mask_op,
-    #     target_path, gdal.GDT_Float32, output_nodata,
-    #     largest_block=2**25)
-
     os.remove(kernel_raster_path)
-    #os.remove(raw_gf_path)
 
 
 def main():
