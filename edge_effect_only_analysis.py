@@ -1,5 +1,4 @@
 """Edge effect only analysis.
-
 Input:
     base LULC
     optimization mask
