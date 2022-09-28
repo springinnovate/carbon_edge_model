@@ -57,32 +57,12 @@ def filter_raster(
     kernel_raster_path = os.path.join(
         CHURN_DIR, f'kernel_{pixel_radius}_{basename}')
     _make_kernel_raster(pixel_radius, kernel_raster_path)
-    raw_gf_path = os.path.join(
-        CHURN_DIR, f'raw_gf_{expected_max_edge_effect_km}_{basename}')
-    LOGGER.debug(f'making convolution for {raw_gf_path}')
+    LOGGER.debug(f'making convolution for {target_path}')
 
     geoprocessing.convolve_2d(
         (base_raster_path, base_raster_band), (kernel_raster_path, 1),
-        raw_gf_path, normalize_kernel=True, largest_block=2**20)
-
-    output_nodata = -1.0
-
-    def _mask_op(raw_gf, base_array):
-        """Mask out raw_gf where base_array == 1."""
-        nodata_mask = base_array != 1
-        if not numpy.all(nodata_mask):
-            raw_gf[nodata_mask] = output_nodata
-            return raw_gf
-        return None
-
-    LOGGER.debug('convolution complete, masking out non-nodata')
-    geoprocessing.raster_calculator(
-        [(raw_gf_path, 1), (base_raster_path, base_raster_band)], _mask_op,
-        target_path, gdal.GDT_Float32, output_nodata,
-        largest_block=2**25)
-
+        target_path, normalize_kernel=True, largest_block=2**20)
     os.remove(kernel_raster_path)
-    os.remove(raw_gf_path)
 
 
 def main():
