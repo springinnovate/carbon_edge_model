@@ -612,6 +612,7 @@ def main():
                     target_path_list=[carbon_opt_step_path],
                     dependent_task_list=[restoration_mask_task, uncoarsen_forest_mask],
                     task_name=f'regression model {carbon_opt_step_path}')
+                optimization_carbon_task.join()  # this should be a parallel job
                 LOGGER.debug(f'regression result should be in {carbon_opt_step_path}')
 
                 # break out result into old and new forest
