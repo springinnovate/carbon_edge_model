@@ -120,7 +120,7 @@ Below is an example of such a table:
 
 
 Utility to make model config table
-==================================
+----------------------------------
 
 The script at ``utils/build_skeleton_model_config.py`` can be used to generate a base CSV model config file that is easier to manipulate than writing from scratch. To use it:
 
