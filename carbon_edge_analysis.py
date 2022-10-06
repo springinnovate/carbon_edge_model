@@ -48,6 +48,7 @@ Build regression marginal value:
 """
 import logging
 logging.getLogger('matplotlib').setLevel(logging.ERROR)
+import argparse
 import os
 import tempfile
 import multiprocessing
@@ -387,12 +388,18 @@ def add_masks(mask_a_path, mask_b_path, target_path):
 
 def main():
     """Entry point."""
+    parser = argparse.ArgumentParser(description='carbon edge analysis for paper')
+    parser.add_argument(
+        'n_workers', type=int, help='number of parallel task graph workers')
+    args = parser.parse_args()
+
 
     # TODO: make all rasters nodata be 0 that are calcualted so we can skip in raster calculation
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    task_graph = taskgraph.TaskGraph(
-        OUTPUT_DIR, multiprocessing.cpu_count()//2, 15.0)
+    # task_graph = taskgraph.TaskGraph(
+    #     OUTPUT_DIR, multiprocessing.cpu_count()//2, 15.0)
+    task_graph = taskgraph.TaskGraph(OUTPUT_DIR, args.n_workers, 15.0)
 
     # project everything in same projection as carbon model
     aligned_dir = './aligned_carbon_edge'
@@ -612,7 +619,6 @@ def main():
                     target_path_list=[carbon_opt_step_path],
                     dependent_task_list=[restoration_mask_task, uncoarsen_forest_mask],
                     task_name=f'regression model {carbon_opt_step_path}')
-                optimization_carbon_task.join()  # this should be a parallel job
                 LOGGER.debug(f'regression result should be in {carbon_opt_step_path}')
                 # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
