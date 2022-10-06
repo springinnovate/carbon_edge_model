@@ -55,7 +55,7 @@ WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
             LENGTHUNIT["metre",1,
                 ID["EPSG",9001]]]]"""
 ZSTD_CREATION_TUPLE = ('GTIFF', (
-    'TILED=YES', 'BIGTIFF=YES', 'COMPRESS=LZW',
+    'TILED=YES', 'BIGTIFF=YES', 'COMPRESS=LZW', 'PREDICTOR=2',
     'BLOCKXSIZE=256', 'BLOCKYSIZE=256', 'NUM_THREADS=1'))
 
 
@@ -146,6 +146,12 @@ def _pre_warp_rasters(
         warped_predictor_path = os.path.join(
             pre_warp_dir,
             f'warped_{predictor_id}.tif')
+
+        datatype = geoprocessing.get_raster_info(predictor_path)['numpy_type']
+        if datatype in [numpy.float32, numpy.float64, float]:
+            compression_predictor = 3
+        else:
+            compression_predictor = 2
         warp_task = task_graph.add_task(
             func=geoprocessing.warp_raster,
             args=(predictor_path, ECKERT_PIXEL_SIZE,
@@ -155,7 +161,12 @@ def _pre_warp_rasters(
                 'target_projection_wkt': WORLD_ECKERT_IV_WKT,
                 'n_threads': multiprocessing.cpu_count(),
                 'working_dir': pre_warp_dir,
-                'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
+                'raster_driver_creation_tuple': (
+                    'GTiff',
+                    ('TILED=YES', 'BIGTIFF=YES',
+                     'COMPRESS=LZW',
+                     f'PREDICTOR={compression_predictor}'
+                     'BLOCKXSIZE=256', 'BLOCKYSIZE=256')),
             },
             target_path_list=[warped_predictor_path],
             task_name=f'warp {predictor_path}')
@@ -199,7 +210,7 @@ def regression_carbon_model(
         if not os.path.exists(predictor_path):
             missing_predictor_list.append(
                 f'{predictor_id}: {predictor_path}')
-    if missing_predictor_list:
+    if missing_predictor_list and pre_warp_dir is not None:
         predictor_str = "\n".join(missing_predictor_list)
         raise ValueError(
             f'missing the following predictor rasters:\n{predictor_str}')
