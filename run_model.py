@@ -146,6 +146,8 @@ def _pre_warp_rasters(
         warped_predictor_path = os.path.join(
             pre_warp_dir,
             f'warped_{predictor_id}.tif')
+        if os.path.exists(warped_predictor_path):
+            continue
 
         datatype = geoprocessing.get_raster_info(predictor_path)['numpy_type']
         if datatype in [numpy.float32, numpy.float64, float]:
