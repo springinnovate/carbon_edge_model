@@ -80,7 +80,7 @@ logging.basicConfig(
 logging.getLogger('taskgraph').setLevel(logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
-OUTPUT_DIR = f"C:/Users/richp/Documents/carbon_regression_results/output_{GLOBAL_BOUNDING_BOX_TUPLE[0]}"
+OUTPUT_DIR = f"./carbon_regression_results/output_{GLOBAL_BOUNDING_BOX_TUPLE[0]}"
 
 # Base data
 CARBON_MODEL_PATH = './models/hansen_model_2022_07_14.dat'
