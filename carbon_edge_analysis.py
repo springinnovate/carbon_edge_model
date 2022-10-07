@@ -73,6 +73,7 @@ gdal.SetCacheMax(2**24)
 
 logging.basicConfig(
     level=logging.DEBUG,
+    filename='carbon_edge_anal.log',
     format=(
         '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
         ' [%(funcName)s:%(lineno)d] %(message)s'))
@@ -453,7 +454,7 @@ def main():
         task_name=f'and_rasters: {FOREST_MASK_RESTORATION_PATH}')
 
     # convolve the mask same as carbon kernel NEW_FOREST_MASK_COVERAGE_PATH
-    task_graph.add_task(
+    new_forest_mask_coverage_task = task_graph.add_task(
         func=gaussian_filter_rasters.filter_raster,
         args=((NEW_FOREST_MASK_ESA_TO_RESTORATION_PATH, 1), model['gf_size'],
               NEW_FOREST_MASK_COVERAGE_PATH),
@@ -510,7 +511,9 @@ def main():
         args=(REGRESSION_CARBON_RESTORATION_PATH, REGRESSION_CARBON_ESA_PATH,
               NEW_FOREST_MASK_COVERAGE_PATH,
               REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH),
-        dependent_task_list=[regression_restoration_task, regression_esa_task],
+        dependent_task_list=[
+            new_forest_mask_coverage_task, regression_restoration_task,
+            regression_esa_task],
         target_path_list=[REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH],
         task_name=f'per pixel weighted coverage {REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH}')
 
