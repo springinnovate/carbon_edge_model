@@ -177,7 +177,7 @@ def _pre_warp_rasters(
 
 def regression_carbon_model(
     carbon_model_path, bounding_box_tuple, forest_cover_path,
-        predictor_raster_dir, pre_warp_dir=None,
+        predictor_raster_dir, task_graph=None, pre_warp_dir=None,
         target_result_path=None):
     """
     Run carbon model.
@@ -190,6 +190,9 @@ def regression_carbon_model(
             the forest cover is
         predictor_raster_dir (str): if not empty string, looks here for
             predictor rasters defined by carbon model
+        task_graph (taskgraph.TaskGraph): if not None, use this
+            taskgraph object for scheduling, otherwise create
+            a local one.
         pre_warp_dir (str): path to directory containing pre-warped
             predictor rasters
         target_result_path (str): path to target raster
@@ -264,6 +267,7 @@ def regression_carbon_model(
             gf_forest_cover_path = os.path.join(
                 workspace_dir, f'''{model["gf_size"]}_{
                 os.path.basename(forest_cover_path)}''')
+            LOGGER.debug(f'about to filter {forest_cover_path} to {gf_forest_cover_path}')
             task_graph.add_task(
                 func=gaussian_filter_rasters.filter_raster,
                 args=((forest_cover_path, 1), model['gf_size'],
