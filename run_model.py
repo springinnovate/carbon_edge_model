@@ -225,10 +225,11 @@ def regression_carbon_model(
         forest_cover_path))[0]}'''
     os.makedirs(workspace_dir, exist_ok=True)
 
-    task_graph = taskgraph.TaskGraph(
-        workspace_dir, min(
-            multiprocessing.cpu_count(),
-            len(predictor_id_path_list)))
+    if task_graph is None:
+        task_graph = taskgraph.TaskGraph(
+            workspace_dir, min(
+                multiprocessing.cpu_count(),
+                len(predictor_id_path_list)))
     forest_mask_raster_info = geoprocessing.get_raster_info(forest_cover_path)
     if abs(forest_mask_raster_info['pixel_size'][0]) < 3:
         LOGGER.info(
