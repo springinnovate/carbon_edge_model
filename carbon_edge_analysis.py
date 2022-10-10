@@ -506,8 +506,7 @@ def main():
               NEW_FOREST_MASK_COVERAGE_PATH,
               REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH),
         dependent_task_list=[
-            new_forest_mask_coverage_task, regression_restoration_task,
-            regression_esa_task],
+            new_forest_mask_coverage_task, ],
         target_path_list=[REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH],
         task_name=f'per pixel weighted coverage {REGRESSION_PER_PIXEL_DISTANCE_CONTRIBUTION_PATH}')
 
@@ -572,7 +571,6 @@ def main():
                 func=sum_raster,
                 args=(REGRESSION_CARBON_ESA_PATH,),
                 store_result=True,
-                dependent_task_list=[regression_esa_task],
                 task_name=f'sum regression carbon {REGRESSION_CARBON_ESA_PATH}')
             for new_forest_mask_path in greedy_pixel_pick_task.get()[1]:
                 # combine result mask path with FOREST_MASK_ESA_PATH
