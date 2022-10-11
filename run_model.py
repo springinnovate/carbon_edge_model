@@ -177,7 +177,7 @@ def _pre_warp_rasters(
 
 def regression_carbon_model(
     carbon_model_path, bounding_box_tuple, forest_cover_path,
-        predictor_raster_dir, task_graph=None, pre_warp_dir=None,
+        predictor_raster_dir, external_task_graph=None, pre_warp_dir=None,
         target_result_path=None):
     """
     Run carbon model.
@@ -190,7 +190,7 @@ def regression_carbon_model(
             the forest cover is
         predictor_raster_dir (str): if not empty string, looks here for
             predictor rasters defined by carbon model
-        task_graph (taskgraph.TaskGraph): if not None, use this
+        external_task_graph (taskgraph.TaskGraph): if not None, use this
             taskgraph object for scheduling, otherwise create
             a local one.
         pre_warp_dir (str): path to directory containing pre-warped
@@ -225,11 +225,13 @@ def regression_carbon_model(
         forest_cover_path))[0]}'''
     os.makedirs(workspace_dir, exist_ok=True)
 
-    if task_graph is None:
+    if external_task_graph is None:
         task_graph = taskgraph.TaskGraph(
             workspace_dir, min(
                 multiprocessing.cpu_count(),
                 len(predictor_id_path_list)))
+    else:
+        task_graph = external_task_graph
     forest_mask_raster_info = geoprocessing.get_raster_info(forest_cover_path)
     if abs(forest_mask_raster_info['pixel_size'][0]) < 3:
         LOGGER.info(
@@ -329,8 +331,9 @@ def regression_carbon_model(
     forest_edge_task.join()
 
     task_graph.join()
-    task_graph.close()
-    del task_graph
+    if external_task_graph is None:
+        task_graph.close()
+        del task_graph
     shutil.rmtree(workspace_dir, ignore_errors=True)
 
 
