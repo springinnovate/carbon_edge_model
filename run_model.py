@@ -6,6 +6,7 @@ import logging
 import os
 import multiprocessing
 import shutil
+import tempfile
 
 from osgeo import gdal
 from ecoshard import geoprocessing
@@ -227,10 +228,8 @@ def regression_carbon_model(
         workspace_dir = f'''workspace_{os.path.splitext(os.path.basename(
             forest_cover_path))[0]}'''
     else:
-        workspace_dir = os.path.join(
-            os.path.dirname(target_result_path),
-            f'''tmp_carbon_model_workspace_{
-                os.path.splitext(os.path.basename(forest_cover_path))[0]}''')
+        workspace_dir = tempfile.mkdtemp(
+            dir=os.path.dirname(target_result_path))
 
     os.makedirs(workspace_dir, exist_ok=True)
 
