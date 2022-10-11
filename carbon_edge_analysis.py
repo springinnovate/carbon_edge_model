@@ -48,6 +48,27 @@ Build regression marginal value:
 """
 import logging
 logging.getLogger('matplotlib').setLevel(logging.ERROR)
+LOG_LEVEL = logging.DEBUG
+LOG_FORMAT = (
+    '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
+    ' [%(funcName)s:%(lineno)d] %(message)s')
+logging.basicConfig(
+    level=LOG_LEVEL,
+    filename='carbon_edge_anal.log',
+    format=LOG_FORMAT)
+
+# set up logging to console
+console = logging.StreamHandler()
+console.setLevel(LOG_LEVEL)
+# set a format which is simpler for console use
+formatter = logging.Formatter(LOG_FORMAT)
+console.setFormatter(formatter)
+# add the handler to the root logger
+logging.getLogger('').addHandler(console)
+
+logging.getLogger('taskgraph').setLevel(logging.INFO)
+LOGGER = logging.getLogger(__name__)
+
 import argparse
 import os
 import tempfile
@@ -70,16 +91,6 @@ from run_model import WORLD_ECKERT_IV_WKT
 from run_model import ZSTD_CREATION_TUPLE
 
 gdal.SetCacheMax(2**24)
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename='carbon_edge_anal.log',
-    format=(
-        '%(asctime)s (%(relativeCreated)d) %(levelname)s %(name)s'
-        ' [%(funcName)s:%(lineno)d] %(message)s'))
-logging.getLogger('taskgraph').setLevel(logging.INFO)
-LOGGER = logging.getLogger(__name__)
-
 OUTPUT_DIR = f"./output_{GLOBAL_BOUNDING_BOX_TUPLE[0]}"
 
 # Base data
