@@ -605,29 +605,24 @@ def main():
 
                 carbon_opt_step_path = (
                     '%s_regression%s' % os.path.splitext(new_forest_mask_path))
-                optimization_carbon_task = task_graph.add_task(
-                    func=regression_carbon_model,
-                    args=(CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE, carbon_opt_forest_step_path, PREDICTOR_RASTER_DIR),
-                    kwargs={
-                        'pre_warp_dir': PRE_WARP_DIR,
-                        'target_result_path': carbon_opt_step_path},
-                    target_path_list=[carbon_opt_step_path],
-                    dependent_task_list=[restoration_mask_task, uncoarsen_forest_mask],
-                    task_name=f'regression model {carbon_opt_step_path}')
-                optimization_carbon_task.join()
+                regression_carbon_model(
+                    CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
+                    carbon_opt_forest_step_path, PREDICTOR_RASTER_DIR,
+                    pre_warp_dir=PRE_WARP_DIR,
+                    target_result_path=carbon_opt_step_path,
+                    external_task_graph=task_graph)
                 LOGGER.debug(f'regression result should be in {carbon_opt_step_path}')
                 # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
                     func=sum_by_mask,
                     args=(carbon_opt_step_path, carbon_opt_forest_step_path),
-                    dependent_task_list=[optimization_carbon_task, uncoarsen_forest_mask],
+                    dependent_task_list=[uncoarsen_forest_mask],
                     store_result=True,
                     task_name=f'separate out old and new carbon for {carbon_opt_step_path}')
                 sum_task = task_graph.add_task(
                     func=sum_raster,
                     args=(carbon_opt_step_path,),
-                    store_result=True,
-                    dependent_task_list=[optimization_carbon_task])
+                    store_result=True)
                 raster_sum_list.append(
                     (os.path.basename(carbon_opt_step_path), sum_task, sum_by_mask_task))
             sum_task.join()
