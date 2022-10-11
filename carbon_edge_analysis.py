@@ -66,7 +66,7 @@ console.setFormatter(formatter)
 # add the handler to the root logger
 logging.getLogger('').addHandler(console)
 
-logging.getLogger('taskgraph').setLevel(logging.INFO)
+logging.getLogger('taskgraph').setLevel(logging.DEBUG)
 LOGGER = logging.getLogger(__name__)
 
 import argparse
@@ -405,12 +405,7 @@ def main():
         'n_workers', type=int, help='number of parallel task graph workers')
     args = parser.parse_args()
 
-
-    # TODO: make all rasters nodata be 0 that are calcualted so we can skip in raster calculation
-
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    # task_graph = taskgraph.TaskGraph(
-    #     OUTPUT_DIR, multiprocessing.cpu_count()//2, 15.0)
     task_graph = taskgraph.TaskGraph(OUTPUT_DIR, args.n_workers, 15.0)
 
     # project everything in same projection as carbon model
