@@ -1,12 +1,12 @@
 """Execute carbon model on custom forest edge data."""
 import argparse
 import glob
-import pickle
+import hashlib
 import logging
-import os
 import multiprocessing
+import os
+import pickle
 import shutil
-import tempfile
 
 from osgeo import gdal
 from ecoshard import geoprocessing
@@ -179,7 +179,7 @@ def _pre_warp_rasters(
 def regression_carbon_model(
     carbon_model_path, bounding_box_tuple, forest_cover_path,
         predictor_raster_dir, external_task_graph=None, pre_warp_dir=None,
-        target_result_path=None):
+        target_result_path=None, clean_workspace=True):
     """
     Run carbon model.
 
@@ -197,6 +197,7 @@ def regression_carbon_model(
         pre_warp_dir (str): path to directory containing pre-warped
             predictor rasters
         target_result_path (str): path to target raster
+        clean_workspace (bool): if True, deletes workspace when complete
 
     Returns:
         None
@@ -228,8 +229,11 @@ def regression_carbon_model(
         workspace_dir = f'''workspace_{os.path.splitext(os.path.basename(
             forest_cover_path))[0]}'''
     else:
-        workspace_dir = tempfile.mkdtemp(
-            dir=os.path.dirname(target_result_path))
+        hasher = hashlib.md5()
+        hasher.update(target_result_path.encode('utf-8'))
+        short_hash = hasher.hexdigest()[:5]
+        workspace_dir = os.path.join(
+            os.path.dirname(target_result_path), short_hash)
 
     os.makedirs(workspace_dir, exist_ok=True)
 
@@ -339,7 +343,8 @@ def regression_carbon_model(
     if external_task_graph is None:
         task_graph.close()
         del task_graph
-    shutil.rmtree(workspace_dir, ignore_errors=True)
+    if clean_workspace:
+        shutil.rmtree(workspace_dir, ignore_errors=True)
 
 
 def _apply_model(*raster_nodata_array):

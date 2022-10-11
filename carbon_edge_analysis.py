@@ -493,19 +493,21 @@ def main():
 
     task_graph.join()
 
-    regression_carbon_model(
-        CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
-        FOREST_MASK_RESTORATION_PATH, PREDICTOR_RASTER_DIR,
-        pre_warp_dir=PRE_WARP_DIR,
-        target_result_path=REGRESSION_CARBON_RESTORATION_PATH,
-        external_task_graph=task_graph)
+    if geoprocessing.get_gis_type(REGRESSION_CARBON_RESTORATION_PATH) != geoprocessing.RASTER_TYPE:
+        regression_carbon_model(
+            CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
+            FOREST_MASK_RESTORATION_PATH, PREDICTOR_RASTER_DIR,
+            pre_warp_dir=PRE_WARP_DIR,
+            target_result_path=REGRESSION_CARBON_RESTORATION_PATH,
+            external_task_graph=task_graph)
 
-    regression_carbon_model(
-        CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
-        FOREST_MASK_ESA_PATH, PREDICTOR_RASTER_DIR,
-        pre_warp_dir=PRE_WARP_DIR,
-        target_result_path=REGRESSION_CARBON_ESA_PATH,
-        external_task_graph=task_graph)
+    if geoprocessing.get_gis_type(REGRESSION_CARBON_ESA_PATH) != geoprocessing.RASTER_TYPE:
+        regression_carbon_model(
+            CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
+            FOREST_MASK_ESA_PATH, PREDICTOR_RASTER_DIR,
+            pre_warp_dir=PRE_WARP_DIR,
+            target_result_path=REGRESSION_CARBON_ESA_PATH,
+            external_task_graph=task_graph)
 
     # Calculate per-pixel weighted contribution REGRESSION_CARBON_RESTORATION_PATH-REGRESSION_CARBON_ESA_PATH/NEW_FOREST_MASK_COVERAGE_PATH
     weighted_regression_task = task_graph.add_task(
@@ -614,12 +616,13 @@ def main():
                 carbon_opt_step_path = (
                     '%s_regression%s' % os.path.splitext(new_forest_mask_path))
                 task_graph.join()
-                regression_carbon_model(
-                    CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
-                    carbon_opt_forest_step_path, PREDICTOR_RASTER_DIR,
-                    pre_warp_dir=PRE_WARP_DIR,
-                    target_result_path=carbon_opt_step_path,
-                    external_task_graph=task_graph)
+                if geoprocessing.get_gis_type(carbon_opt_step_path) != geoprocessing.RASTER_TYPE:
+                    regression_carbon_model(
+                        CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
+                        carbon_opt_forest_step_path, PREDICTOR_RASTER_DIR,
+                        pre_warp_dir=PRE_WARP_DIR,
+                        target_result_path=carbon_opt_step_path,
+                        external_task_graph=task_graph)
                 LOGGER.debug(f'regression result should be in {carbon_opt_step_path}')
                 # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
