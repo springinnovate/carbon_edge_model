@@ -485,6 +485,8 @@ def main():
             ipcc_restoration_carbon_task, ipcc_esa_carbon_task],
         task_name=f'create IPCC marginal value {IPCC_MARGINAL_VALUE_PATH}')
 
+    task_graph.join()
+
     regression_carbon_model(
         CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
         FOREST_MASK_RESTORATION_PATH, PREDICTOR_RASTER_DIR,
@@ -605,6 +607,7 @@ def main():
 
                 carbon_opt_step_path = (
                     '%s_regression%s' % os.path.splitext(new_forest_mask_path))
+                task_graph.join()
                 regression_carbon_model(
                     CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
                     carbon_opt_forest_step_path, PREDICTOR_RASTER_DIR,
