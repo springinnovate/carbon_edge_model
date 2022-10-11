@@ -221,8 +221,17 @@ def regression_carbon_model(
             f'missing the following predictor rasters:\n{predictor_str}')
     LOGGER.info(f'all found: {predictor_id_path_list}')
 
-    workspace_dir = f'''workspace_{os.path.splitext(os.path.basename(
-        forest_cover_path))[0]}'''
+    if target_result_path is None:
+        target_result_path = f'''{os.path.basename(os.path.splitext(
+            forest_cover_path)[0])}_std_forest_edge_result.tif'''
+        workspace_dir = f'''workspace_{os.path.splitext(os.path.basename(
+            forest_cover_path))[0]}'''
+    else:
+        workspace_dir = os.path.join(
+            os.path.dirname(target_result_path),
+            f'''tmp_carbon_model_workspace_{
+                os.path.splitext(os.path.basename(forest_cover_path))[0]}''')
+
     os.makedirs(workspace_dir, exist_ok=True)
 
     if external_task_graph is None:
@@ -309,9 +318,6 @@ def regression_carbon_model(
 
     LOGGER.info('apply model')
 
-    if target_result_path is None:
-        target_result_path = f'''{os.path.basename(os.path.splitext(
-            forest_cover_path)[0])}_std_forest_edge_result.tif'''
     LOGGER.debug(aligned_predictor_path_list)
     forest_edge_task = task_graph.add_task(
         func=geoprocessing.raster_calculator,
