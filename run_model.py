@@ -167,7 +167,7 @@ def _pre_warp_rasters(
                     'GTiff',
                     ('TILED=YES', 'BIGTIFF=YES',
                      'COMPRESS=LZW',
-                     f'PREDICTOR={compression_predictor}'
+                     f'PREDICTOR={compression_predictor}',
                      'BLOCKXSIZE=256', 'BLOCKYSIZE=256')),
             },
             target_path_list=[warped_predictor_path],
