@@ -622,7 +622,8 @@ def main():
                     carbon_opt_forest_step_path, PREDICTOR_RASTER_DIR,
                     pre_warp_dir=PRE_WARP_DIR,
                     target_result_path=carbon_opt_step_path,
-                    external_task_graph=task_graph)
+                    external_task_graph=task_graph,
+                    clean_workspace=False)
                 LOGGER.debug(f'regression result should be in {carbon_opt_step_path}')
                 # break out result into old and new forest
                 sum_by_mask_task = task_graph.add_task(
