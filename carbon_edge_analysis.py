@@ -493,21 +493,22 @@ def main():
 
     task_graph.join()
 
-    if geoprocessing.get_gis_type(REGRESSION_CARBON_RESTORATION_PATH) != geoprocessing.RASTER_TYPE:
-        regression_carbon_model(
-            CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
-            FOREST_MASK_RESTORATION_PATH, PREDICTOR_RASTER_DIR,
-            pre_warp_dir=PRE_WARP_DIR,
-            target_result_path=REGRESSION_CARBON_RESTORATION_PATH,
-            external_task_graph=task_graph)
+    regression_carbon_model(
+        CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
+        FOREST_MASK_RESTORATION_PATH, PREDICTOR_RASTER_DIR,
+        pre_warp_dir=PRE_WARP_DIR,
+        target_result_path=REGRESSION_CARBON_RESTORATION_PATH,
+        external_task_graph=task_graph,
+        clean_workspace=False)
 
-    if geoprocessing.get_gis_type(REGRESSION_CARBON_ESA_PATH) != geoprocessing.RASTER_TYPE:
-        regression_carbon_model(
-            CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
-            FOREST_MASK_ESA_PATH, PREDICTOR_RASTER_DIR,
-            pre_warp_dir=PRE_WARP_DIR,
-            target_result_path=REGRESSION_CARBON_ESA_PATH,
-            external_task_graph=task_graph)
+    regression_carbon_model(
+        CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
+        FOREST_MASK_ESA_PATH, PREDICTOR_RASTER_DIR,
+        pre_warp_dir=PRE_WARP_DIR,
+        target_result_path=REGRESSION_CARBON_ESA_PATH,
+        external_task_graph=task_graph,
+        clean_workspace=False)
+    task_graph.join()
 
     # Calculate per-pixel weighted contribution REGRESSION_CARBON_RESTORATION_PATH-REGRESSION_CARBON_ESA_PATH/NEW_FOREST_MASK_COVERAGE_PATH
     weighted_regression_task = task_graph.add_task(
