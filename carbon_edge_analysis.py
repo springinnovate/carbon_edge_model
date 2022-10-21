@@ -597,7 +597,7 @@ def main():
                 # TODO: resample to the coarse forest mask after combining masks
                 carbon_opt_forest_step_path = (
                     '%s_full_forest_mask%s' % os.path.splitext(new_forest_mask_path))
-                uncoarsen_forest_mask = task_graph.add_task(
+                uncoarsen_forest_mask_task = task_graph.add_task(
                     func=geoprocessing.warp_raster,
                     args=(coarse_carbon_opt_forest_step_path, ECKERT_PIXEL_SIZE,
                           carbon_opt_forest_step_path, 'near'),
@@ -612,39 +612,85 @@ def main():
                     target_path_list=[carbon_opt_forest_step_path],
                     task_name=f'uncoarsen {carbon_opt_forest_step_path}')
 
+                uncoarsened_new_forest_mask_path = (
+                    '%s_new_forest_mask%s' % os.path.splitext(new_forest_mask_path))
+                uncoarsen_new_forest_mask_task = task_graph.add_task(
+                    func=geoprocessing.warp_raster,
+                    args=(new_forest_mask_path, ECKERT_PIXEL_SIZE,
+                          uncoarsened_new_forest_mask_path, 'near'),
+                    kwargs={
+                        'target_bb': GLOBAL_BOUNDING_BOX_TUPLE[1],
+                        'target_projection_wkt': WORLD_ECKERT_IV_WKT,
+                        'n_threads': multiprocessing.cpu_count(),
+                        'working_dir': PRE_WARP_DIR,
+                        'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
+                    },
+                    dependent_task_list=[greedy_pixel_pick_task],
+                    target_path_list=[uncoarsened_new_forest_mask_path],
+                    task_name=f'uncoarsen {uncoarsened_new_forest_mask_path}')
+
                 LOGGER.debug(f'{coarse_carbon_opt_forest_step_path} to this {carbon_opt_forest_step_path}')
 
-                carbon_opt_step_path = (
+                modeled_carbon_opt_step_path = (
                     '%s_regression%s' % os.path.splitext(new_forest_mask_path))
                 task_graph.join()
                 regression_carbon_model(
                     CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
                     carbon_opt_forest_step_path, PREDICTOR_RASTER_DIR,
                     pre_warp_dir=PRE_WARP_DIR,
-                    target_result_path=carbon_opt_step_path,
+                    target_result_path=modeled_carbon_opt_step_path,
                     external_task_graph=task_graph,
                     clean_workspace=False)
-                LOGGER.debug(f'regression result should be in {carbon_opt_step_path}')
+                LOGGER.debug(f'regression result should be in {modeled_carbon_opt_step_path}')
                 # break out result into old and new forest
-                sum_by_mask_task = task_graph.add_task(
+                sum_in_out_forest_carbon_density_by_mask_task = task_graph.add_task(
                     func=sum_by_mask,
-                    args=(carbon_opt_step_path, carbon_opt_forest_step_path),
-                    dependent_task_list=[uncoarsen_forest_mask],
+                    args=(modeled_carbon_opt_step_path, uncoarsened_new_forest_mask_path),
+                    dependent_task_list=[uncoarsen_forest_mask_task],
                     store_result=True,
-                    task_name=f'separate out old and new carbon for {carbon_opt_step_path}')
-                sum_task = task_graph.add_task(
+                    task_name=f'separate out old and new carbon for {modeled_carbon_opt_step_path}')
+                # counts every forest pixel in the current scenario (ESA forest + opt step mask forest)
+                regression_forest_density_sum_task = task_graph.add_task(
                     func=sum_raster,
-                    args=(carbon_opt_step_path,),
+                    args=(modeled_carbon_opt_step_path,),
                     store_result=True)
+
+                # count number of total forest pixels
+                count_forest_pixel_task = task_graph.add_task(
+                    func=sum_raster,
+                    args=(carbon_opt_forest_step_path,),
+                    dependent_task_list=[uncoarsen_forest_mask_task],
+                    store_result=True)
+
+                # count number of new forest pixels
+                count_new_forest_pixel_task = task_graph.add_task(
+                    func=sum_raster,
+                    args=(uncoarsened_new_forest_mask_path,),
+                    dependent_task_list=[uncoarsen_new_forest_mask_task],
+                    store_result=True)
+
                 raster_sum_list.append(
-                    (os.path.basename(carbon_opt_step_path), sum_task, sum_by_mask_task))
-            sum_task.join()
+                    (os.path.basename(modeled_carbon_opt_step_path),
+                     count_forest_pixel_task,
+                     count_new_forest_pixel_task,
+                     regression_forest_density_sum_task, sum_in_out_forest_carbon_density_by_mask_task))
+            regression_forest_density_sum_task.join()
             raster_info = geoprocessing.get_raster_info(carbon_opt_forest_step_path)
             LOGGER.debug(f'writing regression_optimization_carbon')
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
-                opt_table.write('file,sum of carbon density per pixel,carbon density per pixel in new forest,total carbon density per pixel,carbon density per pixel in esa scenario,carbon density per pixel in old forest (total-esa-new),area of pixel in m^2\n')
-                for path, sum_task, old_new_task in raster_sum_list:
-                    opt_table.write(f'{path},{sum_task.get()},{",".join([str(x) for x in old_new_task.get()])},{esa_base_sum_task.get()},{abs(numpy.prod(raster_info["pixel_size"]))}\n')
+                opt_table.write('file,number of forest pixels,number of new forest pixels,sum of carbon density per pixel,carbon density per pixel in new forest,total carbon density per pixel,carbon density per pixel in esa scenario,carbon density per pixel in old forest (total-esa-new),area of pixel in m^2\n')
+                for path, count_forest_pixel_task, count_new_forest_pixel_task, regression_forest_density_sum_task, sum_in_out_forest_carbon_density_by_mask_task in raster_sum_list:
+                    opt_table.write(
+                        f'{path},'
+                        f'{count_forest_pixel_task.get()},'
+                        f'{count_new_forest_pixel_task.get()},'
+                        f'{regression_forest_density_sum_task.get()},'
+                        #  divide the total carbon in the mask by number of pixels in mask
+                        f'{sum_in_out_forest_carbon_density_by_mask_task.get()[0]/count_forest_pixel_task.get()},'
+                        # report number of pixels in and out
+                        f'{",".join([str(x) for x in sum_in_out_forest_carbon_density_by_mask_task.get()])},'
+                        f'{esa_base_sum_task.get()},'
+                        f'{abs(numpy.prod(raster_info["pixel_size"]))}\n')
 
     task_graph.join()
     LOGGER.debug('all done')

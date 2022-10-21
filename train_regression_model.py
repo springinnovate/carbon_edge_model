@@ -115,6 +115,7 @@ def load_data(
         predictor_response_table['predictor'].isin(
             allowed_set.union(set([numpy.nan])))]
     LOGGER.debug(predictor_response_table)
+    return
     dataset_map = {}
     fields_to_drop_list = []
     holdback_area_list = []
