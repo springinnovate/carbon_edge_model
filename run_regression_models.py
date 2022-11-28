@@ -118,7 +118,7 @@ def main():
             func=sum_raster,
             args=(new_forest_mask_path,),
             transient_run=transient_run,
-            task_name=f'sum raster of {carbon_opt_forest_step_path}',
+            task_name=f'sum raster of {new_forest_mask_path}',
             store_result=True)
 
         raster_sum_list.append(
@@ -130,8 +130,8 @@ def main():
     task_graph.join()
 
     task_graph.join()
-    raster_info = geoprocessing.get_raster_info(carbon_opt_forest_step_path)
-    with open('ipcc_optimization_regression_modeled_carbon.csv', 'w') as opt_table:
+    raster_info = geoprocessing.get_raster_info(new_forest_mask_path)
+    with open('regression_optimization_regression_modeled_carbon.csv', 'w') as opt_table:
         opt_table.write(
             'file,'
             'number of forest pixels,'
