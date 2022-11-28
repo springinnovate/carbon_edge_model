@@ -123,25 +123,25 @@ def main():
         #     target_path_list=[carbon_opt_forest_step_path],
         #     task_name=f'uncoarsen {carbon_opt_forest_step_path}')
 
-        # combined_forest_mask_path = f'./output_global/ipcc_optimization/ipcc_total_forest_mask_{area_substring}.tif'
-        # _ = task_graph.add_task(
-        #     func=add_masks,
-        #     args=(carbon_opt_forest_step_path, BASE_FOREST_MASK_PATH,
-        #           combined_forest_mask_path),
-        #     target_path_list=[combined_forest_mask_path],
-        #     dependent_task_list=[uncoarsen_forest_mask_task],
-        #     task_name=f'add {carbon_opt_forest_step_path} to ESA base')
-
         # task_graph.join()
         modeled_carbon_path = f'./output_global/ipcc_optimization/ipcc_carbon_modeled_by_regression_{area_substring}.tif'
-        # LOGGER.debug(f'calculating carbon for {modeled_carbon_path}')
-        # regression_carbon_model(
-        #     CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
-        #     combined_forest_mask_path, PREDICTOR_RASTER_DIR,
-        #     pre_warp_dir=PRE_WARP_DIR,
-        #     target_result_path=modeled_carbon_path,
-        #     external_task_graph=task_graph,
-        #     clean_workspace=False)
+        if not os.path.exists(modeled_carbon_path):
+            LOGGER.debug(f'calculating carbon for {modeled_carbon_path}')
+            combined_forest_mask_path = f'./output_global/ipcc_optimization/ipcc_total_forest_mask_{area_substring}.tif'
+            _ = task_graph.add_task(
+                func=add_masks,
+                args=(carbon_opt_forest_step_path, BASE_FOREST_MASK_PATH,
+                      combined_forest_mask_path),
+                target_path_list=[combined_forest_mask_path],
+                #dependent_task_list=[uncoarsen_forest_mask_task],
+                task_name=f'add {carbon_opt_forest_step_path} to ESA base')
+            regression_carbon_model(
+                CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
+                combined_forest_mask_path, PREDICTOR_RASTER_DIR,
+                pre_warp_dir=PRE_WARP_DIR,
+                target_result_path=modeled_carbon_path,
+                external_task_graph=task_graph,
+                clean_workspace=False)
 
         # TODO: get the right mask here ->
         sum_in_out_forest_carbon_density_by_mask_task = task_graph.add_task(
