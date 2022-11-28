@@ -96,6 +96,8 @@ def main():
 
     for full_forest_mask_path in glob.glob(search_path):
         area_substring = full_forest_mask_path.split('_')[-5]
+        if area_substring == 'mask':
+            continue
         new_forest_mask_path = f'./output_global/regression_optimization/regressioncoarsened_marginal_value_regression_mask_{area_substring}_new_forest_mask.tif'
         modeled_carbon_path = f'./output_global/regression_optimization/regressioncoarsened_marginal_value_regression_mask_{area_substring}_regression.tif'
 
@@ -126,8 +128,6 @@ def main():
              count_full_forest_pixel_task,
              count_new_forest_pixel_task,
              sum_in_out_forest_carbon_density_by_mask_task))
-
-    task_graph.join()
 
     task_graph.join()
     raster_info = geoprocessing.get_raster_info(new_forest_mask_path)
