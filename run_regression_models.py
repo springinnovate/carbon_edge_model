@@ -95,7 +95,7 @@ def main():
 
 
     for full_forest_mask_path in glob.glob(search_path):
-        area_substring = os.path.splitext((full_forest_mask_path.split('_')[-5]))[0]
+        area_substring = full_forest_mask_path.split('_')[-5]
         new_forest_mask_path = f'./output_global/regression_optimization/regressioncoarsened_marginal_value_regression_mask_{area_substring}_new_forest_mask.tif'
         modeled_carbon_path = f'./output_global/regression_optimization/regressioncoarsened_marginal_value_regression_mask_{area_substring}_regression.tif'
 
