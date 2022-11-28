@@ -101,7 +101,7 @@ def main():
         store_result=True)
 
     for coarse_new_forest_mask_path in glob.glob(search_path):
-        # area_substring = os.path.splitext((coarse_new_forest_mask_path.split('_')[-1]))[0]
+        area_substring = os.path.splitext((coarse_new_forest_mask_path.split('_')[-1]))[0]
 
         carbon_opt_forest_step_path = (
             '%s_uncoarsened_forest_mask%s' % os.path.splitext(coarse_new_forest_mask_path))
