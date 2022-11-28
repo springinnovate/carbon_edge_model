@@ -105,6 +105,8 @@ def main():
 
         carbon_opt_forest_step_path = (
             '%s_uncoarsened_forest_mask%s' % os.path.splitext(coarse_new_forest_mask_path))
+
+        # TODO: I commented out all these taskgraph tasks because the final rasters were created but the CSV summed something weird
         # uncoarsen_forest_mask_task = task_graph.add_task(
         #     func=geoprocessing.warp_raster,
         #     args=(coarse_new_forest_mask_path, ECKERT_PIXEL_SIZE,
