@@ -91,9 +91,9 @@ def main():
     search_path = './output_global/ipcc_optimization/ipcccoarsened_marginal_value_ipcc_mask_*.tif'
     full_forest_mask_path_list = []
     raster_sum_list = []
-    transient_run = False
+    transient_run = True
 
-    count_forest_pixel_task = task_graph.add_task(
+    count_old_forest_pixel_task = task_graph.add_task(
         func=sum_raster,
         args=(BASE_FOREST_MASK_PATH,),
         transient_run=transient_run,
@@ -101,6 +101,8 @@ def main():
         store_result=True)
 
     for coarse_new_forest_mask_path in glob.glob(search_path):
+        if '_uncoarsened_forest_mask' in coarse_new_forest_mask_path:
+            continue
         area_substring = os.path.splitext((coarse_new_forest_mask_path.split('_')[-1]))[0]
 
         carbon_opt_forest_step_path = (
@@ -161,7 +163,7 @@ def main():
 
         raster_sum_list.append(
             (os.path.basename(modeled_carbon_path),
-             count_forest_pixel_task,
+             count_old_forest_pixel_task,
              count_new_forest_pixel_task,
              sum_in_out_forest_carbon_density_by_mask_task))
 
@@ -183,13 +185,13 @@ def main():
             'carbon density per pixel in new forest,'
             'carbon density per pixel in esa scenario,'
             'area of pixel in m^2\n')
-        for path, count_forest_pixel_task, count_new_forest_pixel_task, sum_in_out_forest_carbon_density_by_mask_task in raster_sum_list:
+        for path, count_old_forest_pixel_task, count_new_forest_pixel_task, sum_in_out_forest_carbon_density_by_mask_task in raster_sum_list:
             LOGGER.debug(f'processing {path}')
             new_carbon_density_sum = sum_in_out_forest_carbon_density_by_mask_task.get()[0]
             old_carbon_density_sum = sum_in_out_forest_carbon_density_by_mask_task.get()[1]
-            all_forest_pixel_count = count_forest_pixel_task.get()
+            old_forest_pixel_count = count_old_forest_pixel_task.get()
             new_forest_pixel_count = count_new_forest_pixel_task.get()
-            old_forest_pixel_count = all_forest_pixel_count - new_forest_pixel_count
+            all_forest_pixel_count = old_forest_pixel_count + new_forest_pixel_count
             # LOGGER.debug(
             #     f'(new_carbon_density_sum+old_carbon_density_sum==regression_forest_density_sum_task.get())\n'
             #     f'({new_carbon_density_sum}+{old_carbon_density_sum}=={regression_forest_density_sum_task.get()})')
