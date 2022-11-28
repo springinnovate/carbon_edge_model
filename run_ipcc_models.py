@@ -182,6 +182,7 @@ def main():
             'carbon density per pixel in esa scenario,'
             'area of pixel in m^2\n')
         for path, count_forest_pixel_task, count_new_forest_pixel_task, sum_in_out_forest_carbon_density_by_mask_task in raster_sum_list:
+            LOGGER.debug(f'processing {path}')
             new_carbon_density_sum = sum_in_out_forest_carbon_density_by_mask_task.get()[0]
             old_carbon_density_sum = sum_in_out_forest_carbon_density_by_mask_task.get()[1]
             all_forest_pixel_count = count_forest_pixel_task.get()
