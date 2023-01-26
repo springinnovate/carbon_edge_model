@@ -91,7 +91,7 @@ def main():
     search_path = './output_global/ipcc_optimization/ipcccoarsened_marginal_value_ipcc_mask_*.tif'
     full_forest_mask_path_list = []
     raster_sum_list = []
-    transient_run = True
+    transient_run = False
 
     count_old_forest_pixel_task = task_graph.add_task(
         func=sum_raster,

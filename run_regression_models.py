@@ -91,7 +91,7 @@ def main():
     search_path = './output_global/regression_optimization/regressioncoarsened_marginal_value_regression_mask_*full_forest_mask.tif'
     full_forest_mask_path_list = []
     raster_sum_list = []
-    transient_run = True
+    transient_run = False
 
 
     for full_forest_mask_path in glob.glob(search_path):
