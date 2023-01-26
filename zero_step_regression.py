@@ -134,7 +134,7 @@ def main():
 
     sum_task = task_graph.add_task(
         func=sum_raster,
-        args=(new_carbon_path),
+        args=(new_carbon_path,),
         store_result=True)
 
     LOGGER.info(f'sum of {new_carbon_path}: {sum_task.get()}')
