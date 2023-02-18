@@ -92,15 +92,13 @@ def generate_sample_points(
     return points_gdf
 
 
-def sample_rasters(raster_path_list, wgs84_box):
+def pearson_correlation(raster_path_list, wgs84_box):
     """Return a list of raster slices in the wsg84_box."""
     # warp out a clip of the raster into wgs84 on both sides, then clip to
     # same bounding box
 
     for raster_index, (raster_path, _, pixel_length) in enumerate(raster_path_list):
         target_raster_path = f'{raster_index}.tif'
-        raster_info = geoprocessing.get_raster_info(raster_path)
-        LOGGER.debug(wgs84_box.bounds)
         geoprocessing.warp_raster(
             raster_path, [pixel_length, -pixel_length], target_raster_path,
             'near', target_bb=wgs84_box.bounds,
@@ -117,39 +115,24 @@ def sample_rasters(raster_path_list, wgs84_box):
         osr_axis_mapping_strategy=osr.OAMS_TRADITIONAL_GIS_ORDER,
         output_type=gdal.GDT_Float32)
 
-    return
-    slice_list = []
-    for raster_path, band_id in raster_path_list:
-        raster_info = geoprocessing.get_raster_info(raster_path)
-        src = rasterio.open(raster_path)
-        LOGGER.debug(raster_path)
-        # convert bounds to raster coordinates
-        local_bounds = geoprocessing.transform_bounding_box(
-            wgs84_box.bounds,
-            osr.SRS_WKT_WGS84_LAT_LONG, raster_info['projection_wkt'])
-        LOGGER.debug(local_bounds)
-        # this will transform coordinates in the raster projection to rows/cols to extract
-        rows, cols = rasterio.transform.rowcol(src.transform, local_bounds[0:4:2], local_bounds[3:0:-2])
+    raw_forest = geoprocessing.raster_to_numpy_array(
+        '1.tif', band_id=1)
+    fraction_of_forest = numpy.count_nonzero(raw_forest)/raw_forest.size
+    carbon = geoprocessing.raster_to_numpy_array(
+        '0.tif', band_id=raster_path_list[0][1])
+    forest_cover = geoprocessing.raster_to_numpy_array(
+        '1_avg.tif', band_id=1)
 
-        src_slice = src.read(band_id, window=Window.from_slices(rows, cols))
-        src_slice[src_slice > 1000] = 0
-        LOGGER.debug(f'{rows}, {cols}, {src_slice.shape}')
-        slice_list.append(src_slice)
+    valid_mask = (carbon < 600) & (carbon > 10) & (forest_cover > 0)
+    if numpy.any(valid_mask) and fraction_of_forest > 0.1 and fraction_of_forest < 0.9:
+        results = scipy.stats.pearsonr(carbon[valid_mask], forest_cover[valid_mask])
+        # if results[0] < 0.00001:
+        #     LOGGER.debug('real close to 0')
+        #     sys.exit()
+    else:
+        results = (numpy.nan, numpy.nan)
 
-    factor = slice_list[1].shape[0]//slice_list[0].shape[0]
-    LOGGER.debug(factor)
-    fig, (axr, axg, axb) = plt.subplots(1,3, figsize=(21 ,7))
-
-    slice_list.append(
-        skimage.measure.block_reduce(
-            slice_list[1], block_size=factor,
-            func=numpy.mean, cval=0))
-
-    rasterio.plot.show(slice_list[0], ax=axr, cmap='Reds', title='carbon')
-    rasterio.plot.show(slice_list[1], ax=axg, cmap='Greens', title='forest base')
-    rasterio.plot.show(slice_list[2], ax=axb, cmap='Blues', title='forest avg')
-    plt.title(f'{slice_list[0].shape}, {slice_list[2].shape}')
-    plt.show()
+    return results
 
 
 def main():
@@ -183,14 +166,40 @@ def main():
     countries_vector_path = r"D:\repositories\carbon_edge_model\countries_iso3_md5_9b11dd.gpkg"
     box_radius = 500/110000*10
 
-    n_points = 100
-    sample_regions = generate_sample_points(
-        countries_vector_path, target_box_wgs84,
-        n_points, box_radius, country_filter_list=None)
-    LOGGER.debug(sample_regions)
-    for box in sample_regions:
-        sample_rasters(raster_path_list, box)
-        break
+    country_iso_list = [
+        'BRA', 'ECU', 'URY', 'CRI', 'HTI', 'DOM', 'COD', 'COG', 'GAB',
+        'GNQ', 'RWA', 'BDI', 'MYS', 'LKA', 'BRN',  'PNG', 'JPN', 'EST', 'MNE']
+    country_stat_list = []
+    for country_iso in country_iso_list:
+        LOGGER.debug(country_iso)
+        n_points = 100
+        pearson_stat_list = []
+        while n_points > 0:
+            sample_regions = generate_sample_points(
+                countries_vector_path, target_box_wgs84,
+                max(10, n_points*2), box_radius, country_filter_list=[country_iso])
+            for index, box in enumerate(sample_regions):
+                pv_stat, p_val = pearson_correlation(
+                    raster_path_list, box)
+                LOGGER.debug(f'{pv_stat}, {p_val}')
+                if numpy.isnan(pv_stat) or p_val > 0.05:
+                    continue
+                pearson_stat_list.append((pv_stat, p_val))
+                n_points -= 1
+                if n_points == 0:
+                    break
+        pearson_stats = numpy.array(pearson_stat_list)
+        country_stat_list.append(pearson_stats[:, 0])
+
+    plt.title(f'Pearson Correlation Coefficient Study')
+    plt.ylabel('Pearson Statistic')
+    plt.xlabel('Country ISO3')
+    plt.boxplot(
+        country_stat_list, labels=country_iso_list)  # Plot a line at each location specified in a
+    plt.show()
+    # with open('data.csv', 'w') as data_file:
+    #     for val in pearson_stats.flatten():
+    #         data_file.write(f'{val}\n')
 
 
 if __name__ == '__main__':
