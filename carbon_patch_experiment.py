@@ -98,14 +98,14 @@ def pearson_correlation(raster_path_list, wgs84_box):
     # same bounding box
     local_dir = tempfile.mkdtemp(dir=WORKSPACE_DIR)
     for raster_index, (raster_path, _, pixel_length) in enumerate(raster_path_list):
-        target_raster_path = f'{raster_index}.tif'
+        target_raster_path = os.path.join(local_dir, f'{raster_index}.tif')
         geoprocessing.warp_raster(
             raster_path, [pixel_length, -pixel_length], target_raster_path,
             'near', target_bb=wgs84_box.bounds,
             target_projection_wkt=osr.SRS_WKT_WGS84_LAT_LONG,
             osr_axis_mapping_strategy=osr.OAMS_TRADITIONAL_GIS_ORDER)
     # downsample with average
-    target_raster_path = '1_avg.tif'
+    target_raster_path = os.path.join(local_dir, '1_avg.tif')
     target_pixel_length = raster_path_list[0][2]
     geoprocessing.warp_raster(
         os.path.join(local_dir, '1.tif'), [target_pixel_length, -target_pixel_length],
@@ -172,26 +172,27 @@ def main():
         'BRA', 'ECU', 'URY', 'CRI', 'HTI', 'DOM', 'COD', 'COG', 'GAB',
         'GNQ', 'RWA', 'BDI', 'MYS', 'LKA', 'BRN',  'PNG', 'JPN', 'EST', 'MNE']
     country_stat_list = []
-    for country_iso in country_iso_list:
-        LOGGER.debug(country_iso)
-        original_points = 100
-        points_left = 100
-        pearson_stat_list = []
-        while points_left > 0:
-            sample_regions = generate_sample_points(
-                countries_vector_path, target_box_wgs84,
-                original_points*2, box_radius, country_filter_list=[
-                    country_iso])
-            for index, box in enumerate(sample_regions):
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    worker_list = []
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        for country_iso in country_iso_list:
+            LOGGER.debug(country_iso)
+            original_points = 100
+            points_left = 100
+            pearson_stat_list = []
+            while points_left > 0:
+                sample_regions = generate_sample_points(
+                    countries_vector_path, target_box_wgs84,
+                    original_points*2, box_radius, country_filter_list=[
+                        country_iso])
+                worker_list = []
+                for index, box in enumerate(sample_regions):
                     # pv_stat, p_val = pearson_correlation(
                     #     raster_path_list, box)
                     worker_list.append(executor.submit(
                         pearson_correlation, raster_path_list, box))
+                LOGGER.debug(f'waiting on {len(worker_list)} results')
                 for worker in worker_list:
                     pv_stat, p_val = worker.result()
-                    #LOGGER.debug(f'{pv_stat}, {p_val}')
+                    LOGGER.debug(f'{pv_stat}, {p_val}')
                     if numpy.isnan(pv_stat) or p_val > 0.05:
                         continue
                     pearson_stat_list.append((pv_stat, p_val))
@@ -200,12 +201,14 @@ def main():
                     if points_left == 0:
                         break
 
-        pearson_stats = numpy.array(pearson_stat_list)
-        country_stat_list.append(pearson_stats[:, 0])
+            pearson_stats = numpy.array(pearson_stat_list)
+            country_stat_list.append(pearson_stats[:, 0])
 
     plt.title('Pearson Correlation Coefficient Study')
     plt.ylabel('Pearson Statistic')
     plt.xlabel('Country ISO3')
+    LOGGER.debug(len(country_stat_list))
+
     plt.boxplot(
         country_stat_list, labels=country_iso_list)  # Plot a line at each location specified in a
     plt.show()
