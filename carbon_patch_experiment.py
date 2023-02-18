@@ -172,45 +172,55 @@ def main():
         'BRA', 'ECU', 'URY', 'CRI', 'HTI', 'DOM', 'COD', 'COG', 'GAB',
         'GNQ', 'RWA', 'BDI', 'MYS', 'LKA', 'BRN',  'PNG', 'JPN', 'EST', 'MNE']
     country_stat_list = []
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        for country_iso in country_iso_list:
-            LOGGER.debug(country_iso)
-            original_points = 100
-            points_left = 100
-            pearson_stat_list = []
-            while points_left > 0:
-                sample_regions = generate_sample_points(
-                    countries_vector_path, target_box_wgs84,
-                    original_points*2, box_radius, country_filter_list=[
-                        country_iso])
-                worker_list = []
-                for index, box in enumerate(sample_regions):
-                    # pv_stat, p_val = pearson_correlation(
-                    #     raster_path_list, box)
-                    worker_list.append(executor.submit(
-                        pearson_correlation, raster_path_list, box))
-                LOGGER.debug(f'waiting on {len(worker_list)} results')
-                for worker in worker_list:
-                    pv_stat, p_val = worker.result()
-                    LOGGER.debug(f'{pv_stat}, {p_val}')
-                    if numpy.isnan(pv_stat) or p_val > 0.05:
-                        continue
-                    pearson_stat_list.append((pv_stat, p_val))
-                    points_left -= 1
-                    LOGGER.debug(f'{points_left} for {country_iso}')
-                    if points_left == 0:
-                        break
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        def process_country(country_iso):
+            with concurrent.futures.ProcessPoolExecutor() as thread_executor:
+                LOGGER.debug(country_iso)
+                original_points = 1000
+                points_left = original_points
+                pearson_stat_list = []
+                while points_left > 0:
+                    sample_regions = generate_sample_points(
+                        countries_vector_path, target_box_wgs84,
+                        original_points*2, box_radius, country_filter_list=[
+                            country_iso])
+                    worker_list = []
+                    for index, box in enumerate(sample_regions):
+                        # pv_stat, p_val = pearson_correlation(
+                        #     raster_path_list, box)
+                        worker_list.append(thread_executor.submit(
+                            pearson_correlation, raster_path_list, box))
+                    LOGGER.debug(f'waiting on {len(worker_list)} results for {country_iso}')
+                    for worker in worker_list:
+                        pv_stat, p_val = worker.result()
+                        LOGGER.debug(f'{pv_stat}, {p_val}')
+                        if numpy.isnan(pv_stat) or p_val > 0.05:
+                            continue
+                        pearson_stat_list.append((pv_stat, p_val))
+                        points_left -= 1
+                        LOGGER.debug(f'{points_left} for {country_iso}')
+                        if points_left == 0:
+                            break
+                pearson_stats = numpy.array(pearson_stat_list)[:, 0]
+                return pearson_stats
 
-            pearson_stats = numpy.array(pearson_stat_list)
-            country_stat_list.append(pearson_stats[:, 0])
+        work_list = [
+            executor.submit(process_country, country_iso)
+            for country_iso in country_iso_list]
+        for worker in work_list:
+            country_stat_list.append(worker.result())
 
-    plt.title('Pearson Correlation Coefficient Study')
+    plt.title(
+        'Pearson Correlation Coefficient Study\nRed line indicates .75 '
+        'significance')
     plt.ylabel('Pearson Statistic')
     plt.xlabel('Country ISO3')
     LOGGER.debug(len(country_stat_list))
 
     plt.boxplot(
         country_stat_list, labels=country_iso_list)  # Plot a line at each location specified in a
+    plt.yticks([0, .2, .4, .6, .8, .9, 1])
+    plt.axhline(y=0.75, color='r', linestyle=':')
     plt.show()
     # with open('data.csv', 'w') as data_file:
     #     for val in pearson_stats.flatten():
