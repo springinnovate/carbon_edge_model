@@ -3,18 +3,16 @@
 Sample forest mask and carbon density and see if there's a relationship
 between the resolution of the carbon density and the forest mask.
 """
+import shutil
+import tempfile
+import concurrent
 import logging
 import os
-import sys
 
-import rasterio
-from rasterio.plot import show
-from rasterio.windows import Window
 from ecoshard import geoprocessing
 from osgeo import gdal
 from osgeo import osr
 from shapely.prepared import prep
-import skimage.measure
 import matplotlib.pyplot as plt
 import geopandas
 import shapely
@@ -22,6 +20,8 @@ import numpy
 import pandas
 import scipy
 
+WORKSPACE_DIR = 'carbon_patch_workspace'
+os.makedirs(WORKSPACE_DIR, exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -96,7 +96,7 @@ def pearson_correlation(raster_path_list, wgs84_box):
     """Return a list of raster slices in the wsg84_box."""
     # warp out a clip of the raster into wgs84 on both sides, then clip to
     # same bounding box
-
+    local_dir = tempfile.mkdtemp(dir=WORKSPACE_DIR)
     for raster_index, (raster_path, _, pixel_length) in enumerate(raster_path_list):
         target_raster_path = f'{raster_index}.tif'
         geoprocessing.warp_raster(
@@ -108,7 +108,7 @@ def pearson_correlation(raster_path_list, wgs84_box):
     target_raster_path = '1_avg.tif'
     target_pixel_length = raster_path_list[0][2]
     geoprocessing.warp_raster(
-        '1.tif', [target_pixel_length, -target_pixel_length],
+        os.path.join(local_dir, '1.tif'), [target_pixel_length, -target_pixel_length],
         target_raster_path,
         'average', target_bb=wgs84_box.bounds,
         target_projection_wkt=osr.SRS_WKT_WGS84_LAT_LONG,
@@ -116,12 +116,12 @@ def pearson_correlation(raster_path_list, wgs84_box):
         output_type=gdal.GDT_Float32)
 
     raw_forest = geoprocessing.raster_to_numpy_array(
-        '1.tif', band_id=1)
+        os.path.join(local_dir, '1.tif'), band_id=1)
     fraction_of_forest = numpy.count_nonzero(raw_forest)/raw_forest.size
     carbon = geoprocessing.raster_to_numpy_array(
-        '0.tif', band_id=raster_path_list[0][1])
+        os.path.join(local_dir, '0.tif'), band_id=raster_path_list[0][1])
     forest_cover = geoprocessing.raster_to_numpy_array(
-        '1_avg.tif', band_id=1)
+        os.path.join(local_dir, '1_avg.tif'), band_id=1)
 
     valid_mask = (carbon < 600) & (carbon > 10) & (forest_cover > 0)
     if numpy.any(valid_mask) and fraction_of_forest > 0.1 and fraction_of_forest < 0.9:
@@ -131,6 +131,8 @@ def pearson_correlation(raster_path_list, wgs84_box):
         #     sys.exit()
     else:
         results = (numpy.nan, numpy.nan)
+
+    shutil.rmtree(local_dir, ignore_errors=True)
 
     return results
 
@@ -172,26 +174,36 @@ def main():
     country_stat_list = []
     for country_iso in country_iso_list:
         LOGGER.debug(country_iso)
-        n_points = 100
+        original_points = 100
+        points_left = 100
         pearson_stat_list = []
-        while n_points > 0:
+        while points_left > 0:
             sample_regions = generate_sample_points(
                 countries_vector_path, target_box_wgs84,
-                max(10, n_points*2), box_radius, country_filter_list=[country_iso])
+                original_points*2, box_radius, country_filter_list=[
+                    country_iso])
             for index, box in enumerate(sample_regions):
-                pv_stat, p_val = pearson_correlation(
-                    raster_path_list, box)
-                LOGGER.debug(f'{pv_stat}, {p_val}')
-                if numpy.isnan(pv_stat) or p_val > 0.05:
-                    continue
-                pearson_stat_list.append((pv_stat, p_val))
-                n_points -= 1
-                if n_points == 0:
-                    break
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    worker_list = []
+                    # pv_stat, p_val = pearson_correlation(
+                    #     raster_path_list, box)
+                    worker_list.append(executor.submit(
+                        pearson_correlation, raster_path_list, box))
+                for worker in worker_list:
+                    pv_stat, p_val = worker.result()
+                    #LOGGER.debug(f'{pv_stat}, {p_val}')
+                    if numpy.isnan(pv_stat) or p_val > 0.05:
+                        continue
+                    pearson_stat_list.append((pv_stat, p_val))
+                    points_left -= 1
+                    LOGGER.debug(f'{points_left} for {country_iso}')
+                    if points_left == 0:
+                        break
+
         pearson_stats = numpy.array(pearson_stat_list)
         country_stat_list.append(pearson_stats[:, 0])
 
-    plt.title(f'Pearson Correlation Coefficient Study')
+    plt.title('Pearson Correlation Coefficient Study')
     plt.ylabel('Pearson Statistic')
     plt.xlabel('Country ISO3')
     plt.boxplot(
