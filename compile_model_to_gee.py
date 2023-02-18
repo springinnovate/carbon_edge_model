@@ -43,8 +43,8 @@ def main():
     print('var null_image = ee.Image()')
 
     for predictor_id in model['predictor_list']:
-        #print(f"var {name_to_hash[predictor_id]}: ee.Image.loadGeoTIFF('gs://cog/cog_{predictor_id}.tif')")
-        print(f"var {name_to_hash[predictor_id]} = ee.Image.loadGeoTIFF('gs://ecoshard-root/cog/cog_downstream_bene_2017_50000.tif');")
+        print(f"var {name_to_hash[predictor_id]}: ee.Image.loadGeoTIFF('gs://cog/cog_{predictor_id}.tif')")
+        #print(f"var {name_to_hash[predictor_id]} = ee.Image.loadGeoTIFF('gs://ecoshard-root/cog/cog_downstream_bene_2017_50000.tif');")
 
 
     expression_list = []
