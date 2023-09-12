@@ -435,7 +435,7 @@ def main():
 
         k = trainset[0].shape[1]
 
-        r2_table = open(os.path.join(FIG_DIR, f'r2_summary.csv'), 'a')
+        r2_table = open(os.path.join(FIG_DIR, 'r2_summary.csv'), 'a')
         r2_table.write('model,r2,r2_adjusted,explained_variance,mean_absolute_error,mse,mean_squared_log_error,median_absolute_error\n')
         for expected_values, modeled_values, n, prefix in [
                 (trainset[1].flatten(), clip_to_range(model.predict(trainset[0]).flatten(), 10, 400), trainset[0].shape[0], 'training'),

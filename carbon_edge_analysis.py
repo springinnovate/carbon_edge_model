@@ -676,7 +676,7 @@ def main():
                      sum_in_out_forest_carbon_density_by_mask_task))
             task_graph.join()
             raster_info = geoprocessing.get_raster_info(carbon_opt_forest_step_path)
-            LOGGER.debug(f'writing regression_optimization_carbon')
+            LOGGER.debug('writing regression_optimization_carbon')
             with open('regression_optimization_carbon.csv', 'w') as opt_table:
                 opt_table.write(
                     'file,'
