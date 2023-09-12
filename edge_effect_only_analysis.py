@@ -52,13 +52,13 @@ IPCC_MASK_DIR_PATTERN = (
     './esa_restoration_optimization/optimization_workspaces/'
     'optimization_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_'
     'compressed_restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f'
-    '_ipcc_mode/optimal_mask_*.tif') #'_ipcc_mode/optimal_mask_350000000.0.tif')
+    '_ipcc_mode/optimal_mask_*.tif')
 
 MODELED_MASK_DIR_PATTERN = (
     './esa_restoration_optimization/optimization_workspaces/'
     'optimization_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7_smooth_'
     'compressed_restoration_limited_md5_372bdfd9ffaf810b5f68ddeb4704f48f'
-    '_modeled_mode_carbon_model_lsvr_poly_2_90000_pts/optimal_mask_*.tif') # '_modeled_mode_carbon_model_lsvr_poly_2_90000_pts/optimal_mask_350000000.0.tif')
+    '_modeled_mode_carbon_model_lsvr_poly_2_90000_pts/optimal_mask_*.tif')
 
 
 WORKSPACE_DIR = 'edge_effect_only_workspace'

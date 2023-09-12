@@ -7,9 +7,6 @@ import multiprocessing
 import numpy
 from run_model import regression_carbon_model
 from run_model import GLOBAL_BOUNDING_BOX_TUPLE
-from run_model import ECKERT_PIXEL_SIZE
-from run_model import WORLD_ECKERT_IV_WKT
-from run_model import ZSTD_CREATION_TUPLE
 from ecoshard import taskgraph
 from ecoshard import geoprocessing
 
@@ -89,7 +86,6 @@ def main():
     """Entry point."""
     task_graph = taskgraph.TaskGraph('./output_global/ipcc_optimization', multiprocessing.cpu_count(), 15)
     search_path = './output_global/ipcc_optimization/ipcccoarsened_marginal_value_ipcc_mask_*.tif'
-    full_forest_mask_path_list = []
     raster_sum_list = []
     transient_run = False
 
@@ -108,22 +104,6 @@ def main():
         carbon_opt_forest_step_path = (
             '%s_uncoarsened_forest_mask%s' % os.path.splitext(coarse_new_forest_mask_path))
 
-        # TODO: I commented out all these taskgraph tasks because the final rasters were created but the CSV summed something weird
-        # uncoarsen_forest_mask_task = task_graph.add_task(
-        #     func=geoprocessing.warp_raster,
-        #     args=(coarse_new_forest_mask_path, ECKERT_PIXEL_SIZE,
-        #           carbon_opt_forest_step_path, 'near'),
-        #     kwargs={
-        #         'target_bb': GLOBAL_BOUNDING_BOX_TUPLE[1],
-        #         'target_projection_wkt': WORLD_ECKERT_IV_WKT,
-        #         'n_threads': multiprocessing.cpu_count(),
-        #         'working_dir': PRE_WARP_DIR,
-        #         'raster_driver_creation_tuple': ZSTD_CREATION_TUPLE
-        #     },
-        #     target_path_list=[carbon_opt_forest_step_path],
-        #     task_name=f'uncoarsen {carbon_opt_forest_step_path}')
-
-        # task_graph.join()
         modeled_carbon_path = f'./output_global/ipcc_optimization/ipcc_carbon_modeled_by_regression_{area_substring}.tif'
         if not os.path.exists(modeled_carbon_path):
             LOGGER.debug(f'calculating carbon for {modeled_carbon_path}')
@@ -133,7 +113,6 @@ def main():
                 args=(carbon_opt_forest_step_path, BASE_FOREST_MASK_PATH,
                       combined_forest_mask_path),
                 target_path_list=[combined_forest_mask_path],
-                #dependent_task_list=[uncoarsen_forest_mask_task],
                 task_name=f'add {carbon_opt_forest_step_path} to ESA base')
             regression_carbon_model(
                 CARBON_MODEL_PATH, GLOBAL_BOUNDING_BOX_TUPLE,
@@ -192,9 +171,6 @@ def main():
             old_forest_pixel_count = count_old_forest_pixel_task.get()
             new_forest_pixel_count = count_new_forest_pixel_task.get()
             all_forest_pixel_count = old_forest_pixel_count + new_forest_pixel_count
-            # LOGGER.debug(
-            #     f'(new_carbon_density_sum+old_carbon_density_sum==regression_forest_density_sum_task.get())\n'
-            #     f'({new_carbon_density_sum}+{old_carbon_density_sum}=={regression_forest_density_sum_task.get()})')
             # note that new_carbon_density_sum+old_carbon_density_sum should ==regression_forest_density_sum_task but due to little roundoff error its off by a relative 1e-6 value
             opt_table.write(
                 f'{path},'
@@ -204,7 +180,6 @@ def main():
                 f'{old_carbon_density_sum+new_carbon_density_sum},'
                 f'{old_carbon_density_sum},'
                 f'{new_carbon_density_sum},'
-                #  divide the total carbon in the mask by number of pixels in mask
                 f'{(new_carbon_density_sum+old_carbon_density_sum)/(all_forest_pixel_count)},'
                 f'{old_carbon_density_sum/old_forest_pixel_count},'
                 f'{new_carbon_density_sum/new_forest_pixel_count},'

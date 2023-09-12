@@ -2,7 +2,6 @@
 import argparse
 import glob
 import logging
-import multiprocessing
 import os
 
 from ecoshard import geoprocessing

@@ -1,10 +1,8 @@
 """Extract masks of landcover types from primary landcover."""
 import argparse
-import glob
 import os
 import logging
 import multiprocessing
-import re
 
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
@@ -29,8 +27,6 @@ URBAN_LULC_CODES = (190,)
 FOREST_CODES = (50, 60, 61, 62, 70, 71, 72, 80, 81, 82, 90, 160, 170)
 
 MASK_TYPES = [
-    #('cropland', CROPLAND_LULC_CODES),
-    #('urban', URBAN_LULC_CODES),
     ('forest', FOREST_CODES),
     ]
 
@@ -48,7 +44,6 @@ def main():
     args = parser.parse_args()
     task_graph = taskgraph.TaskGraph('.', multiprocessing.cpu_count(), 5.0)
     LOGGER.info('process by year')
-    # make urban, forest, and crop masks for ESACCI-LC-L4-LCCS-Map-300m-P1Y-20\d\d-v2.0.7_smooth_compressedd
     basename = os.path.splitext(
         os.path.basename(args.landcover_raster_path))[0]
     mask_dir = os.path.dirname(args.landcover_raster_path)

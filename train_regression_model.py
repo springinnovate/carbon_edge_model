@@ -6,18 +6,12 @@ import os
 import pickle
 
 import matplotlib.pyplot as plt
-import matplotlib
 import pandas
 import sklearn.metrics
-from sklearn.linear_model import LassoLars
-from sklearn.linear_model import LassoLarsCV
 from sklearn.svm import LinearSVR
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import SplineTransformer
-from sklearn.compose import TransformedTargetRegressor
 
 from CustomInteraction import CustomInteraction
 
@@ -38,7 +32,6 @@ import numpy
 
 gdal.SetCacheMax(2**27)
 
-#BOUNDING_BOX = [-64, -4, -55, 3]
 BOUNDING_BOX = [-179, -60, 179, 60]
 POLY_ORDER = 2
 
@@ -104,7 +97,6 @@ def load_data(
     plt.xlabel('longitude')
     plt.ylabel('latitude')
     plt.title('Sample points with color coded holdback sets')
-    #matplotlib.pyplot.show()
     plt.savefig(os.path.join(FIG_DIR, 'global_sample_points.png'))
     plt.close()
 
@@ -156,7 +148,7 @@ def load_data(
             if not isinstance(column_id, str):
                 column_id = row['filter']
 
-            keep_indexes = (gdf_filtered[column_id]==float(row['include']))
+            keep_indexes = (gdf_filtered[column_id] == float(row['include']))
             if index_filter_series is None:
                 index_filter_series = keep_indexes
             else:
@@ -170,7 +162,7 @@ def load_data(
             if not isinstance(column_id, str):
                 column_id = row['filter']
 
-            keep_indexes = (gdf_filtered[column_id]!=float(row['exclude']))
+            keep_indexes = (gdf_filtered[column_id] != float(row['exclude']))
             if index_filter_series is None:
                 index_filter_series = keep_indexes
             else:
@@ -341,6 +333,7 @@ def _write_coeficient_table(
             for feature_id, coef, pca, scale, mean in zip(poly_feature_id_list, reg[-1].coef_.flatten(), reg[-2].singular_values_, reg[-3].scale_.flatten(), reg[-3].mean_.flatten()):
                 table_file.write(f"{feature_id.replace(' ', '*')},{coef},{pca},{scale},{mean}\n")
 
+
 def regression_results(y_true, y_pred, n, k):
     # Regression metrics
     explained_variance = sklearn.metrics.explained_variance_score(y_true, y_pred)
@@ -350,16 +343,7 @@ def regression_results(y_true, y_pred, n, k):
     median_absolute_error = sklearn.metrics.median_absolute_error(y_true, y_pred)
     r2 = sklearn.metrics.r2_score(y_true, y_pred)
     r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
-
-
     return r2, r2_adjusted, explained_variance, mean_absolute_error, mse, mean_squared_log_error, median_absolute_error
-
-    # print('explained_variance: ', round(explained_variance,4))
-    # print('mean_squared_log_error: ', round(mean_squared_log_error,4))
-    # print('r2: ', round(r2,4))
-    # print('MAE: ', round(mean_absolute_error,4))
-    # print('MSE: ', round(mse,4))
-    # print('RMSE: ', round(np.sqrt(mse),4))
 
 
 def clip_to_range(series, min_val, max_val):
@@ -422,10 +406,7 @@ def main():
             order, interaction_only=False, include_bias=False)
 
     for name, reg in [
-            #('LinearSVR_v2', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='epsilon_insensitive', epsilon=1e-4, dual=True))),
             ('LinearSVR_v3', make_pipeline(poly_features, StandardScaler(), LinearSVR(max_iter=max_iter, loss='squared_epsilon_insensitive', epsilon=0, dual=False))),
-            #('LassoLarsCV', make_pipeline(poly_features, StandardScaler(),  LassoLarsCV(max_iter=max_iter, cv=10, eps=1e-3, normalize=False))),
-            #('LassoLars', make_pipeline(poly_features, StandardScaler(),  LassoLars(alpha=.1, normalize=False, max_iter=max_iter, eps=1e-3))),
             ]:
 
         LOGGER.info(f'fitting data with {name}')
@@ -475,9 +456,6 @@ def main():
             plt.scatter(expected_values, modeled_values, c='k', s=0.25)
             plt.xlim(0, 400)
             plt.ylim(0, 400)
-            #plt.ylim(min(expected_values), max(expected_values))
-            #r2 = sklearn.metrics.r2_score(expected_values, modeled_values, multioutput='variance_weighted', force_finite=False)
-            #r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
             r2, r2_adjusted, explained_variance, mean_absolute_error, mse, mean_squared_log_error, median_absolute_error = regression_results(expected_values, modeled_values, n, k)
             LOGGER.info(f'{args.prefix} {name}-{prefix} adjusted R^2: {r2_adjusted:.3f} r^2: {r2}')
             plt.title(
@@ -486,8 +464,6 @@ def main():
                 FIG_DIR, f'{args.prefix}{name}_{prefix}.png'))
             plt.close()
             r2_table.write(f'{prefix}_{args.prefix},{r2},{r2_adjusted},{explained_variance},{mean_absolute_error},{mse},{mean_squared_log_error},{median_absolute_error}\n')
-            #r2_table.write(f'{prefix}_{args.prefix},{r2},{r2_adjusted}\n')
-
 
         plt.xlabel('expected values')
         plt.ylabel('model output')
@@ -508,11 +484,9 @@ def main():
                 trendline_func(expected_values),
                 "r--", linewidth=0.5, c=color)
             plt.scatter(expected_values, modeled_values, c=color, s=0.25)
-            #plt.ylim(min(expected_values), max(expected_values))
             r2 = sklearn.metrics.r2_score(expected_values, modeled_values, multioutput='variance_weighted', force_finite=False)
             r2_adjusted = 1-(1-r2)*(n-1)/(n-k-1)
             LOGGER.info(f'{name}-{prefix} adjusted R^2: {r2_adjusted:.3f} r^2: {r2}')
-            #r2_table.write(f'{args.prefix}{prefix},{r2},{r2_adjusted}\n')
 
         plt.xlim(0, 400)
         plt.ylim(0, 400)
