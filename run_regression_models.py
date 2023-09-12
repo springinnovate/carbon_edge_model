@@ -101,7 +101,6 @@ def main():
             transient_run=transient_run,
             task_name=f'sum raster of {full_forest_mask_path}',
             store_result=True)
-        # TODO: get the right mask here ->
         sum_in_out_forest_carbon_density_by_mask_task = task_graph.add_task(
             func=sum_by_mask,
             args=(modeled_carbon_path, new_forest_mask_path),

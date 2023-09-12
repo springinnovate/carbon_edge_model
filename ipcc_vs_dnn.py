@@ -567,7 +567,6 @@ def main():
                 model_mode][mask_area] = (
                     optimization_biomass_raster_path, model_task)
 
-    # TODO: calculate difference between modeled vs IPCC
     task_graph.join()
     LOGGER.info(
         'calculate difference between modeled biomass optimization and IPCC '

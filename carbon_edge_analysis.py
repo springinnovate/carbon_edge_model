@@ -595,7 +595,6 @@ def main():
                     target_path_list=[coarse_carbon_opt_forest_step_path],
                     task_name=f'combine optimization mask with base ESA forest mask {coarse_carbon_opt_forest_step_path}')
 
-                # TODO: resample to the coarse forest mask after combining masks
                 carbon_opt_forest_step_path = (
                     '%s_full_forest_mask%s' % os.path.splitext(new_forest_mask_path))
                 uncoarsen_forest_mask_task = task_graph.add_task(

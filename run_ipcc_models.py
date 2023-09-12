@@ -122,11 +122,9 @@ def main():
                 external_task_graph=task_graph,
                 clean_workspace=False)
 
-        # TODO: get the right mask here ->
         sum_in_out_forest_carbon_density_by_mask_task = task_graph.add_task(
             func=sum_by_mask,
             args=(modeled_carbon_path, carbon_opt_forest_step_path),
-            #dependent_task_list=[uncoarsen_forest_mask_task],
             store_result=True,
             transient_run=transient_run,
             task_name=f'separate out old and new carbon for {modeled_carbon_path}')
@@ -135,7 +133,6 @@ def main():
         count_new_forest_pixel_task = task_graph.add_task(
             func=sum_raster,
             args=(carbon_opt_forest_step_path,),
-            #dependent_task_list=[uncoarsen_forest_mask_task],
             transient_run=transient_run,
             task_name=f'sum raster of {carbon_opt_forest_step_path}',
             store_result=True)
