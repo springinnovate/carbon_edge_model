@@ -20,12 +20,6 @@ import train_regression_model
 GLOBAL_BOUNDING_BOX_TUPLE = (
     'global', [-16921202, -8460601, 16921797, 8461398])
 
-# GLOBAL_BOUNDING_BOX_TUPLE = (
-#     'amazon_region', [-6215550, -773278, -4310775, 115131])
-
-# GLOBAL_BOUNDING_BOX_TUPLE = (
-#     'pacific_northwest', [-10148496, 5539490, -9933111, 5639948])
-
 ECKERT_PIXEL_SIZE = (90, -90)
 WORLD_ECKERT_IV_WKT = """PROJCRS["unknown",
     BASEGEOGCRS["GCS_unknown",
@@ -205,7 +199,7 @@ def regression_carbon_model(
     LOGGER.info(f'load model at {carbon_model_path}')
     with open(carbon_model_path, 'rb') as model_file:
         model = pickle.load(model_file).copy()
-    LOGGER.info(f'ensure raster base data are present')
+    LOGGER.info('ensure raster base data are present')
     missing_predictor_list = []
     predictor_id_path_list = []
     for predictor_id in model['predictor_list']:

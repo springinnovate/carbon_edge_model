@@ -16,14 +16,9 @@ def main():
     with open(args.model_path, 'rb') as model_file:
         model = pickle.load(model_file)
 
-    # model['model'] has 3 steps:
-    #   * polynomal features
-    #   * standard scalar
-    #   * model w/ coefficients
     feature_names = model['model'][0].get_feature_names_out(model['predictor_list'])
     feature_means = model['model'][1].mean_
     feature_scale = model['model'][1].scale_
-    intercept = model['model'][2].intercept_
     feature_coef = model['model'][2].coef_
 
     # map features to a hash
@@ -44,10 +39,7 @@ def main():
 
     for predictor_id in model['predictor_list']:
         print(f"var {name_to_hash[predictor_id]}: ee.Image.loadGeoTIFF('gs://cog/cog_{predictor_id}.tif')")
-        #print(f"var {name_to_hash[predictor_id]} = ee.Image.loadGeoTIFF('gs://ecoshard-root/cog/cog_downstream_bene_2017_50000.tif');")
 
-
-    expression_list = []
     for index, (mean, scale, coef, term_expression) in enumerate(zip(feature_means, feature_scale, feature_coef, feature_names)):
         if '^' not in term_expression:
             names = term_expression.split(' ')

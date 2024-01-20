@@ -287,9 +287,6 @@ def main():
     plt.yticks([0, .2, .4, .6, .8, .9, 1])
     plt.axhline(y=0.75, color='r', linestyle=':')
     plt.show()
-    # with open('data.csv', 'w') as data_file:
-    #     for val in pearson_stats.flatten():
-    #         data_file.write(f'{val}\n')
 
 
 if __name__ == '__main__':

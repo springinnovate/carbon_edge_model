@@ -95,7 +95,6 @@ def main():
         raster_path
         for raster_pattern in args.raster_path_pattern
         for raster_path in glob.glob(raster_pattern)]
-    #bounding_box = _limited_bounding_box_union(raster_path_list)
 
     for raster_path in raster_path_list:
         LOGGER.info(f'process {raster_path}')

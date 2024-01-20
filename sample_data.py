@@ -62,7 +62,6 @@ def sample_data(raster_path_list, gdf_points, target_bb_wgs84):
             nodata = raster_info['nodata'][0]
             if nodata is None:
                 nodata = 0
-            # TODO: gdf_points[basename] = nodata
             gdf_points[basename] = -999
 
             gt = raster_info['geotransform']

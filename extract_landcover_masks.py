@@ -82,11 +82,11 @@ def main():
                 target_path_list=[target_path],
                 task_name=f'mask {target_path}')
 
-    LOGGER.info(f'waiting for jobs to complete')
+    LOGGER.info('waiting for jobs to complete')
     task_graph.close()
     task_graph.join()
     del task_graph
-    LOGGER.info(f'all done!')
+    LOGGER.info('all done!')
 
 
 if __name__ == '__main__':

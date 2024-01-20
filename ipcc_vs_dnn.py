@@ -367,17 +367,11 @@ def _calculate_ipcc_biomass(
     zone_lucode_to_carbon_map = _parse_carbon_lulc_table(
         IPCC_CARBON_TABLE_PATH)
 
-    # uncommenting this so we get the density
-    #biomass_per_ha_raster_path = os.path.join(churn_dir, 'biomass_per_ha.tif')
     ecoshard.geoprocessing.raster_calculator(
         [(landcover_raster_path, 1), (rasterized_zones_raster_path, 1),
          (zone_lucode_to_carbon_map, 'raw')],
         _ipcc_carbon_op, target_biomass_raster_path,
         gdal.GDT_Float32, -1)
-
-    #density_per_ha_to_total_per_pixel(
-    #    biomass_per_ha_raster_path, 1.0,
-    #    target_biomass_raster_path)
 
 
 def _calculate_modeled_biomass_from_mask(
@@ -454,13 +448,10 @@ def main():
         target_path_list=[new_forest_raster_path],
         task_name=f'create forest mask for {new_forest_raster_path}')
 
-    # modeled_biomass_raster_task_dict indexed by
-    #   [MODELED_MODE/IPCC_MODE] -> [BASE_SCENARIO/RESTORATION_SCENARIO]
     modeled_biomass_raster_task_dict = collections.defaultdict(dict)
     for scenario_id, landcover_raster_path in [
             (BASE_SCENARIO, BASE_LULC_RASTER_PATH),
             (RESTORATION_SCENARIO, ESA_RESTORATION_SCENARIO_RASTER_PATH)]:
-        # create churn directory and id for modeled biomass.
         base_landcover_id = os.path.basename(
             os.path.splitext(landcover_raster_path)[0])
 
@@ -576,7 +567,6 @@ def main():
                 model_mode][mask_area] = (
                     optimization_biomass_raster_path, model_task)
 
-    # TODO: calculate difference between modeled vs IPCC
     task_graph.join()
     LOGGER.info(
         'calculate difference between modeled biomass optimization and IPCC '

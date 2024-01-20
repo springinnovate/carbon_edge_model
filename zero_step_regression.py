@@ -7,22 +7,14 @@ This script will run a 0 step carbon model like this:
 * sum the result
 """
 
-import argparse
 import os
-import tempfile
 import multiprocessing
-import pickle
-import shutil
 from ecoshard import geoprocessing
 from ecoshard import taskgraph
 from osgeo import gdal
-import ecoshard
-import pandas
 import numpy
 
-import gaussian_filter_rasters
 from run_model import regression_carbon_model
-from run_model import _pre_warp_rasters
 from run_model import ECKERT_PIXEL_SIZE
 from run_model import GLOBAL_BOUNDING_BOX_TUPLE
 from run_model import WORLD_ECKERT_IV_WKT
