@@ -80,7 +80,7 @@ def load_data(
                 rejected_outliers[column_id] = outliers
     gdf.to_csv('dropped.csv')
 
-    fig, ax = plt.subplots(figsize=(20, 10))
+    fig, ax = plt.subplots(figsize=(20, 20))
     for train_holdback_id, plot_color in [
             (1, 'b'),
             (2, 'g'),
@@ -490,6 +490,8 @@ def main():
 
         plt.xlim(0, 400)
         plt.ylim(0, 400)
+        #plt.gca().set_aspect('equal')
+        plt.figure(figsize=(20, 20))
         plt.savefig(os.path.join(
             FIG_DIR, f'{args.prefix}{name}_holdback_inidividual.png'))
         plt.close()
