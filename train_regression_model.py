@@ -107,7 +107,7 @@ def load_data(
         predictor_response_table['predictor'].isin(
             allowed_set.union(set([numpy.nan])))]
     LOGGER.debug(predictor_response_table)
-    return
+
     dataset_map = {}
     fields_to_drop_list = []
     holdback_area_list = []
@@ -454,6 +454,7 @@ def main():
                 trendline_func(expected_values),
                 "r--", linewidth=1.5)
             plt.scatter(expected_values, modeled_values, c='k', s=0.25)
+            plt.plot([0, 400], [0, 400], 'b:', linewidth=1.5)
             plt.xlim(0, 400)
             plt.ylim(0, 400)
             r2, r2_adjusted, explained_variance, mean_absolute_error, mse, mean_squared_log_error, median_absolute_error = regression_results(expected_values, modeled_values, n, k)
