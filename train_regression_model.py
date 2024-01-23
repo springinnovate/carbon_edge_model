@@ -490,7 +490,7 @@ def main():
 
         plt.xlim(0, 400)
         plt.ylim(0, 400)
-        #plt.gca().set_aspect('equal')
+        plt.gca().set_aspect('equal', adjustable='box')
         plt.figure(figsize=(20, 20))
         plt.savefig(os.path.join(
             FIG_DIR, f'{args.prefix}{name}_holdback_inidividual.png'))
