@@ -461,6 +461,7 @@ def main():
             LOGGER.info(f'{args.prefix} {name}-{prefix} adjusted R^2: {r2_adjusted:.3f} r^2: {r2}')
             plt.title(
                 f'{args.prefix}{prefix} {name}\n$R^2={r2:.3f}$ -- Adjusted $R^2={r2_adjusted:.3f}$')
+            plt.gca().set_aspect('equal', 'box')
             plt.savefig(os.path.join(
                 FIG_DIR, f'{args.prefix}{name}_{prefix}.png'))
             plt.close()
@@ -491,8 +492,8 @@ def main():
 
         plt.xlim(0, 400)
         plt.ylim(0, 400)
-        plt.gca().set_aspect('equal', adjustable='box')
-        plt.figure(figsize=(20, 20))
+        plt.gca().set_aspect('equal', 'box')
+        #plt.figure(figsize=(20, 20))
         plt.savefig(os.path.join(
             FIG_DIR, f'{args.prefix}{name}_holdback_inidividual.png'))
         plt.close()
