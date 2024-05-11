@@ -15,16 +15,18 @@ import numpy as np
 IPCC_MODEL = 'ipcc_carbon_esa_compressed_md5_5b4803'
 BACCINI_MODEL = 'baccini_carbon_data_2014_compressed'
 OBSERVED = 'AGB_mean'
+FOREST_EDGE = 'gf_5.0_masked_forest_ESACCI-LC-L4-LCCS-Map-300m-P1Y-2014-v2.0.7'
 
 
 def main():
-    carbon_validation_table_path = r"C:\Users\richp\Downloads\FOS_plots_validation_051024.csv"
+    carbon_validation_table_path = r"C:\Users\richp\Downloads\FOS_plots_validation_051024_edge.csv"
     carbon_validation_table = pandas.read_csv(carbon_validation_table_path)
 
     #carbon_validation_table = carbon_validation_table[carbon_validation_table[YEAR_FIELD] >= YEAR_THRESHOLD ]
     #carbon_validation_table = carbon_validation_table[carbon_validation_table[YEAR_FIELD] == YEAR_THRESHOLD ]
 
     carbon_validation_table = carbon_validation_table[carbon_validation_table[OBSERVED] >= OBSERVED_CARBON_THRESHOLD ]
+    carbon_validation_table = carbon_validation_table[carbon_validation_table[FOREST_EDGE] >= 0.7]
 
     carbon_validation_table[IPCC_MODEL] = carbon_validation_table[IPCC_MODEL]*IPCC_BIOMASS_ADJUSTMENT_FACTOR
     study_counts = carbon_validation_table[STUDY_GROUP_FIELD].value_counts()
